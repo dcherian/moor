@@ -58,12 +58,16 @@ class moor:
         ''' Plot χ or K_T for all χpods '''
 
         import matplotlib.pyplot as plt
-        import dcpy.util
+        from dcpy.util import smooth
 
         ax1 = plt.subplot(311)
-        ax1.plot_date(self.τtime, self.τ, '-', linewidth=1)
+        ax1.plot_date(smooth(self.τtime, 24*6),
+                      smooth(self.τ, 24*6), '-',
+                      color='k', linewidth=1)
+        limy = plt.ylim()
+        ax1.set_ylim([0, limy[1]])
 
-        ax2 = plt.subplot(312)
+        ax2 = plt.subplot(312, sharex=ax1)
         ax3 = plt.subplot(313, sharex=ax1)
         labels = []
 
@@ -75,7 +79,7 @@ class moor:
 
             χ = pod.chi[ee]
 
-            ax2.plot_date(dcpy.util.datenum2datetime(χ['time']),
+            ax2.plot_date(χ['time'],
                           χ['N2'], '-', linewidth=1)
 
             pod.PlotEstimate(var, ee, hax=ax3,
@@ -92,3 +96,5 @@ class moor:
         # plt.grid(True)
 
         plt.tight_layout()
+
+        return [ax1, ax2, ax3]
