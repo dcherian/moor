@@ -38,7 +38,7 @@ class moor:
             # self.ctd.dens = mat['dens']
             self.ctd.depth = mat['depth']
 
-    def ReadMet(self, fname, FileType='pmel'):
+    def ReadMet(self, fname: str, FileType: str='pmel'):
 
         import airsea as air
         import matplotlib.dates as dt
@@ -55,7 +55,7 @@ class moor:
 
         self.τ = air.windstress.stress(spd, z0)
 
-    def AddChipod(self, name, fname, depth, best):
+    def AddChipod(self, name: str, fname: str, depth: int, best: str):
 
         import sys
         if 'home/deepak/python' not in sys.path:
@@ -68,27 +68,33 @@ class moor:
                                        depth=depth)
         self.zχpod[name] = depth
 
-    def Plotχpods(self, var: str='chi', est: str='best', filter_len=24*6):
-        ''' Plot χ or K_T for all χpods '''
+    def Plotχpods(self, est: str='best', filter_len=24*6):
+        ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
         from dcpy.util import smooth
-        import matplotlib.dates as dt
         import numpy as np
+        import seawater as sw
 
-        plt.figure(figsize=[6.5, 8.5])
+        plt.figure(figsize=[6.5, 9.5])
 
-        ax1 = plt.subplot(511)
-        ax1.plot_date(smooth(self.τtime, 24*6),
-                      smooth(self.τ, 24*6), '-',
-                      color='k', linewidth=1)
+        # initialize axes
+        nax = 7
+        ax = [aa for aa in range(nax)]
+        ax[0] = plt.subplot(nax, 1, 1)
+        ax[0].plot_date(smooth(self.τtime, 24*6),
+                        smooth(self.τ, 24*6), '-',
+                        color='k', linewidth=1)
         limy = plt.ylim()
-        ax1.set_ylim([0, limy[1]])
+        ax[0].set_ylim([0, limy[1]])
 
-        ax2 = plt.subplot(512, sharex=ax1)
-        ax3 = plt.subplot(513, sharex=ax1)
-        ax4 = plt.subplot(514, sharey=ax3, sharex=ax1)
-        ax5 = plt.subplot(515, sharex=ax1)
+        ax[1] = plt.subplot(nax, 1, 2, sharex=ax[0])
+        ax[2] = plt.subplot(nax, 1, 3, sharex=ax[0])
+        ax[3] = plt.subplot(nax, 1, 4, sharey=ax[2], sharex=ax[0])
+
+        ax[-3] = plt.subplot(nax, 1, nax-2, sharex=ax[0])  # χ
+        ax[-2] = plt.subplot(nax, 1, nax-1, sharex=ax[0])  # Kt
+        ax[-1] = plt.subplot(nax, 1, nax, sharex=ax[0])  # Jq
         labels = []
 
         for unit in self.χpod:
@@ -105,41 +111,56 @@ class moor:
 
             dz = np.abs(self.ctd.depth[i0+1]-self.ctd.depth[i0])
             dSdz = (self.ctd.sal[i0+1, :] - self.ctd.sal[i0, :]) / dz
+            S = (self.ctd.sal[i0+1, :] + self.ctd.sal[i0, :]) / 2
+            T = (self.ctd.temp[i0+1, :] + self.ctd.temp[i0, :]) / 2
+            alpha = np.interp(χ['time'],
+                              self.ctd.time, sw.alpha(S, T, pod.depth))
+            beta = sw.beta(S, T, pod.depth)
 
-            ax2.plot_date(smooth(dt.date2num(χ['time']), 24*6),
-                          smooth(χ['N2'], 24*6)/1e-4,
-                          '-', linewidth=1)
-            ax3.plot_date(smooth(dt.date2num(χ['time']), 24*6),
-                          smooth(9.81*3e-4*χ['dTdz'], 24*6)/1e-4,
-                          '-', linewidth=1)
-            ax4.plot_date(smooth(self.ctd.time-367, 24*6),
-                          smooth(9.81*7.6e-4*dSdz, 24*6)/1e-4,
-                          '-', linewidth=1)
+            ax[1].plot_date(smooth(χ['time'], 24*6),
+                            smooth(χ['N2'], 24*6)/1e-4,
+                            '-', linewidth=1)
+            ax[2].plot_date(smooth(χ['time'], 24*6),
+                            smooth(9.81*alpha*χ['dTdz'], 24*6)/1e-4,
+                            '-', linewidth=1)
+            ax[3].plot_date(smooth(self.ctd.time-367, 24*6),
+                            smooth(9.81*beta*dSdz, 24*6)/1e-4,
+                            '-', linewidth=1)
 
-            pod.PlotEstimate(var, ee, hax=ax5,
+            pod.PlotEstimate('chi', ee, hax=ax[-3],
                              filter_len=filter_len)
+            pod.PlotEstimate('KT', ee, hax=ax[-2],
+                             filter_len=filter_len)
+            pod.PlotEstimate('Jq', ee, hax=ax[-1],
+                             filter_len=filter_len)
+
             labels.append(str(pod.depth) + 'm | ' + ee)
 
-        ax1.set_ylabel('τ (N/m²)')
+        ax[0].set_ylabel('$τ$ (N/m²)')
 
-        ax2.legend(labels)
-        ax2.set_ylabel('N² (1e-4 s)')
-        limy = ax2.get_ylim()
-        ax2.set_ylim([0, limy[1]])
+        ax[1].legend(labels)
+        ax[1].set_ylabel('$N²$ ($10^{-4}$)')
+        limy = ax[1].get_ylim()
+        ax[1].set_ylim([0, limy[1]])
 
-        ax3.set_ylabel('g α dT/dz (1e-4)')
-        ax3.axhline(0, color='gray', zorder=-1)
+        ax[2].set_ylabel('g α dT/dz ($10^{-4}$)')
+        ax[2].axhline(0, color='gray', zorder=-1)
 
-        ax4.set_ylabel('-g β dS/dz (1e-4)')
-        ax4.axhline(0, color='gray', zorder=-1)
+        ax[3].set_ylabel('-g β dS/dz ($10^{-4}$)')
+        ax[3].axhline(0, color='gray', zorder=-1)
 
-        ax5.set_title('')
-        ax5.set_ylabel(var)
-        # plt.grid(True)
+        ax[-3].set_title('')
+        ax[-3].set_ylabel('$χ$')
 
-        for aa in [ax1, ax2, ax3, ax4]:
+        ax[-2].set_title('')
+        ax[-2].set_ylabel('$K_T$')
+
+        ax[-1].set_title('')
+        ax[-1].set_ylabel('$J_q$')
+
+        for aa in ax[0:-1]:
             plt.setp(aa.get_xticklabels(), visible=False)
 
         plt.tight_layout()
 
-        return [ax1, ax2, ax3, ax4, ax5]
+        return ax
