@@ -42,6 +42,7 @@ class moor:
 
         import airsea as air
         import matplotlib.dates as dt
+        import numpy as np
 
         if FileType == 'pmel':
             import netCDF4 as nc
@@ -49,9 +50,9 @@ class moor:
             met = nc.Dataset(fname)
             spd = met['WS_401'][:].squeeze()
             z0 = abs(met['depu'][0])
-            self.τtime = met['time'][:]/24/60 \
-                         + dt.date2num(
-                             dt.datetime.date(2013, 12, 1))
+            self.τtime = np.float64(met['time'][:]/24.0/60.0) \
+                         + np.float64(dt.date2num(
+                             dt.datetime.date(2013, 12, 1)))
 
         self.τ = air.windstress.stress(spd, z0)
 
@@ -68,7 +69,7 @@ class moor:
                                        depth=depth)
         self.zχpod[name] = depth
 
-    def Plotχpods(self, est: str='best', filter_len=24*6):
+    def Plotχpods(self, est: str='best', filter_len=86400):
         ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
@@ -82,8 +83,9 @@ class moor:
         nax = 7
         ax = [aa for aa in range(nax)]
         ax[0] = plt.subplot(nax, 1, 1)
-        ax[0].plot_date(smooth(self.τtime, 24*6),
-                        smooth(self.τ, 24*6), '-',
+        dt = (self.τtime[1] - self.τtime[0]) * 86400
+        ax[0].plot_date(smooth(self.τtime, filter_len/dt),
+                        smooth(self.τ, filter_len/dt), '-',
                         color='k', linewidth=1)
         limy = plt.ylim()
         ax[0].set_ylim([0, limy[1]])
@@ -117,14 +119,17 @@ class moor:
                               self.ctd.time, sw.alpha(S, T, pod.depth))
             beta = sw.beta(S, T, pod.depth)
 
-            ax[1].plot_date(smooth(χ['time'], 24*6),
-                            smooth(χ['N2'], 24*6)/1e-4,
+            dt = (χ['time'][1] - χ['time'][0]) * 86400
+            ax[1].plot_date(smooth(χ['time'], filter_len/dt),
+                            smooth(χ['N2'], filter_len/dt)/1e-4,
                             '-', linewidth=1)
-            ax[2].plot_date(smooth(χ['time'], 24*6),
-                            smooth(9.81*alpha*χ['dTdz'], 24*6)/1e-4,
+            ax[2].plot_date(smooth(χ['time'], filter_len/dt),
+                            smooth(9.81*alpha*χ['dTdz'], filter_len/dt)/1e-4,
                             '-', linewidth=1)
-            ax[3].plot_date(smooth(self.ctd.time-367, 24*6),
-                            smooth(9.81*beta*dSdz, 24*6)/1e-4,
+
+            dt = (self.ctd.time[1] - self.ctd.time[0]) * 86400
+            ax[3].plot_date(smooth(self.ctd.time-367, filter_len/dt),
+                            smooth(9.81*beta*dSdz, filter_len/dt)/1e-4,
                             '-', linewidth=1)
 
             pod.PlotEstimate('chi', ee, hax=ax[-3],
