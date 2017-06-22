@@ -72,7 +72,8 @@ class moor:
 
         self.τ = air.windstress.stress(spd, z0)
 
-    def AddChipod(self, name: str, fname: str, depth: int, best: str):
+    def AddChipod(self, name: str, depth: int,
+                  best: str, fname: str='Turb.mat'):
 
         import sys
         if 'home/deepak/python' not in sys.path:
