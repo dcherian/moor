@@ -38,6 +38,22 @@ class moor:
             # self.ctd.dens = mat['dens']
             self.ctd.depth = mat['depth']
 
+        if FileType == 'ebob':
+            from scipy.io import loadmat
+
+            mat = loadmat(self.datadir
+                          + '/ancillary/ctd/only_temp/EBOB_'
+                          + fname + '_WTMP.mat',
+                          squeeze_me=True)
+            self.ctd.temp = mat['Wtmp' + fname[-1]]
+            self.ctd.time = mat['Time' + fname[-1]] - 367
+            self.ctd.depth = mat['dbar_dpth']
+
+            mat = loadmat(self.datadir
+                          + '/ancillary/ctd/only_temp/EBOB_'
+                          + fname + '_WTMP.mat',
+                          squeeze_me=True)
+
     def ReadMet(self, fname: str, FileType: str='pmel'):
 
         import airsea as air
