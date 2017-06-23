@@ -40,14 +40,18 @@ class moor:
 
         if FileType == 'ebob':
             from scipy.io import loadmat
+            import numpy as np
+            import numpy.ma
 
             mat = loadmat(self.datadir
                           + '/ancillary/ctd/only_temp/EBOB_'
                           + fname + '_WTMP.mat',
                           squeeze_me=True)
-            self.ctd.temp = mat['Wtmp' + fname[-1]]
+            temp = mat['Wtmp' + fname[-1]]
+            self.ctd.temp = np.ma.masked_array(temp,
+                                               mask=np.isnan(temp))
             self.ctd.time = mat['Time' + fname[-1]] - 367
-            self.ctd.depth = mat['dbar_dpth']
+            self.ctd.depth = np.float16(mat['dbar_dpth'])
 
             mat = loadmat(self.datadir
                           + '/ancillary/ctd/only_temp/EBOB_'
@@ -94,22 +98,26 @@ class moor:
         import numpy as np
         import seawater as sw
 
-        plt.figure(figsize=[6.5, 9.5])
+        plt.figure(figsize=[6.5, 10.5])
 
         # initialize axes
-        nax = 7
+        nax = 8
         ax = [aa for aa in range(nax)]
         ax[0] = plt.subplot(nax, 1, 1)
-        dt = (self.τtime[1] - self.τtime[0]) * 86400
-        ax[0].plot_date(smooth(self.τtime, filter_len/dt),
-                        smooth(self.τ, filter_len/dt), '-',
-                        color='k', linewidth=1)
-        limy = plt.ylim()
-        ax[0].set_ylim([0, limy[1]])
+        try:
+            dt = (self.τtime[1] - self.τtime[0]) * 86400
+            ax[0].plot_date(smooth(self.τtime, filter_len/dt),
+                            smooth(self.τ, filter_len/dt), '-',
+                            color='k', linewidth=1)
+            limy = plt.ylim()
+            ax[0].set_ylim([0, limy[1]])
+        except:
+            pass
 
         ax[1] = plt.subplot(nax, 1, 2, sharex=ax[0])
         ax[2] = plt.subplot(nax, 1, 3, sharex=ax[0])
-        ax[3] = plt.subplot(nax, 1, 4, sharey=ax[2], sharex=ax[0])
+        ax[3] = plt.subplot2grid((nax, 1), (3, 0),
+                                 rowspan=2, sharex=ax[0])
 
         ax[-3] = plt.subplot(nax, 1, nax-2, sharex=ax[0])  # χ
         ax[-2] = plt.subplot(nax, 1, nax-1, sharex=ax[0])  # Kt
@@ -124,30 +132,35 @@ class moor:
 
             χ = pod.chi[ee]
 
-            i0 = np.argmin(abs(self.ctd.depth - pod.depth))
-            if self.ctd.depth[i0] > pod.depth:
-                i0 = i0 - 1
+            # i0 = np.argmin(abs(self.ctd.depth - pod.depth))
+            # if self.ctd.depth[i0] > pod.depth:
+            #     i0 = i0 - 1
 
-            dz = np.abs(self.ctd.depth[i0+1]-self.ctd.depth[i0])
-            dSdz = (self.ctd.sal[i0+1, :] - self.ctd.sal[i0, :]) / dz
-            S = (self.ctd.sal[i0+1, :] + self.ctd.sal[i0, :]) / 2
-            T = (self.ctd.temp[i0+1, :] + self.ctd.temp[i0, :]) / 2
-            alpha = np.interp(χ['time'],
-                              self.ctd.time, sw.alpha(S, T, pod.depth))
-            beta = sw.beta(S, T, pod.depth)
+            # dz = np.abs(self.ctd.depth[i0+1]-self.ctd.depth[i0])
+            # dSdz = (self.ctd.sal[i0+1, :] - self.ctd.sal[i0, :]) / dz
+            # S = (self.ctd.sal[i0+1, :] + self.ctd.sal[i0, :]) / 2
+            # T = (self.ctd.temp[i0+1, :] + self.ctd.temp[i0, :]) / 2
+            # alpha = np.interp(χ['time'],
+            #                   self.ctd.time, sw.alpha(S, T, pod.depth))
+            # beta = sw.beta(S, T, pod.depth)
 
             dt = (χ['time'][1] - χ['time'][0]) * 86400
             ax[1].plot_date(smooth(χ['time'], filter_len/dt),
                             smooth(χ['N2'], filter_len/dt)/1e-4,
-                            '-', linewidth=1)
+                            '-', linewidth=0.5)
             ax[2].plot_date(smooth(χ['time'], filter_len/dt),
-                            smooth(9.81*alpha*χ['dTdz'], filter_len/dt)/1e-4,
-                            '-', linewidth=1)
+                            smooth(χ['dTdz'], filter_len/dt)/1e-4,
+                            '-', linewidth=0.5)
 
-            dt = (self.ctd.time[1] - self.ctd.time[0]) * 86400
-            ax[3].plot_date(smooth(self.ctd.time-367, filter_len/dt),
-                            smooth(9.81*beta*dSdz, filter_len/dt)/1e-4,
-                            '-', linewidth=1)
+            xlim = ax[2].get_xlim()
+            ndt = np.round(1/4/(pod.ctd1.time[1]-pod.ctd1.time[0]))
+            ax[3].plot_date(pod.ctd1.time[::ndt], -pod.ctd1.z[::ndt], '-',
+                            linewidth=0.5, color='gray')
+            ax[3].set_xlim(xlim)
+            # dt = (self.ctd.time[1] - self.ctd.time[0]) * 86400
+            # ax[3].plot_date(smooth(self.ctd.time-367, filter_len/dt),
+            #                 smooth(9.81*beta*dSdz, filter_len/dt)/1e-4,
+            #                 '-', linewidth=1)
 
             pod.PlotEstimate('chi', ee, hax=ax[-3],
                              filter_len=filter_len)
@@ -165,11 +178,18 @@ class moor:
         limy = ax[1].get_ylim()
         ax[1].set_ylim([0, limy[1]])
 
-        ax[2].set_ylabel('g α dT/dz ($10^{-4}$)')
+        ax[2].set_ylabel('dT/dz')
         ax[2].axhline(0, color='gray', zorder=-1)
 
-        ax[3].set_ylabel('-g β dS/dz ($10^{-4}$)')
-        ax[3].axhline(0, color='gray', zorder=-1)
+        # ax[3].set_ylabel('-g β dS/dz ($10^{-4}$)')
+        # ax[3].axhline(0, color='gray', zorder=-1)
+
+        import cmocean as cmo
+        ndt = np.round(1/4/(self.ctd.time[1]-self.ctd.time[0]))
+        ax[3].pcolormesh(self.ctd.time[::ndt], -self.ctd.depth,
+                         self.ctd.temp[::ndt, :].T,
+                         cmap=cmo.cm.thermal, zorder=-1)
+        ax[3].set_ylabel('depth')
 
         ax[-3].set_title('')
         ax[-3].set_ylabel('$χ$')
@@ -181,7 +201,13 @@ class moor:
         ax[-1].set_ylabel('$J_q$')
 
         for aa in ax[0:-1]:
-            plt.setp(aa.get_xticklabels(), visible=False)
+            try:
+                plt.setp(aa.get_xticklabels(), visible=False)
+                aa.xaxis_date()
+            except:
+                # if T pcolor occupies two subplots
+                # one of the elements in ax[] is empty.
+                pass
 
         plt.tight_layout()
 
