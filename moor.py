@@ -3,6 +3,7 @@ class moor:
 
     def __init__(self, lon, lat, name, datadir):
 
+        self.name = name
         self.datadir = datadir
 
         # adcp info
@@ -89,6 +90,82 @@ class moor:
                                        str(name), fname, best,
                                        depth=depth)
         self.zχpod[name] = depth
+
+    def ChipodSeasonalSummary(self, ax=None):
+
+        def ReturnSeason(time, var, season):
+            ''' Given a season, return data only for the months in that season
+            season can be one of SW, NE, SW->NE or NE->SW
+            '''
+            from dcpy.util import datenum2datetime
+            mask = np.isnan(time)
+            time = time[~mask]
+            var = var[~mask]
+
+            dates = datenum2datetime(time)
+            months = [d.month for d in dates]
+
+            seasonMonths = {'SW':  [5, 6, 7, 8, 9],
+                            'SW→NE': [10, 11],
+                            'NE':  [12, 1, 2],
+                            'NE→SW': [3, 4]}
+
+            mask = np.asarray([m in seasonMonths[season] for m in months])
+
+            return time[mask], var[mask]
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        seasons = ['NE', 'NE→SW', 'SW', 'SW→NE']
+        cpodcolor = ['r', 'b']
+        handles = []
+
+        # positioning parameters
+        n = 1.2
+        x0 = 0
+        pos = []
+        label = []
+
+        if ax is None:
+            plt.figure(figsize=[6.5, 4.5])
+            ax = plt.gca()
+            ax.set_title(self.name)
+
+        for idx, name in enumerate(self.χpod):
+            unit = self.χpod[name]
+            var = unit.KT[unit.best]
+            time = unit.time
+            label.append(str(unit.depth) + ' m | '
+                         + str(unit.name[0:3]))
+
+            for sidx, ss in enumerate(seasons):
+                _, varex = ReturnSeason(time, var, ss)
+                style = {'color': cpodcolor[idx]}
+                pos.append(x0 + n*(sidx+1)+(idx-0.5)/3)
+                hdl = ax.boxplot(np.log10(varex[~np.isnan(varex)]),
+                                 sym='', positions=[pos[-1]],
+                                 boxprops=style, meanprops=style,
+                                 medianprops=style)
+                handles.append(hdl)
+
+        pos = np.sort(np.array(pos))
+        ax.set_xticks((pos[0:-1:] + pos[1::])[0::2]/2)
+        ax.set_xticklabels(seasons)
+        ax.set_xlim([pos[0]-0.5-x0, pos[-1]+0.5])
+        ax.set_ylabel('$K_T$')
+        ax.set_xlabel('season')
+
+        limy = ax.get_yticks()
+        limx = ax.get_xticks()
+        ax.spines['left'].set_bounds(limy[1], limy[-2])
+        ax.spines['bottom'].set_bounds(limx[0], limx[-1])
+
+        plt.legend((handles[0]['medians'][0],
+                    handles[-1]['medians'][0]),
+                   label)
+
+        return handles, label
 
     def Plotχpods(self, est: str='best', filter_len=86400):
         ''' Summary plot for all χpods '''
