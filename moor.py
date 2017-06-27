@@ -150,7 +150,11 @@ class moor:
                 handles.append(hdl)
 
         pos = np.sort(np.array(pos))
-        ax.set_xticks((pos[0:-1:] + pos[1::])[0::2]/2)
+        if len(self.χpod) == 2:
+            ax.set_xticks((pos[0:-1:] + pos[1::])[0::2]/2)
+        else:
+            ax.set_xticks(pos)
+
         ax.set_xticklabels(seasons)
         ax.set_xlim([pos[0]-0.5-x0, pos[-1]+0.5])
         ax.set_ylabel('$K_T$')
