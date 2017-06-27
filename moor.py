@@ -77,7 +77,7 @@ class moor:
 
         self.τ = air.windstress.stress(spd, z0)
 
-    def AddChipod(self, name: str, depth: int,
+    def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat'):
 
         import sys
