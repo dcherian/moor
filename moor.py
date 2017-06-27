@@ -91,7 +91,7 @@ class moor:
                                        depth=depth)
         self.zχpod[name] = depth
 
-    def ChipodSeasonalSummary(self, ax=None):
+    def ChipodSeasonalSummary(self, ax=None, filter_len=86400):
 
         if ax is None:
             import matplotlib.pyplot as plt
@@ -103,7 +103,10 @@ class moor:
         labels = []
         pos = []
         for idx, name in enumerate(self.χpod):
-            hdl, lbl, p = self.χpod[name].SeasonalSummary(ax=ax, idx=idx)
+            hdl, lbl, p = \
+                    self.χpod[name].SeasonalSummary(ax=ax,
+                                                    idx=idx,
+                                                    filter_len=filter_len)
             handles.append(hdl)
             labels.append(lbl)
             pos.append(p)
@@ -119,6 +122,10 @@ class moor:
             limx = ax.get_xticks()
             ax.spines['left'].set_bounds(limy[1], limy[-2])
             ax.spines['bottom'].set_bounds(limx[0], limx[-1])
+
+        if filter_len is not None:
+            ax.set_title(ax.get_title() + ' | filter_len='
+                         + str(filter_len) + ' s')
 
         return handles, labels, pos
 
