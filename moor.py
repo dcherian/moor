@@ -278,7 +278,7 @@ class moor:
         limy = ax[1].get_ylim()
         ax[1].set_ylim([0, limy[1]])
 
-        ax[2].set_ylabel('dT/dz')
+        ax[2].set_ylabel('$\partial T/ \partial z$')
         ax[2].axhline(0, color='gray', zorder=-1)
 
         # ax[3].set_ylabel('-g β dS/dz ($10^{-4}$)')
@@ -286,10 +286,13 @@ class moor:
 
         import cmocean as cmo
         ndt = np.round(1/4/(self.ctd.time[1]-self.ctd.time[0]))
-        ax[3].pcolormesh(self.ctd.time[::ndt], -self.ctd.depth,
-                         self.ctd.temp[::ndt, :].T,
-                         cmap=cmo.cm.thermal, zorder=-1)
-        ax[3].set_ylabel('depth')
+        try:
+            ax[3].pcolormesh(self.ctd.time[::ndt], -self.ctd.depth,
+                             self.ctd.temp[::ndt, :].T,
+                             cmap=cmo.cm.thermal, zorder=-1)
+            ax[3].set_ylabel('depth')
+        except:
+            pass
 
         ax[-3].set_title('')
         ax[-3].set_ylabel('$χ$')
@@ -298,7 +301,7 @@ class moor:
         ax[-2].set_ylabel('$K_T$')
 
         ax[-1].set_title('')
-        ax[-1].set_ylabel('$J_q$')
+        ax[-1].set_ylabel('$J_q^t$')
 
         ax[0].set_xlim([pod.time[0], pod.time[-2]])
 
