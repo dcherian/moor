@@ -16,8 +16,16 @@ class moor:
         self.ctd = ctd()
 
         # air-sea stuff
-        self.τ = []
-        self.τtime = []
+        class met:
+            pass
+
+        self.met = met()
+        self.met.τ = []  # wind stress
+        self.met.τtime = []
+        self.met.Jq0 = []  # net radiative flux
+        self.met.Jtime = []
+        self.met.P = []  # precip
+        self.met.Ptime = []
 
         # chipods
         self.χpod = dict()
@@ -59,23 +67,56 @@ class moor:
                           + fname + '_WTMP.mat',
                           squeeze_me=True)
 
-    def ReadMet(self, fname: str, FileType: str='pmel'):
+    def ReadMet(self, fname: str=None, FileType: str='pmel'):
 
         import airsea as air
         import matplotlib.dates as dt
         import numpy as np
+        import netCDF4 as nc
 
         if FileType == 'pmel':
-            import netCDF4 as nc
+            if fname is None:
+                raise ValueError('I need a filename for PMEL met data!')
 
             met = nc.Dataset(fname)
             spd = met['WS_401'][:].squeeze()
             z0 = abs(met['depu'][0])
-            self.τtime = np.float64(met['time'][:]/24.0/60.0) \
-                         + np.float64(dt.date2num(
-                             dt.datetime.date(2013, 12, 1)))
+            self.met.τtime = np.float64(met['time'][:]/24.0/60.0) \
+                + np.float64(dt.date2num(dt.datetime.date(2013, 12, 1)))
+            self.met.τ = air.windstress.stress(spd, z0)
 
-        self.τ = air.windstress.stress(spd, z0)
+        if FileType == 'sat':
+            if fname is not None:
+                raise ValueError('Do not provide fname for' +
+                                 ' satellite flux data!')
+
+            from scipy.interpolate import interpn
+            met = nc.MFDataset('../tropflux/tau_tropflux*')
+            lon = met['longitude'][:]
+            lat = met['latitude'][:]
+            time = met['time'][:]
+            self.met.τ = interpn((time, lat, lon),
+                                 met['tau'][:, :, :],
+                                 (time, self.lat, self.lon))
+            self.met.τtime = time \
+                + dt.date2num(dt.datetime.date(1950, 1, 1))
+
+            met = nc.MFDataset('../tropflux/netflux_*')
+            self.met.Jq0 = interpn((time, lat, lon),
+                                   met['netflux'][:, :, :],
+                                   (time, self.lat, self.lon))
+            self.met.Jtime = time \
+                + dt.date2num(dt.datetime.date(1950, 1, 1))
+
+            met = nc.MFDataset('../ncep/prate*')
+            lat = met['lat'][:]
+            lon = met['lon'][:]
+            time = met['time'][:]
+            self.met.P = interpn((time, np.flipud(lat), lon),
+                                 np.fliplr(met['prate'][:, :, :]),
+                                 (time, self.lat, self.lon))
+            self.met.Ptime = time \
+                + dt.date2num(dt.datetime.date(1800, 1, 1))
 
     def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat'):
@@ -144,9 +185,9 @@ class moor:
         ax = [aa for aa in range(nax)]
         ax[0] = plt.subplot(nax, 1, 1)
         try:
-            dt = (self.τtime[1] - self.τtime[0]) * 86400
-            ax[0].plot_date(smooth(self.τtime, filter_len/dt),
-                            smooth(self.τ, filter_len/dt), '-',
+            dt = (self.met.τtime[1] - self.met.τtime[0]) * 86400
+            ax[0].plot_date(smooth(self.met.τtime, filter_len/dt),
+                            smooth(self.met.τ, filter_len/dt), '-',
                             color='k', linewidth=1)
             limy = plt.ylim()
             ax[0].set_ylim([0, limy[1]])
@@ -193,9 +234,13 @@ class moor:
 
             xlim = ax[2].get_xlim()
             ndt = np.round(1/4/(pod.ctd1.time[1]-pod.ctd1.time[0]))
-            ax[3].plot_date(pod.ctd1.time[::ndt], -pod.ctd1.z[::ndt], '-',
-                            linewidth=0.5, color='gray')
-            ax[3].set_xlim(xlim)
+            try:
+                ax[3].plot_date(pod.ctd1.time[::ndt], -pod.ctd1.z[::ndt], '-',
+                                linewidth=0.5, color='gray')
+                ax[3].set_xlim(xlim)
+            except:
+                pass
+
             # dt = (self.ctd.time[1] - self.ctd.time[0]) * 86400
             # ax[3].plot_date(smooth(self.ctd.time-367, filter_len/dt),
             #                 smooth(9.81*beta*dSdz, filter_len/dt)/1e-4,
