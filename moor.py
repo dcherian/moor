@@ -184,15 +184,31 @@ class moor:
         nax = 8
         ax = [aa for aa in range(nax)]
         ax[0] = plt.subplot(nax, 1, 1)
-        try:
+        ax[0].set_title(self.name)
+        if self.met.τ is not []:
             dt = (self.met.τtime[1] - self.met.τtime[0]) * 86400
             ax[0].plot_date(smooth(self.met.τtime, filter_len/dt),
                             smooth(self.met.τ, filter_len/dt), '-',
-                            color='k', linewidth=1)
+                            color='k', linewidth=0.75, zorder=1)
             limy = plt.ylim()
             ax[0].set_ylim([0, limy[1]])
-        except:
-            pass
+
+        if self.met.Jq0 is not []:
+            ax00 = ax[0].twinx()
+            ax00.set_zorder(-1)
+            dt = (self.met.Jtime[1] - self.met.Jtime[0]) * 86400
+            time = smooth(self.met.Jtime, filter_len/dt)
+            Jq = smooth(self.met.Jq0.copy(), filter_len/dt)
+            Jq[Jq > 0] = 0
+            ax00.fill_between(time, Jq, linestyle='-',
+                              color='#79BEDB', linewidth=1, alpha=0.6)
+            Jq = smooth(self.met.Jq0.copy(), filter_len/dt)
+            Jq[Jq < 0] = 0
+            ax00.fill_between(time, Jq, linestyle='-',
+                              color='#e53935', linewidth=1, alpha=0.6)
+            ax00.xaxis_date()
+            ax00.spines['right'].set_visible(True)
+            ax00.set_ylabel('$J_q^0$')
 
         ax[1] = plt.subplot(nax, 1, 2, sharex=ax[0])
         ax[2] = plt.subplot(nax, 1, 3, sharex=ax[0])
@@ -283,6 +299,8 @@ class moor:
 
         ax[-1].set_title('')
         ax[-1].set_ylabel('$J_q$')
+
+        ax[0].set_xlim([pod.time[0], pod.time[-2]])
 
         for aa in ax[0:-1]:
             try:
