@@ -170,6 +170,70 @@ class moor:
 
         return handles, labels, pos
 
+    def DepthPlot(self, varname, est: str='best', filter_len=86400):
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import matplotlib.cm as cm
+        import cmocean as cmo
+
+        s0 = 4  # min size of circles
+        ns = 3  # scaling for sizea
+        alpha = 0.4
+
+        plt.figure(figsize=(6.5, 8.5))
+        ax0 = plt.gca()
+        ndt = np.round(1/4/(self.ctd.time[1]-self.ctd.time[0]))
+        hpc = ax0.pcolormesh(self.ctd.time[::ndt], -self.ctd.depth,
+                             self.ctd.temp[::ndt, :].T,
+                             cmap=cmo.cm.thermal, zorder=-1)
+        ax0.set_ylabel('depth')
+
+        xlim = [1e10, -1e10]
+        hscat = [1, 2]
+        for idx, unit in enumerate(self.χpod):
+            pod = self.χpod[unit]
+            xlim[0] = np.min([xlim[0], pod.time[1]])
+            xlim[1] = np.max([xlim[1], pod.time[-2]])
+
+            var, titlestr, scale, _ = pod.ChooseVariable(varname, est)
+            time, var = pod.FilterEstimate(varname,
+                                           pod.time, var,
+                                           filter_len=filter_len,
+                                           subset=True)
+            if scale == 'log':
+                normvar = np.log10(var)
+                dn = normvar - np.nanmin(normvar)
+                size = s0 \
+                    + ns * s0 * dn/np.nanstd(dn)
+
+            # running average depths,
+            # then interpolate to correct time grid
+            time2, depth2 = pod.FilterEstimate('Jq', pod.ctd1.time,
+                                               -pod.ctd1.z, filter_len,
+                                               True)
+            depth = np.interp(time, time2, depth2)
+
+            hscat[idx] = ax0.scatter(time, depth, s=size,
+                                     c=np.log10(var), alpha=alpha,
+                                     cmap=cm.Greys)
+            if idx == 0:
+                clim = [np.nanmin(np.log10(var)),
+                        np.nanmax(np.log10(var))]
+            else:
+                clim2 = [np.nanmin(np.log10(var)),
+                         np.nanmax(np.log10(var))]
+                clim = [min([clim[0], clim2[0]]),
+                        max([clim[1], clim2[1]])]
+
+        hscat[0].set_clim(clim)
+        hscat[1].set_clim(clim)
+        plt.colorbar(hscat[0], ax=ax0, orientation='horizontal')
+        plt.colorbar(hpc, ax=ax0, orientation='horizontal')
+        ax0.xaxis_date()
+        ax0.set_title(self.name + ' | ' + titlestr)
+        ax0.set_xlim(xlim)
+
     def Plotχpods(self, est: str='best', filter_len=86400):
         ''' Summary plot for all χpods '''
 
