@@ -381,3 +381,48 @@ class moor:
         plt.tight_layout()
 
         return ax
+
+    def PlotSpectrum(self, varname, est='best', filter_len=None,
+                     nsmooth=5, SubsetLength=None, ticks=None,
+                     ax=None):
+
+        for idx, unit in enumerate(self.χpod):
+            ax = self.χpod[unit].PlotSpectrum(varname, est=est,
+                                              ax=ax,
+                                              filter_len=filter_len,
+                                              nsmooth=nsmooth,
+                                              SubsetLength=SubsetLength,
+                                              ticks=ticks, norm=True)
+
+        return ax
+
+    def PlotAllSpectra(self, filter_len=None, nsmooth=5,
+                       SubsetLength=None, ticks=None):
+
+        import matplotlib.pyplot as plt
+
+        ax1 = plt.subplot(311)
+        self.PlotSpectrum('χ', filter_len=filter_len,
+                          nsmooth=nsmooth,
+                          SubsetLength=SubsetLength,
+                          ticks=ticks, ax=ax1)
+        ax1.set_title(self.name)
+
+        ax2 = plt.subplot(312)
+        self.PlotSpectrum('KT', filter_len=filter_len,
+                          nsmooth=nsmooth,
+                          SubsetLength=SubsetLength,
+                          ticks=ticks, ax=ax2)
+
+        ax3 = plt.subplot(313)
+        self.PlotSpectrum('Jq', filter_len=filter_len,
+                          nsmooth=nsmooth,
+                          SubsetLength=SubsetLength,
+                          ticks=ticks, ax=ax3)
+
+        ax2.get_legend().set_visible(False)
+        ax3.get_legend().set_visible(False)
+
+        for ax in [ax1, ax2]:
+            ax.set_xlabel('')
+            ax.set_xticklabels([])
