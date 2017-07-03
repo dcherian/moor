@@ -67,30 +67,32 @@ class moor:
                           + fname + '_WTMP.mat',
                           squeeze_me=True)
 
-    def ReadMet(self, fname: str=None, FileType: str='pmel'):
+    def ReadMet(self, fname: str=None,
+                WindType: str='pmel', FluxType: str='sat'):
 
         import airsea as air
         import matplotlib.dates as dt
         import numpy as np
         import netCDF4 as nc
+        from scipy.interpolate import interpn
 
-        if FileType == 'pmel':
+        if WindType == 'pmel':
             if fname is None:
                 raise ValueError('I need a filename for PMEL met data!')
 
-            met = nc.Dataset(fname)
+            # find RAMA met file
+            import glob
+            met = nc.Dataset(glob.glob(fname + '/met*.cdf')[0])
             spd = met['WS_401'][:].squeeze()
             z0 = abs(met['depu'][0])
             self.met.τtime = np.float64(met['time'][:]/24.0/60.0) \
                 + np.float64(dt.date2num(dt.datetime.date(2013, 12, 1)))
             self.met.τ = air.windstress.stress(spd, z0)
 
-        if FileType == 'sat':
+        elif WindType == 'sat':
             if fname is not None:
                 raise ValueError('Do not provide fname for' +
                                  ' satellite flux data!')
-
-            from scipy.interpolate import interpn
             met = nc.MFDataset('../tropflux/tau_tropflux*')
             lon = met['longitude'][:]
             lat = met['latitude'][:]
@@ -101,7 +103,11 @@ class moor:
             self.met.τtime = time \
                 + dt.date2num(dt.datetime.date(1950, 1, 1))
 
+        if FluxType == 'sat':
             met = nc.MFDataset('../tropflux/netflux_*')
+            lon = met['longitude'][:]
+            lat = met['latitude'][:]
+            time = met['time'][:]
             self.met.Jq0 = interpn((time, lat, lon),
                                    met['netflux'][:, :, :],
                                    (time, self.lat, self.lon))
