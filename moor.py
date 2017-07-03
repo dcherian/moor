@@ -192,7 +192,7 @@ class moor:
         ndt = np.round(1/4/(self.ctd.time[1]-self.ctd.time[0]))
         hpc = ax0.pcolormesh(self.ctd.time[::ndt], -self.ctd.depth,
                              self.ctd.temp[::ndt, :].T,
-                             cmap=cmo.cm.thermal, zorder=-1)
+                             cmap=plt.get_cmap('RdYlBu_r'), zorder=-1)
         ax0.set_ylabel('depth')
 
         xlim = [1e10, -1e10]
@@ -278,7 +278,7 @@ class moor:
                               color='#e53935', linewidth=1, alpha=0.6)
             ax00.xaxis_date()
             ax00.spines['right'].set_visible(True)
-            ax00.set_ylabel('$J_q^0$')
+            ax00.set_ylabel('$J_q^0$', labelpad=-10)
 
         ax[1] = plt.subplot(nax, 1, 2, sharex=ax[0])
         ax[2] = plt.subplot(nax, 1, 3, sharex=ax[0])
@@ -323,13 +323,17 @@ class moor:
                             '-', linewidth=0.5)
 
             xlimtemp = ax[2].get_xlim()
-            ndt = np.round(1/4/(pod.ctd1.time[1]-pod.ctd1.time[0]))
+            ndt = np.int(np.round(1/4/(pod.ctd1.time[1]
+                                       - pod.ctd1.time[0])))
             try:
-                ax[3].plot_date(pod.ctd1.time[::ndt], -pod.ctd1.z[::ndt], '-',
+                ax[3].plot_date(pod.ctd1.time[::ndt],
+                                - pod.ctd1.z[::ndt], '-',
                                 linewidth=0.5, color='gray')
-                ax[3].set_xlim(xlimtemp)
             except:
-                pass
+                ax[3].axhline(-pod.ctd1.z, color='gray',
+                              linewidth=0.5)
+
+            ax[3].set_xlim(xlimtemp)
 
             # dt = (self.ctd.time[1] - self.ctd.time[0]) * 86400
             # ax[3].plot_date(smooth(self.ctd.time-367, filter_len/dt),
@@ -358,16 +362,6 @@ class moor:
         # ax[3].set_ylabel('-g β dS/dz ($10^{-4}$)')
         # ax[3].axhline(0, color='gray', zorder=-1)
 
-        import cmocean as cmo
-        ndt = np.round(1/4/(self.ctd.time[1]-self.ctd.time[0]))
-        try:
-            ax[3].pcolormesh(self.ctd.time[::ndt], -self.ctd.depth,
-                             self.ctd.temp[::ndt, :].T,
-                             cmap=cmo.cm.thermal, zorder=-1)
-            ax[3].set_ylabel('depth')
-        except:
-            pass
-
         ax[-3].set_title('')
         ax[-3].set_ylabel('$χ$')
 
@@ -377,7 +371,21 @@ class moor:
         ax[-1].set_title('')
         ax[-1].set_ylabel('$J_q^t$')
 
+        plt.axes(ax[-1])
         plt.gcf().autofmt_xdate()
+
+        ndt = np.int(np.round(1/2/(self.ctd.time[1]
+                                   - self.ctd.time[0])))
+        hdl = ax[3].pcolormesh(self.ctd.time[::ndt], -self.ctd.depth,
+                               self.ctd.temp[::ndt, :].T,
+                               cmap=plt.get_cmap('RdYlBu_r'), zorder=-1)
+        box = ax[3].get_position()
+        axColor = plt.axes([(box.x0 + box.width) * 1.002,
+                            box.y0*0.95, 0.01, box.height])
+        plt.colorbar(hdl, cax=axColor)
+        axColor.set_ylabel('T (C)')
+        ax[3].set_ylabel('depth')
+
 
         ax[0].set_xlim(xlim)
 
