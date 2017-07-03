@@ -284,8 +284,12 @@ class moor:
         ax[-1] = plt.subplot(nax, 1, nax, sharex=ax[0])  # Jq
         labels = []
 
+        xlim = [1e6, 0]
         for unit in self.χpod:
             pod = self.χpod[unit]
+
+            xlim = [min(xlim[0], pod.time[0]),
+                    max(xlim[1], pod.time[-2])]
 
             if est == 'best':
                 ee = pod.best
@@ -312,12 +316,12 @@ class moor:
                             smooth(χ['dTdz'], filter_len/dt)/1e-4,
                             '-', linewidth=0.5)
 
-            xlim = ax[2].get_xlim()
+            xlimtemp = ax[2].get_xlim()
             ndt = np.round(1/4/(pod.ctd1.time[1]-pod.ctd1.time[0]))
             try:
                 ax[3].plot_date(pod.ctd1.time[::ndt], -pod.ctd1.z[::ndt], '-',
                                 linewidth=0.5, color='gray')
-                ax[3].set_xlim(xlim)
+                ax[3].set_xlim(xlimtemp)
             except:
                 pass
 
@@ -367,7 +371,9 @@ class moor:
         ax[-1].set_title('')
         ax[-1].set_ylabel('$J_q^t$')
 
-        ax[0].set_xlim([pod.time[0], pod.time[-2]])
+        plt.gcf().autofmt_xdate()
+
+        ax[0].set_xlim(xlim)
 
         for aa in ax[0:-1]:
             try:
