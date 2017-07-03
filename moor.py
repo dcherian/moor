@@ -41,9 +41,9 @@ class moor:
             from scipy.io import loadmat
 
             mat = loadmat(fname, squeeze_me=True)
-            self.ctd.time = mat['time']
-            self.ctd.temp = mat['temp']
-            self.ctd.sal = mat['sal']
+            self.ctd.time = mat['time'] - 367
+            self.ctd.temp = mat['temp'].T
+            self.ctd.sal = mat['sal'].T
             # self.ctd.dens = mat['dens']
             self.ctd.depth = mat['depth']
 
