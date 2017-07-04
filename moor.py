@@ -404,7 +404,7 @@ class moor:
 
     def PlotSpectrum(self, varname, est='best', filter_len=None,
                      nsmooth=5, SubsetLength=None, ticks=None,
-                     ax=None, norm=True):
+                     ax=None, **kwargs):
 
         for idx, unit in enumerate(self.χpod):
             ax = self.χpod[unit].PlotSpectrum(varname, est=est,
@@ -412,7 +412,7 @@ class moor:
                                               filter_len=filter_len,
                                               nsmooth=nsmooth,
                                               SubsetLength=SubsetLength,
-                                              ticks=ticks, norm=norm)
+                                              ticks=ticks, **kwargs)
 
         return ax
 
