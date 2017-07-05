@@ -454,3 +454,68 @@ class moor:
         for ax in [ax1, ax2, ax3]:
             ax.set_xlabel('')
             ax.set_xticklabels([])
+
+    def TSPlot(self, pref=0, ax=None):
+        '''
+        Create a TS plot using all mooring data.
+        Highlight points observed above and below χpod depths.
+        '''
+
+        import seawater as sw
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        size = 5
+
+        if ax is None:
+            ax = plt.gca()
+
+        prop_cycle = plt.rcParams['axes.prop_cycle']
+        colors = prop_cycle.by_key()['color']
+
+        numχpod = len(self.χpod)
+        χctdz = []
+
+        # highlight χ-pod depths
+        for idx, unit in enumerate(self.χpod):
+            pod = self.χpod[unit]
+            χctdz.append(pod.ctd1.z)
+            χctdz.append(pod.ctd2.z)
+            label = pod.name[0:8] + str(χctdz[-2:]) + ' m'
+            ax.scatter(np.concatenate([pod.ctd1.S, pod.ctd2.S]),
+                       np.concatenate([pod.ctd1.T, pod.ctd2.T]),
+                       s=size+2, facecolor=colors[idx],
+                       label=label, alpha=0.03, zorder=1)
+
+        for index, z in enumerate(self.ctd.depth):
+            if np.any(np.abs(np.round(z) - np.array(χctdz)) < 1e-3):
+                # skip χ-pod depths since those have been done already
+                continue
+
+            S = self.ctd.sal[:, index]
+            T = self.ctd.temp[:, index]
+            ax.scatter(S, T, s=size,
+                       facecolor=colors[index+numχpod], alpha=0.01,
+                       label='CTD '+str(np.int(z))+' m', zorder=-1)
+
+        # make sure legend has visible entries
+        hleg = plt.legend()
+        for hh in hleg.legendHandles:
+            hh.set_alpha(1)
+
+        Slim = ax.get_xlim()
+        Tlim = ax.get_ylim()
+        Tvec = np.arange(Tlim[0], Tlim[1], 0.1)
+        Svec = np.arange(Slim[0], Slim[1], 0.1)
+        [Smat, Tmat] = np.meshgrid(Svec, Tvec)
+
+        # density contours
+        ρ = sw.pden(Smat, Tmat, pref) - 1000
+        cs = ax.contour(Smat, Tmat, ρ, colors='gray',
+                        linestyles='dashed', zorder=-1)
+        ax.clabel(cs, fmt='%.1f')
+
+        # labels
+        ax.set_xlabel('S')
+        ax.set_ylabel('T')
+        ax.set_title(self.name)
