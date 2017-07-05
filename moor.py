@@ -455,10 +455,19 @@ class moor:
             ax.set_xlabel('')
             ax.set_xticklabels([])
 
-    def TSPlot(self, pref=0, ax=None):
+    def TSPlot(self, pref=0, ax=None,
+               varname='KT', varmin=1e-3, filter_len=86400):
         '''
         Create a TS plot using all mooring data.
-        Highlight points observed above and below χpod depths.
+        Highlight $varname > $varmin at CTDs above/below
+        χpod depths.
+
+        Input:
+            pref : reference pressure level
+            ax : axes handles
+            varname : variable to highlight
+            varmin : threshold, when exceeded $varname is marked.
+            filter_len : averaging for $varname
         '''
 
         import seawater as sw
@@ -472,30 +481,49 @@ class moor:
 
         prop_cycle = plt.rcParams['axes.prop_cycle']
         colors = prop_cycle.by_key()['color']
+        markers = '+^s'
 
-        numχpod = len(self.χpod)
-        χctdz = []
-
-        # highlight χ-pod depths
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
-            χctdz.append(pod.ctd1.z)
-            χctdz.append(pod.ctd2.z)
-            label = pod.name[0:8] + str(χctdz[-2:]) + ' m'
-            ax.scatter(np.concatenate([pod.ctd1.S, pod.ctd2.S]),
-                       np.concatenate([pod.ctd1.T, pod.ctd2.T]),
-                       s=size+2, facecolor=colors[idx],
-                       label=label, alpha=0.03, zorder=1)
+
+            var, name, _, _ = pod.ChooseVariable(varname)
+            # daily average quantities
+            t, var = pod.FilterEstimate('mean', pod.time, var,
+                                        filter_len=filter_len,
+                                        decimate=True)
+
+            t1, T1 = pod.FilterEstimate('mean',
+                                        pod.ctd1.time, pod.ctd1.T,
+                                        filter_len=filter_len, decimate=True)
+            _, S1 = pod.FilterEstimate('mean',
+                                       pod.ctd1.time, pod.ctd1.S,
+                                       filter_len=filter_len, decimate=True)
+
+            t2, T2 = pod.FilterEstimate('mean',
+                                        pod.ctd2.time, pod.ctd2.T,
+                                        filter_len=filter_len, decimate=True)
+            _, S2 = pod.FilterEstimate('mean',
+                                       pod.ctd2.time, pod.ctd2.S,
+                                       filter_len=filter_len, decimate=True)
+
+            # interpolate onto averaged χpod time grid
+            T1 = np.interp(t, t1, T1)
+            S1 = np.interp(t, t1, S1)
+            T2 = np.interp(t, t2, T2)
+            S2 = np.interp(t, t2, S2)
+
+            mask = var > varmin
+
+            ax.plot(np.concatenate([S1[mask], S2[mask]]),
+                    np.concatenate([T1[mask], T2[mask]]),
+                    color='k', linestyle='None', label=pod.name,
+                    marker=markers[idx], alpha=0.2, zorder=2)
 
         for index, z in enumerate(self.ctd.depth):
-            if np.any(np.abs(np.round(z) - np.array(χctdz)) < 1e-3):
-                # skip χ-pod depths since those have been done already
-                continue
-
             S = self.ctd.sal[:, index]
             T = self.ctd.temp[:, index]
-            ax.scatter(S, T, s=size,
-                       facecolor=colors[index+numχpod], alpha=0.01,
+            ax.scatter(S[::10], T[::10], s=size,
+                       facecolor=colors[index], alpha=0.1,
                        label='CTD '+str(np.int(z))+' m', zorder=-1)
 
         # make sure legend has visible entries
@@ -519,3 +547,10 @@ class moor:
         ax.set_xlabel('S')
         ax.set_ylabel('T')
         ax.set_title(self.name)
+
+        ax.annotate(name + '$^{' +
+                    str(np.round(filter_len/86400, decimals=1))
+                    + ' d}$ > ' + str(varmin),
+                    xy=[0.75, 0.9], xycoords='axes fraction',
+                    size='large',
+                    bbox=dict(facecolor='gray', alpha=0.15, edgecolor='none'))
