@@ -248,7 +248,7 @@ class moor:
         import numpy as np
         import seawater as sw
 
-        plt.figure(figsize=[6.5, 10.5])
+        plt.figure(figsize=[8.5, 12.5])
 
         # initialize axes
         nax = 8
@@ -330,7 +330,7 @@ class moor:
                                 - pod.ctd1.z[::ndt], '-',
                                 linewidth=0.5, color='gray')
             except:
-                ax[3].axhline(-pod.ctd1.z, color='gray',
+                ax[3].axhline(-pod.depth, color='gray',
                               linewidth=0.5)
 
             ax[3].set_xlim(xlimtemp)
@@ -374,18 +374,24 @@ class moor:
         plt.axes(ax[-1])
         plt.gcf().autofmt_xdate()
 
-        ndt = np.int(np.round(1/2/(self.ctd.time[1]
-                                   - self.ctd.time[0])))
-        hdl = ax[3].pcolormesh(self.ctd.time[::ndt], -self.ctd.depth,
-                               self.ctd.temp[::ndt, :].T,
-                               cmap=plt.get_cmap('RdYlBu_r'), zorder=-1)
+        from dcpy.util import MovingAverage
+        dt = (self.ctd.time[1] - self.ctd.time[0])*86400
+        nfilt = (86400/2)/dt
+        T = MovingAverage(self.ctd.temp, nfilt, axis=0)
+        S = MovingAverage(self.ctd.sal, nfilt, axis=0)
+        t = MovingAverage(self.ctd.time, nfilt)
+        hdl = ax[3].contourf(t, -self.ctd.depth, T.T, 20,
+                             cmap=plt.get_cmap('RdYlBu_r'), zorder=-1)
+        hdlS = ax[3].contour(t, -self.ctd.depth, S.T, 6,
+                             colors='gray', linewidths=0.5, zorder=-1)
+        # plt.clabel(hdlS, fmt='%2.1f')
+
         box = ax[3].get_position()
-        axColor = plt.axes([(box.x0 + box.width) * 1.002,
+        axColor = plt.axes([(box.x0 + box.width) * 1.03,
                             box.y0*0.95, 0.01, box.height])
         plt.colorbar(hdl, cax=axColor)
         axColor.set_ylabel('T (C)')
         ax[3].set_ylabel('depth')
-
 
         ax[0].set_xlim(xlim)
 
