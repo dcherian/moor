@@ -47,7 +47,10 @@ class moor:
             self.ctd.sal = mat['sal'].T
             # self.ctd.dens = mat['dens']
             self.ctd.depth = mat['depth']
-            self.ctd.zmat = np.tile(self.ctd.depth, (1, len(mat['time'])))
+            self.ctd.zmat = np.tile(self.ctd.depth,
+                                    (len(mat['time']), 1))
+            self.ctd.tmat = np.tile(self.ctd.time,
+                                    (len(mat['depth']), 1)).T
 
         if FileType == 'ebob':
             from scipy.io import loadmat
@@ -62,8 +65,9 @@ class moor:
                                                mask=np.isnan(temp))
             self.ctd.sal = np.ma.masked_array(salt,
                                               mask=np.isnan(salt))
-            self.ctd.time = mat['MMTime_' + fname + 'A'] - 367
+            self.ctd.tmat = mat['MMTime_' + fname + 'A'] - 367
             self.ctd.zmat = np.float16(pres)
+            self.ctd.time = self.ctd.tmat[:, 0]
             self.ctd.depth = pres[10, :]
 
     def ReadMet(self, fname: str=None,
@@ -374,15 +378,15 @@ class moor:
         plt.gcf().autofmt_xdate()
 
         from dcpy.util import MovingAverage
-        dt = (self.ctd.time[1] - self.ctd.time[0])*86400
+        dt = np.nanmean(np.diff(self.ctd.time))*86400
         nfilt = (86400/2)/dt
         T = MovingAverage(self.ctd.temp, nfilt, axis=0)
         S = MovingAverage(self.ctd.sal, nfilt, axis=0)
-        t = MovingAverage(self.ctd.time, nfilt)
+        t = MovingAverage(self.ctd.tmat, nfilt, axis=0)
         z = MovingAverage(self.ctd.zmat, nfilt, axis=0)
-        hdl = ax[3].contourf(t, -z, T.T, 20,
+        hdl = ax[3].contourf(t, -z, T, 20,
                              cmap=plt.get_cmap('RdYlBu_r'), zorder=-1)
-        hdlS = ax[3].contour(t, -z, S.T, 6,
+        hdlS = ax[3].contour(t, -z, S, 6,
                              colors='gray', linewidths=0.5, zorder=-1)
         # plt.clabel(hdlS, fmt='%2.1f')
 
