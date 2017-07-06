@@ -143,8 +143,9 @@ class moor:
 
     def ChipodSeasonalSummary(self, ax=None, filter_len=86400):
 
+        import matplotlib.pyplot as plt
+
         if ax is None:
-            import matplotlib.pyplot as plt
             plt.figure(figsize=[6.5, 4.5])
             ax = plt.gca()
             ax.set_title(self.name)
@@ -161,12 +162,14 @@ class moor:
             labels.append(lbl)
             pos.append(p)
 
+        ax.set_title(self.name)
+
         if len(self.χpod) > 1:
             import numpy as np
             ax.set_xticks(list(np.mean(pos, 0)))
-            plt.legend((handles[0]['medians'][0],
-                        handles[-1]['medians'][0]),
-                       labels)
+            ax.legend((handles[0]['medians'][0],
+                       handles[-1]['medians'][0]),
+                      labels)
 
             limy = ax.get_yticks()
             limx = ax.get_xticks()
