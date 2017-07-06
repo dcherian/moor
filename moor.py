@@ -267,7 +267,7 @@ class moor:
                             smooth(self.met.τ, filter_len/dt), '-',
                             color='k', linewidth=0.75, zorder=1)
             limy = plt.ylim()
-            ax[0].set_ylim([0, limy[1]])
+            ax[0].set_ylim([0, 0.3])
 
         if self.met.Jq0 is not []:
             ax00 = ax[0].twinx()
@@ -284,6 +284,7 @@ class moor:
                               color='#e53935', linewidth=1, alpha=0.6)
             ax00.xaxis_date()
             ax00.spines['right'].set_visible(True)
+            ax00.spines['left'].set_visible(False)
             ax00.set_ylabel('$J_q^0$', labelpad=-10)
 
         ax[1] = plt.subplot(nax, 1, 2, sharex=ax[0])
@@ -412,6 +413,13 @@ class moor:
                 pass
 
         plt.tight_layout()
+        plt.draw()
+        for tt in ax00.get_yaxis().get_ticklabels():
+            if tt.get_position()[1] < 0:
+                tt.set_color('#79BEDB')
+
+            if tt.get_position()[1] > 0:
+                tt.set_color('#e53935')
 
         return ax
 
