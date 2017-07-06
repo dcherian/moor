@@ -39,6 +39,7 @@ class moor:
 
         if FileType == 'ramaprelim':
             from scipy.io import loadmat
+            import numpy as np
 
             mat = loadmat(fname, squeeze_me=True)
             self.ctd.time = mat['time'] - 367
@@ -46,26 +47,24 @@ class moor:
             self.ctd.sal = mat['sal'].T
             # self.ctd.dens = mat['dens']
             self.ctd.depth = mat['depth']
+            self.ctd.zmat = np.tile(self.ctd.depth, (1, len(mat['time'])))
 
         if FileType == 'ebob':
             from scipy.io import loadmat
             import numpy as np
-            import numpy.ma
 
-            mat = loadmat(self.datadir
-                          + '/ancillary/ctd/only_temp/EBOB_'
-                          + fname + '_WTMP.mat',
-                          squeeze_me=True)
-            temp = mat['Wtmp' + fname[-1]]
+            mat = loadmat(self.datadir + '/ancillary/ctd/'
+                          + fname + 'SP.mat', squeeze_me=True)
+            temp = mat['MMT_' + fname + 'A']
+            salt = mat['MMS_' + fname + 'A']
+            pres = mat['MMP_' + fname + 'A']
             self.ctd.temp = np.ma.masked_array(temp,
                                                mask=np.isnan(temp))
-            self.ctd.time = mat['Time' + fname[-1]] - 367
-            self.ctd.depth = np.float16(mat['dbar_dpth'])
-
-            mat = loadmat(self.datadir
-                          + '/ancillary/ctd/only_temp/EBOB_'
-                          + fname + '_WTMP.mat',
-                          squeeze_me=True)
+            self.ctd.sal = np.ma.masked_array(salt,
+                                              mask=np.isnan(salt))
+            self.ctd.time = mat['MMTime_' + fname + 'A'] - 367
+            self.ctd.zmat = np.float16(pres)
+            self.ctd.depth = pres[10, :]
 
     def ReadMet(self, fname: str=None,
                 WindType: str='pmel', FluxType: str='sat'):
@@ -380,9 +379,10 @@ class moor:
         T = MovingAverage(self.ctd.temp, nfilt, axis=0)
         S = MovingAverage(self.ctd.sal, nfilt, axis=0)
         t = MovingAverage(self.ctd.time, nfilt)
-        hdl = ax[3].contourf(t, -self.ctd.depth, T.T, 20,
+        z = MovingAverage(self.ctd.zmat, nfilt, axis=0)
+        hdl = ax[3].contourf(t, -z, T.T, 20,
                              cmap=plt.get_cmap('RdYlBu_r'), zorder=-1)
-        hdlS = ax[3].contour(t, -self.ctd.depth, S.T, 6,
+        hdlS = ax[3].contour(t, -z, S.T, 6,
                              colors='gray', linewidths=0.5, zorder=-1)
         # plt.clabel(hdlS, fmt='%2.1f')
 
