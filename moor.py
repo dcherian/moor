@@ -519,11 +519,16 @@ class moor:
             S2 = np.interp(t, t2, S2)
 
             mask = var > varmin
+            frac = sum(mask)/len(mask)
+            if frac < 0.1:
+                alpha = 0.6
+            else:
+                alpha = 0.3
 
             ax.plot(np.concatenate([S1[mask], S2[mask]]),
                     np.concatenate([T1[mask], T2[mask]]),
                     color='k', linestyle='None', label=pod.name,
-                    marker=markers[idx], alpha=0.2, zorder=2)
+                    marker=markers[idx], alpha=alpha, zorder=2)
 
         for index, z in enumerate(self.ctd.depth):
             S = self.ctd.sal[:, index]
