@@ -45,30 +45,40 @@ class moor:
             self.ctd.time = mat['time'] - 367
             self.ctd.temp = mat['temp'].T
             self.ctd.sal = mat['sal'].T
-            # self.ctd.dens = mat['dens']
             self.ctd.depth = mat['depth']
             self.ctd.zmat = np.tile(self.ctd.depth,
                                     (len(mat['time']), 1))
             self.ctd.tmat = np.tile(self.ctd.time,
                                     (len(mat['depth']), 1)).T
+            self.ctd.Ttmat = self.ctd.tmat
+            self.ctd.Tzmat = self.ctd.zmat
 
         if FileType == 'ebob':
             from scipy.io import loadmat
             import numpy as np
 
             mat = loadmat(self.datadir + '/ancillary/ctd/'
-                          + fname + 'SP.mat', squeeze_me=True)
-            temp = mat['MMT_' + fname + 'A']
-            salt = mat['MMS_' + fname + 'A']
-            pres = mat['MMP_' + fname + 'A']
-            self.ctd.temp = np.ma.masked_array(temp,
-                                               mask=np.isnan(temp))
+                          + fname + 'SP-deglitched.mat', squeeze_me=True)
+            temp = mat['temp']
+            salt = mat['salt']
+            pres = mat['pres']
             self.ctd.sal = np.ma.masked_array(salt,
                                               mask=np.isnan(salt))
-            self.ctd.tmat = mat['MMTime_' + fname + 'A'] - 367
+            self.ctd.tmat = mat['time'] - 367
             self.ctd.zmat = np.float16(pres)
             self.ctd.time = self.ctd.tmat[:, 0]
             self.ctd.depth = pres[10, :]
+
+            mat = loadmat(self.datadir + '/ancillary/ctd/'
+                          + 'only_temp/EBOB_' + fname
+                          + '_WTMP.mat', squeeze_me=True)
+            temp = mat['Wtmp' + fname[-1]]
+            self.ctd.temp = np.ma.masked_array(temp,
+                                               mask=np.isnan(temp))
+            zvec = mat['dbar_dpth']
+            tvec = mat['Time' + fname[-1]] - 367
+            self.ctd.Ttmat = np.tile(tvec.T, (len(zvec), 1)).T
+            self.ctd.Tzmat = np.tile(zvec, (len(tvec), 1))
 
     def ReadMet(self, fname: str=None,
                 WindType: str='pmel', FluxType: str='sat'):
@@ -250,7 +260,7 @@ class moor:
         ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
-        from dcpy.util import smooth
+        from dcpy.util import MovingAverage
         import numpy as np
         import seawater as sw
 
@@ -263,8 +273,8 @@ class moor:
         ax[0].set_title(self.name)
         if self.met.τ is not []:
             dt = (self.met.τtime[1] - self.met.τtime[0]) * 86400
-            ax[0].plot_date(smooth(self.met.τtime, filter_len/dt),
-                            smooth(self.met.τ, filter_len/dt), '-',
+            ax[0].plot_date(MovingAverage(self.met.τtime, filter_len/dt),
+                            MovingAverage(self.met.τ, filter_len/dt), '-',
                             color='k', linewidth=0.75, zorder=1)
             limy = plt.ylim()
             ax[0].set_ylim([0, 0.3])
@@ -273,12 +283,12 @@ class moor:
             ax00 = ax[0].twinx()
             ax00.set_zorder(-1)
             dt = (self.met.Jtime[1] - self.met.Jtime[0]) * 86400
-            time = smooth(self.met.Jtime, filter_len/dt)
-            Jq = smooth(self.met.Jq0.copy(), filter_len/dt)
+            time = MovingAverage(self.met.Jtime, filter_len/dt)
+            Jq = MovingAverage(self.met.Jq0.copy(), filter_len/dt)
             Jq[Jq > 0] = 0
             ax00.fill_between(time, Jq, linestyle='-',
                               color='#79BEDB', linewidth=1, alpha=0.6)
-            Jq = smooth(self.met.Jq0.copy(), filter_len/dt)
+            Jq = MovingAverage(self.met.Jq0.copy(), filter_len/dt)
             Jq[Jq < 0] = 0
             ax00.fill_between(time, Jq, linestyle='-',
                               color='#e53935', linewidth=1, alpha=0.6)
@@ -322,12 +332,12 @@ class moor:
             # beta = sw.beta(S, T, pod.depth)
 
             dt = (χ['time'][1] - χ['time'][0]) * 86400
-            ax[1].plot_date(smooth(χ['time'], filter_len/dt),
-                            smooth(χ['N2'], filter_len/dt)/1e-4,
-                            '-', linewidth=0.5)
-            ax[2].plot_date(smooth(χ['time'], filter_len/dt),
-                            smooth(χ['dTdz'], filter_len/dt)/1e-4,
-                            '-', linewidth=0.5)
+            ax[1].plot_date(MovingAverage(χ['time'], filter_len/dt),
+                            MovingAverage(χ['N2'], filter_len/dt)/1e-4,
+                            '-', linewidth=1)
+            ax[2].plot_date(MovingAverage(χ['time'], filter_len/dt),
+                            MovingAverage(χ['dTdz'], filter_len/dt),
+                            '-', linewidth=1)
 
             xlimtemp = ax[2].get_xlim()
             ndt = np.int(np.round(1/4/(pod.ctd1.time[1]
@@ -343,8 +353,8 @@ class moor:
             ax[3].set_xlim(xlimtemp)
 
             # dt = (self.ctd.time[1] - self.ctd.time[0]) * 86400
-            # ax[3].plot_date(smooth(self.ctd.time-367, filter_len/dt),
-            #                 smooth(9.81*beta*dSdz, filter_len/dt)/1e-4,
+            # ax[3].plot_date(MovingAverage(self.ctd.time-367, filter_len/dt),
+            #                 MovingAverage(9.81*beta*dSdz, filter_len/dt)/1e-4,
             #                 '-', linewidth=1)
 
             pod.PlotEstimate('chi', ee, hax=ax[-3],
@@ -376,6 +386,7 @@ class moor:
         ax[-2].set_ylabel('$K_T$')
 
         ax[-1].set_title('')
+        ax[-1].axhline(0, color='gray', zorder=-1)
         ax[-1].set_ylabel('$J_q^t$')
 
         plt.axes(ax[-1])
@@ -385,13 +396,15 @@ class moor:
         dt = np.nanmean(np.diff(self.ctd.time))*86400
         nfilt = (86400/2)/dt
         T = MovingAverage(self.ctd.temp, nfilt, axis=0)
-        S = MovingAverage(self.ctd.sal, nfilt, axis=0)
-        t = MovingAverage(self.ctd.tmat, nfilt, axis=0)
-        z = MovingAverage(self.ctd.zmat, nfilt, axis=0)
-        hdl = ax[3].contourf(t, -z, T, 20,
+        zT = MovingAverage(self.ctd.Tzmat, nfilt, axis=0)
+        tT = MovingAverage(self.ctd.Ttmat, nfilt, axis=0)
+        # S = MovingAverage(self.ctd.sal, nfilt, axis=0)
+        tS = MovingAverage(self.ctd.tmat, nfilt, axis=0)
+        zS = MovingAverage(self.ctd.zmat, nfilt, axis=0)
+        hdl = ax[3].contourf(tT, -zT, T, 20,
                              cmap=plt.get_cmap('RdYlBu_r'), zorder=-1)
-        hdlS = ax[3].contour(t, -z, S, 6,
-                             colors='gray', linewidths=0.5, zorder=-1)
+        # hdlS = ax[3].contour(tS, -zS, S, 6,
+        #                      colors='gray', linewidths=0.5, zorder=-1)
         # plt.clabel(hdlS, fmt='%2.1f')
 
         box = ax[3].get_position()
