@@ -256,13 +256,32 @@ class moor:
         ax0.set_title(self.name + ' | ' + titlestr)
         ax0.set_xlim(xlim)
 
-    def Plotχpods(self, est: str='best', filter_len=86400):
+    def Plotχpods(self, est: str='best', filt='mean', filter_len=86400):
         ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
         from dcpy.util import MovingAverage
         import numpy as np
-        import seawater as sw
+
+        def avgplt(ax, t, x, flen, filt, **kwargs):
+            from dcpy.util import MovingAverage
+            from dcpy.ts import BandPassButter
+
+            dt = (t[1]-t[0]) * 86400
+            if filt == 'mean':
+                t = MovingAverage(t.copy(), flen/dt)
+                x = MovingAverage(x.copy(), flen/dt)
+
+            if filt == 'bandpass':
+                flen = np.array(flen.copy())
+                assert(len(flen) > 1)
+                x = BandPassButter(x.copy(), 1/flen, dt, order=1)
+
+            if ax is None:
+                return t, x
+            else:
+                ax.plot(t, x, **kwargs)
+                ax.xaxis_date()
 
         plt.figure(figsize=[8.5, 12.5])
 
@@ -270,27 +289,28 @@ class moor:
         nax = 8
         ax = [aa for aa in range(nax)]
         ax[0] = plt.subplot(nax, 1, 1)
-        ax[0].set_title(self.name)
+        ax[0].set_title(self.name + ' | '
+                        + str(np.round(filter_len/86400)) + ' day '
+                        + filt)
+
         if self.met.τ is not []:
-            dt = (self.met.τtime[1] - self.met.τtime[0]) * 86400
-            ax[0].plot_date(MovingAverage(self.met.τtime, filter_len/dt),
-                            MovingAverage(self.met.τ, filter_len/dt), '-',
-                            color='k', linewidth=0.75, zorder=1)
-            limy = plt.ylim()
+            avgplt(ax[0], self.met.τtime, self.met.τ,
+                   filter_len, filt, color='k', linewidth=1, zorder=1)
             ax[0].set_ylim([0, 0.3])
 
         if self.met.Jq0 is not []:
             ax00 = ax[0].twinx()
             ax00.set_zorder(-1)
-            dt = (self.met.Jtime[1] - self.met.Jtime[0]) * 86400
-            time = MovingAverage(self.met.Jtime, filter_len/dt)
-            Jq = MovingAverage(self.met.Jq0.copy(), filter_len/dt)
-            Jq[Jq > 0] = 0
-            ax00.fill_between(time, Jq, linestyle='-',
+            time, Jq = avgplt(None, self.met.Jtime, self.met.Jq0,
+                              filter_len, filt)
+            # Jq = MovingAverage(self.met.Jq0.copy(), filter_len/dt)
+            Jq1 = Jq.copy()
+            Jq1[Jq1 > 0] = 0
+            ax00.fill_between(time, Jq1, linestyle='-',
                               color='#79BEDB', linewidth=1, alpha=0.6)
-            Jq = MovingAverage(self.met.Jq0.copy(), filter_len/dt)
-            Jq[Jq < 0] = 0
-            ax00.fill_between(time, Jq, linestyle='-',
+            Jq1 = Jq.copy()
+            Jq1[Jq1 < 0] = 0
+            ax00.fill_between(time, Jq1, linestyle='-',
                               color='#e53935', linewidth=1, alpha=0.6)
             ax00.xaxis_date()
             ax00.spines['right'].set_visible(True)
@@ -311,33 +331,16 @@ class moor:
         for unit in self.χpod:
             pod = self.χpod[unit]
 
-            xlim = [min(xlim[0], pod.time[0]),
-                    max(xlim[1], pod.time[-2])]
-
             if est == 'best':
                 ee = pod.best
 
             χ = pod.chi[ee]
 
-            # i0 = np.argmin(abs(self.ctd.depth - pod.depth))
-            # if self.ctd.depth[i0] > pod.depth:
-            #     i0 = i0 - 1
+            xlim = [min(xlim[0], pod.time[0]),
+                    max(xlim[1], pod.time[-2])]
 
-            # dz = np.abs(self.ctd.depth[i0+1]-self.ctd.depth[i0])
-            # dSdz = (self.ctd.sal[i0+1, :] - self.ctd.sal[i0, :]) / dz
-            # S = (self.ctd.sal[i0+1, :] + self.ctd.sal[i0, :]) / 2
-            # T = (self.ctd.temp[i0+1, :] + self.ctd.temp[i0, :]) / 2
-            # alpha = np.interp(χ['time'],
-            #                   self.ctd.time, sw.alpha(S, T, pod.depth))
-            # beta = sw.beta(S, T, pod.depth)
-
-            dt = (χ['time'][1] - χ['time'][0]) * 86400
-            ax[1].plot_date(MovingAverage(χ['time'], filter_len/dt),
-                            MovingAverage(χ['N2'], filter_len/dt)/1e-4,
-                            '-', linewidth=1)
-            ax[2].plot_date(MovingAverage(χ['time'], filter_len/dt),
-                            MovingAverage(χ['dTdz'], filter_len/dt),
-                            '-', linewidth=1)
+            avgplt(ax[1], χ['time'], χ['N2'], filter_len, filt)
+            avgplt(ax[2], χ['time'], χ['dTdz'], filter_len, filt)
 
             xlimtemp = ax[2].get_xlim()
             ndt = np.int(np.round(1/4/(pod.ctd1.time[1]
@@ -352,19 +355,35 @@ class moor:
 
             ax[3].set_xlim(xlimtemp)
 
+            if filt == 'mean':
+                filt1 = None
+            else:
+                filt1 = filt
+
+            pod.PlotEstimate('chi', ee, hax=ax[-3], filt=filt1,
+                             filter_len=filter_len)
+            pod.PlotEstimate('KT', ee, hax=ax[-2], filt=filt1,
+                             filter_len=filter_len)
+            pod.PlotEstimate('Jq', ee, hax=ax[-1], filt=filt,
+                             filter_len=filter_len)
+
+            labels.append(str(pod.depth) + 'm')
+
+            # i0 = np.argmin(abs(self.ctd.depth - pod.depth))
+            # if self.ctd.depth[i0] > pod.depth:
+            #     i0 = i0 - 1
+            # dz = np.abs(self.ctd.depth[i0+1]-self.ctd.depth[i0])
+            # dSdz = (self.ctd.sal[i0+1, :] - self.ctd.sal[i0, :]) / dz
+            # S = (self.ctd.sal[i0+1, :] + self.ctd.sal[i0, :]) / 2
+            # T = (self.ctd.temp[i0+1, :] + self.ctd.temp[i0, :]) / 2
+            # alpha = np.interp(χ['time'],
+            #                   self.ctd.time, sw.alpha(S, T, pod.depth))
+            # beta = sw.beta(S, T, pod.depth)
             # dt = (self.ctd.time[1] - self.ctd.time[0]) * 86400
             # ax[3].plot_date(MovingAverage(self.ctd.time-367, filter_len/dt),
-            #                 MovingAverage(9.81*beta*dSdz, filter_len/dt)/1e-4,
+            #                 MovingAverage(9.81*beta*dSdz,
+            # filter_len/dt)/1e-4,
             #                 '-', linewidth=1)
-
-            pod.PlotEstimate('chi', ee, hax=ax[-3],
-                             filter_len=filter_len)
-            pod.PlotEstimate('KT', ee, hax=ax[-2],
-                             filter_len=filter_len)
-            pod.PlotEstimate('Jq', ee, hax=ax[-1],
-                             filter_len=filter_len)
-
-            labels.append(str(pod.depth) + 'm | ' + ee)
 
         ax[0].set_ylabel('$τ$ (N/m²)')
 
@@ -392,26 +411,43 @@ class moor:
         plt.axes(ax[-1])
         plt.gcf().autofmt_xdate()
 
-        from dcpy.util import MovingAverage
         dt = np.nanmean(np.diff(self.ctd.time))*86400
         nfilt = (86400/2)/dt
-        T = MovingAverage(self.ctd.temp, nfilt, axis=0)
-        zT = MovingAverage(self.ctd.Tzmat, nfilt, axis=0)
-        tT = MovingAverage(self.ctd.Ttmat, nfilt, axis=0)
-        # S = MovingAverage(self.ctd.sal, nfilt, axis=0)
-        tS = MovingAverage(self.ctd.tmat, nfilt, axis=0)
-        zS = MovingAverage(self.ctd.zmat, nfilt, axis=0)
-        hdl = ax[3].contourf(tT, -zT, T, 20,
-                             cmap=plt.get_cmap('RdYlBu_r'), zorder=-1)
-        # hdlS = ax[3].contour(tS, -zS, S, 6,
+        if filt == 'mean':
+            T = MovingAverage(self.ctd.temp, nfilt, axis=0)
+            zT = MovingAverage(self.ctd.Tzmat, nfilt, axis=0)
+            tT = MovingAverage(self.ctd.Ttmat, nfilt, axis=0)
+            # S = MovingAverage(self.ctd.sal, nfilt, axis=0)
+            # ρ = MovingAverage(self.ctd.ρ, nfilt, axis=0)
+            # tS = MovingAverage(self.ctd.tmat, nfilt, axis=0)
+            # zS = MovingAverage(self.ctd.zmat, nfilt, axis=0)
+            cmap = plt.get_cmap('RdYlBu_r')
+            colorlabel = 'T (C)'
+        else:
+            _, T = avgplt(None, self.ctd.time, self.ctd.temp,
+                          filter_len, filt)
+            zT = self.ctd.Tzmat
+            tT = self.ctd.Ttmat
+            cmap = plt.get_cmap('RdBu_r')
+            colorlabel = 'T\' (C)'
+            # _, S = avgplt(None, self.ctd.time, self.ctd.sal,
+            #               filter_len, filt)
+            # _, ρ = avgplt(None, self.ctd.time, self.ctd.ρ,
+            #               filter_len, filt)
+
+        hdl = ax[3].contourf(tT, -zT, T, 20, cmap=cmap, zorder=-1)
+        # hdl = ax[3].contourf(tS, -zS, ρ, 20, zorder=-1,
+        #                      cmap=plt.get_cmap('RdYlBu_r'))
+        # hdl = ax[3].contour(tS, -zS, S, 6,
         #                      colors='gray', linewidths=0.5, zorder=-1)
-        # plt.clabel(hdlS, fmt='%2.1f')
+        # plt.clabel(hdl, fmt='%2.1f')
 
         box = ax[3].get_position()
         axColor = plt.axes([(box.x0 + box.width) * 1.03,
                             box.y0*0.95, 0.01, box.height])
         plt.colorbar(hdl, cax=axColor)
-        axColor.set_ylabel('T (C)')
+
+        axColor.set_ylabel(colorlabel)
         ax[3].set_ylabel('depth')
 
         ax[0].set_xlim(xlim)
