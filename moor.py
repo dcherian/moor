@@ -52,22 +52,22 @@ class moor:
                                     (len(mat['depth']), 1)).T
             self.ctd.Ttmat = self.ctd.tmat
             self.ctd.Tzmat = self.ctd.zmat
+            self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp, self.ctd.Tzmat)
 
         if FileType == 'ebob':
-            from scipy.io import loadmat
-            import numpy as np
-
             mat = loadmat(self.datadir + '/ancillary/ctd/'
                           + fname + 'SP-deglitched.mat', squeeze_me=True)
             temp = mat['temp']
             salt = mat['salt']
             pres = mat['pres']
+
             self.ctd.sal = np.ma.masked_array(salt,
                                               mask=np.isnan(salt))
             self.ctd.tmat = mat['time'] - 367
             self.ctd.zmat = np.float16(pres)
             self.ctd.time = self.ctd.tmat[:, 0]
             self.ctd.depth = pres[10, :]
+            self.ctd.ρ = sw.pden(self.ctd.sal, mat['temp'], self.ctd.zmat)
 
             mat = loadmat(self.datadir + '/ancillary/ctd/'
                           + 'only_temp/EBOB_' + fname
