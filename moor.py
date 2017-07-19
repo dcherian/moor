@@ -57,17 +57,17 @@ class moor:
         if FileType == 'ebob':
             mat = loadmat(self.datadir + '/ancillary/ctd/'
                           + fname + 'SP-deglitched.mat', squeeze_me=True)
-            temp = mat['temp']
-            salt = mat['salt']
-            pres = mat['pres']
+            temp = mat['temp'].T
+            salt = mat['salt'].T
+            pres = mat['pres'].T
 
             self.ctd.sal = np.ma.masked_array(salt,
                                               mask=np.isnan(salt))
-            self.ctd.tmat = mat['time'] - 367
+            self.ctd.tmat = mat['time'].T - 367
             self.ctd.zmat = np.float16(pres)
             self.ctd.time = self.ctd.tmat[:, 0]
             self.ctd.depth = pres[10, :]
-            self.ctd.ρ = sw.pden(self.ctd.sal, mat['temp'], self.ctd.zmat)
+            self.ctd.ρ = sw.pden(self.ctd.sal, temp, self.ctd.zmat)
 
             mat = loadmat(self.datadir + '/ancillary/ctd/'
                           + 'only_temp/EBOB_' + fname
@@ -417,10 +417,10 @@ class moor:
             T = MovingAverage(self.ctd.temp, nfilt, axis=0)
             zT = MovingAverage(self.ctd.Tzmat, nfilt, axis=0)
             tT = MovingAverage(self.ctd.Ttmat, nfilt, axis=0)
-            # S = MovingAverage(self.ctd.sal, nfilt, axis=0)
+            S = MovingAverage(self.ctd.sal, nfilt, axis=0)
             # ρ = MovingAverage(self.ctd.ρ, nfilt, axis=0)
-            # tS = MovingAverage(self.ctd.tmat, nfilt, axis=0)
-            # zS = MovingAverage(self.ctd.zmat, nfilt, axis=0)
+            tS = MovingAverage(self.ctd.tmat, nfilt, axis=0)
+            zS = MovingAverage(self.ctd.zmat, nfilt, axis=0)
             cmap = plt.get_cmap('RdYlBu_r')
             colorlabel = 'T (C)'
         else:
@@ -430,16 +430,18 @@ class moor:
             tT = self.ctd.Ttmat
             cmap = plt.get_cmap('RdBu_r')
             colorlabel = 'T\' (C)'
-            # _, S = avgplt(None, self.ctd.time, self.ctd.sal,
-            #               filter_len, filt)
+            _, S = avgplt(None, self.ctd.time, self.ctd.sal,
+                          filter_len, filt)
+            zS = self.ctd.zmat
+            tS = self.ctd.tmat
             # _, ρ = avgplt(None, self.ctd.time, self.ctd.ρ,
             #               filter_len, filt)
 
-        hdl = ax[3].contourf(tT, -zT, T, 20, cmap=cmap, zorder=-1)
+        hdl = ax[3].contourf(tT, -zT, T, 30, cmap=cmap, zorder=-1)
         # hdl = ax[3].contourf(tS, -zS, ρ, 20, zorder=-1,
-        #                      cmap=plt.get_cmap('RdYlBu_r'))
-        # hdl = ax[3].contour(tS, -zS, S, 6,
-        #                      colors='gray', linewidths=0.5, zorder=-1)
+        #                     cmap=plt.get_cmap('RdYlBu_r'))
+        ax[3].contour(tS, -zS, S, 10,
+                      colors='k', linewidths=0.5, zorder=-1)
         # plt.clabel(hdl, fmt='%2.1f')
 
         box = ax[3].get_position()
