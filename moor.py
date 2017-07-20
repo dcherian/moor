@@ -275,7 +275,7 @@ class moor:
             if filt == 'bandpass':
                 flen = np.array(flen.copy())
                 assert(len(flen) > 1)
-                x = BandPassButter(x.copy(), 1/flen, dt, order=1)
+                x = BandPassButter(x.copy(), 1/flen, dt)
 
             if ax is None:
                 return t, x
@@ -296,7 +296,10 @@ class moor:
         if self.met.τ is not []:
             avgplt(ax[0], self.met.τtime, self.met.τ,
                    filter_len, filt, color='k', linewidth=1, zorder=1)
-            ax[0].set_ylim([0, 0.3])
+            if filt == 'bandpass':
+                ax[0].set_ylim([-0.1, 0.1])
+            else:
+                ax[0].set_ylim([0, 0.3])
 
         if self.met.Jq0 is not []:
             ax00 = ax[0].twinx()
@@ -315,7 +318,10 @@ class moor:
             ax00.xaxis_date()
             ax00.spines['right'].set_visible(True)
             ax00.spines['left'].set_visible(False)
-            ax00.set_ylabel('$J_q^0$', labelpad=-10)
+            ax00.set_ylabel('$J_q^0$ (W/m²)', labelpad=-10)
+            if filt == 'bandpass':
+                ax00.set_ylim(np.array([-1, 1]) *
+                              np.max(np.abs(ax00.get_ylim())))
 
         ax[1] = plt.subplot(nax, 1, 2, sharex=ax[0])
         ax[2] = plt.subplot(nax, 1, 3, sharex=ax[0])
