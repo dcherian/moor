@@ -256,6 +256,40 @@ class moor:
         ax0.set_title(self.name + ' | ' + titlestr)
         ax0.set_xlim(xlim)
 
+    def PlotFlux(self, ax, t, Jq, alpha=0.5, **kwargs):
+
+        Jq1 = Jq.copy()
+        Jq1[Jq1 > 0] = 0
+        ax.fill_between(t, Jq1, linestyle='-',
+                        color='#79BEDB', linewidth=1,
+                        alpha=alpha, **kwargs)
+        Jq1 = Jq.copy()
+        Jq1[Jq1 < 0] = 0
+        ax.fill_between(t, Jq1, linestyle='-',
+                        color='#e53935', linewidth=1,
+                        alpha=alpha, **kwargs)
+
+    def avgplt(self, ax, t, x, flen, filt, **kwargs):
+        from dcpy.util import MovingAverage
+        from dcpy.ts import BandPassButter
+        import numpy as np
+
+        dt = (t[1]-t[0]) * 86400
+        if filt == 'mean':
+            t = MovingAverage(t.copy(), flen/dt)
+            x = MovingAverage(x.copy(), flen/dt)
+
+        if filt == 'bandpass':
+            flen = np.array(flen.copy())
+            assert(len(flen) > 1)
+            x = BandPassButter(x.copy(), 1/flen, dt)
+
+        if ax is None:
+            return t, x
+        else:
+            ax.plot(t, x, **kwargs)
+            ax.xaxis_date()
+
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400):
         ''' Summary plot for all χpods '''
 
@@ -263,39 +297,20 @@ class moor:
         from dcpy.util import MovingAverage
         import numpy as np
 
-        def avgplt(ax, t, x, flen, filt, **kwargs):
-            from dcpy.util import MovingAverage
-            from dcpy.ts import BandPassButter
-
-            dt = (t[1]-t[0]) * 86400
-            if filt == 'mean':
-                t = MovingAverage(t.copy(), flen/dt)
-                x = MovingAverage(x.copy(), flen/dt)
-
-            if filt == 'bandpass':
-                flen = np.array(flen.copy())
-                assert(len(flen) > 1)
-                x = BandPassButter(x.copy(), 1/flen, dt)
-
-            if ax is None:
-                return t, x
-            else:
-                ax.plot(t, x, **kwargs)
-                ax.xaxis_date()
-
-        plt.figure(figsize=[8.5, 12.5])
+        plt.figure(figsize=[8.5, 13.5])
 
         # initialize axes
         nax = 8
         ax = [aa for aa in range(nax)]
         ax[0] = plt.subplot(nax, 1, 1)
+        ax[0].set_clip_on(False)
         ax[0].set_title(self.name + ' | '
                         + str(np.round(filter_len/86400)) + ' day '
                         + filt)
 
         if self.met.τ is not []:
-            avgplt(ax[0], self.met.τtime, self.met.τ,
-                   filter_len, filt, color='k', linewidth=1, zorder=1)
+            self.avgplt(ax[0], self.met.τtime, self.met.τ,
+                        filter_len, filt, color='k', linewidth=1, zorder=1)
             if filt == 'bandpass':
                 ax[0].set_ylim([-0.1, 0.1])
             else:
@@ -304,17 +319,9 @@ class moor:
         if self.met.Jq0 is not []:
             ax00 = ax[0].twinx()
             ax00.set_zorder(-1)
-            time, Jq = avgplt(None, self.met.Jtime, self.met.Jq0,
-                              filter_len, filt)
-            # Jq = MovingAverage(self.met.Jq0.copy(), filter_len/dt)
-            Jq1 = Jq.copy()
-            Jq1[Jq1 > 0] = 0
-            ax00.fill_between(time, Jq1, linestyle='-',
-                              color='#79BEDB', linewidth=1, alpha=0.6)
-            Jq1 = Jq.copy()
-            Jq1[Jq1 < 0] = 0
-            ax00.fill_between(time, Jq1, linestyle='-',
-                              color='#e53935', linewidth=1, alpha=0.6)
+            time, Jq = self.avgplt(None, self.met.Jtime, self.met.Jq0,
+                                   filter_len, filt)
+            self.PlotFlux(ax00, time, Jq)
             ax00.xaxis_date()
             ax00.spines['right'].set_visible(True)
             ax00.spines['left'].set_visible(False)
@@ -345,8 +352,8 @@ class moor:
             xlim = [min(xlim[0], pod.time[0]),
                     max(xlim[1], pod.time[-2])]
 
-            avgplt(ax[1], χ['time'], χ['N2'], filter_len, filt)
-            avgplt(ax[2], χ['time'], χ['dTdz'], filter_len, filt)
+            self.avgplt(ax[1], χ['time'], χ['N2'], filter_len, filt)
+            self.avgplt(ax[2], χ['time'], χ['dTdz'], filter_len, filt)
 
             xlimtemp = ax[2].get_xlim()
             ndt = np.int(np.round(1/4/(pod.ctd1.time[1]
@@ -430,17 +437,17 @@ class moor:
             cmap = plt.get_cmap('RdYlBu_r')
             colorlabel = 'T (C)'
         else:
-            _, T = avgplt(None, self.ctd.time, self.ctd.temp,
-                          filter_len, filt)
+            _, T = self.avgplt(None, self.ctd.time, self.ctd.temp,
+                               filter_len, filt)
             zT = self.ctd.Tzmat
             tT = self.ctd.Ttmat
             cmap = plt.get_cmap('RdBu_r')
             colorlabel = 'T\' (C)'
-            _, S = avgplt(None, self.ctd.time, self.ctd.sal,
-                          filter_len, filt)
+            _, S = self.avgplt(None, self.ctd.time, self.ctd.sal,
+                               filter_len, filt)
             zS = self.ctd.zmat
             tS = self.ctd.tmat
-            # _, ρ = avgplt(None, self.ctd.time, self.ctd.ρ,
+            # _, ρ = self.avgplt(None, self.ctd.time, self.ctd.ρ,
             #               filter_len, filt)
 
         hdl = ax[3].contourf(tT, -zT, T, 30, cmap=cmap, zorder=-1)
