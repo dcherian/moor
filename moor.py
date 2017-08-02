@@ -644,3 +644,167 @@ class moor:
                     xy=[0.75, 0.9], xycoords='axes fraction',
                     size='large',
                     bbox=dict(facecolor='gray', alpha=0.15, edgecolor='none'))
+
+    def PlotCoherence(self, ax, v1, v2, nsmooth=5, multitaper=True):
+        import dcpy.ts
+        import dcpy.plots
+
+        if multitaper:
+            f, Cxy, phase, siglevel = \
+                          dcpy.ts.MultiTaperCoherence(v1, v2,
+                                                      dt=1, tbp=nsmooth)
+            siglevel = siglevel[0]
+        else:
+            f, Cxy, phase, siglevel = \
+                      dcpy.ts.Coherence(v1, v2, dt=1, nsmooth=nsmooth)
+
+        hcoh = ax[0].plot(f, Cxy)
+        dcpy.plots.liney(siglevel, ax=ax[0], color=hcoh[0].get_color())
+        ax[1].plot(f, phase)
+
+        ax[0].set_ylabel('Coh. amp.')
+        ax[0].set_ylim([0, 1])
+        ax[0].set_xlim([0, max(f)])
+
+        ax[1].set_ylabel('Coh. Phase (degrees)')
+        ax[1].set_xlabel('Period (days)')
+        ax[1].set_ylim([-180, 180])
+        ax[1].set_yticks([-180, -90, -45, 0, 45, 90, 180])
+        ax[1].grid(True, axis='y')
+        ax[1].set_xticklabels([''] + [str('{0:.1f}').format(1/aa)
+                                      for aa in ax[1].get_xticks()[1:]])
+
+    def ExtractTimeRange(self, t1, v1, t2, v2, ndayavg=None, season=None):
+
+        import numpy as np
+        from dcpy.util import MovingAverage
+        from dcpy.util import find_approx
+
+        t2 = t2[~np.isnan(v2)].copy()
+        v2 = v2[~np.isnan(v2)]
+
+        # extract appropriate time range from met variable
+        it0 = find_approx(t1, t2[0])
+        it1 = find_approx(t1, t2[-1])
+        v1 = v1[it0:it1]
+        t1 = t1[it0:it1]
+
+        # daily (ndayavg) average before taking spectrum
+        if ndayavg is not None:
+            dt1 = (t1[2]-t1[1])*86400
+            v1 = MovingAverage(v1, ndayavg * 86400/dt1)
+            t1 = MovingAverage(t1, ndayavg * 86400/dt1)
+
+            dt2 = (t2[2]-t2[1])*86400
+            v2 = MovingAverage(v2, ndayavg * 86400/dt2)
+            t2 = MovingAverage(t2, ndayavg * 86400/dt2)
+
+        # extract season if asked to
+        if season is not None:
+            from dcpy.util import ExtractSeason
+            t1, v1 = ExtractSeason(t1, v1, season)
+            t2, v2 = ExtractSeason(t2, v2, season)
+
+        v2i = np.interp(t1, t2, v2)
+
+        return t1, v1, v2i
+
+    def PlotMetCoherence(self, metvars=['Jq', 'wind'], ndayavg=1, nsmooth=4,
+                         fbands=None, season=None, multitaper=False,
+                         filt=None, filter_len=None):
+
+        import matplotlib.pyplot as plt
+        import dcpy.ts
+
+        if len(metvars) == 1:
+            plt.figure(figsize=(10, 5.5))
+            ax0 = plt.subplot(221)
+            ax1 = plt.subplot(223)
+            ax2 = plt.subplot(222)
+            ax3 = plt.subplot(224, sharex=ax2)
+
+        else:
+            plt.figure(figsize=(8, 8))
+            # ax0 = plt.subplot2grid([4, 2], [0, 0], colspan=2)
+            # ax1 = plt.subplot2grid([4, 2], [1, 0], colspan=2)
+            ax0 = plt.subplot(321)
+            ax1 = plt.subplot(322)
+            ax2 = plt.subplot(323)
+            ax3 = plt.subplot(325, sharex=ax2)
+            ax4 = plt.subplot(324)
+            ax5 = plt.subplot(326, sharex=ax4)
+
+        title = self.name
+        if filt is not None:
+            title += ' | ' + str(filter_len/86400) \
+                     + ' ' + filt
+        else:
+            title += ' | unfiltered'
+        ax0.set_title(title)
+
+        for metidx, metvar in enumerate(metvars):
+            if metvar is 'Jq':
+                met = self.met.Jq0
+                tmet = self.met.Jtime
+                axes = [ax2, ax3]
+                label = '$J_q^0$'
+                t, m = self.avgplt(None, tmet, met, filter_len, filt)
+                ax0.plot(t, m, 'k', label=label)
+                self.PlotFlux(ax0, t, m, alpha=0.1)
+                dcpy.ts.PlotSpectrum(met, ax=ax1, color='k')
+
+            if metvar is 'wind':
+                met = self.met.τ
+                tmet = self.met.τtime
+                axes = [ax4, ax5]
+                label = '$1000τ$'
+                self.avgplt(ax0, tmet, met*1000, filter_len,
+                            filt, label=label)
+                dcpy.ts.PlotSpectrum(10*met, nsmooth=20, ax=ax1)
+
+            for idx, unit in enumerate(self.χpod):
+                pod = self.χpod[unit]
+
+                v2 = pod.Jq[pod.best].copy()
+                t1, v1, v2i = self.ExtractTimeRange(tmet.copy(), met.copy(),
+                                                    pod.time.copy(), v2,
+                                                    ndayavg, season)
+                # self.avgplt(ax0, pod.time, pod.chi['mm1']['dTdz']*1e3,
+                #             filter_len, filt, label='$T_z (10^{-3})$',
+                #             color=(0, 0.6, 0.5))
+
+                self.PlotCoherence(axes, v1, v2i, nsmooth, multitaper)
+
+                if metidx == 0:
+                    xlim = ax0.get_xlim()
+                    self.avgplt(ax0, t1, v2i, filter_len, filt,
+                                label='$J_q^t$'+pod.name[5:])
+                    ax0.set_xlim([max(xlim[0], t1[0]),
+                                  min(xlim[1], t1[-1])])
+
+                    dcpy.ts.PlotSpectrum(v2, dt=ndayavg,
+                                         ax=ax1, nsmooth=nsmooth)
+                else:
+                    axes[0].set_ylabel('')
+                    axes[1].set_ylabel('')
+
+            axes[0].set_title('between ' + label + ' and $J_q^t$')
+            dcpy.plots.FillRectangle(86400/filter_len, ax=axes[0])
+            dcpy.plots.FillRectangle(86400/filter_len, ax=axes[1])
+            if fbands is not None:
+                dcpy.plots.linex(fbands, ax=axes)
+
+        ax0.legend(ncol=2)
+        dcpy.plots.liney(0, ax0, linestyle='-')
+        ax0.set_xticks(ax0.get_xticks()[::2])
+
+        ax1.set_ylabel('PSD')
+        dcpy.plots.FillRectangle(86400/filter_len, ax=ax1)
+        dcpy.plots.linex(fbands, ax=ax1)
+
+        plt.tight_layout()
+
+        if len(metvars) == 1:
+            return [ax0, ax1, ax2, ax3]
+        else:
+            return [ax0, ax1, ax2, ax3, ax4, ax5]
