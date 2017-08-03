@@ -765,8 +765,9 @@ class moor:
                     axes[1].set_ylabel('')
 
             axes[0].set_title('between ' + label + ' and $J_q^t$')
-            dcpy.plots.FillRectangle(86400/filter_len, ax=axes[0])
-            dcpy.plots.FillRectangle(86400/filter_len, ax=axes[1])
+            if filter_len is not None:
+                dcpy.plots.FillRectangle(86400/filter_len, ax=axes[0])
+                dcpy.plots.FillRectangle(86400/filter_len, ax=axes[1])
             if fbands is not None:
                 dcpy.plots.linex(fbands, ax=axes)
 
@@ -775,8 +776,10 @@ class moor:
         ax0.set_xticks(ax0.get_xticks()[::2])
 
         ax1.set_ylabel('PSD')
-        dcpy.plots.FillRectangle(86400/filter_len, ax=ax1)
-        dcpy.plots.linex(fbands, ax=ax1)
+        if filter_len is not None:
+            dcpy.plots.FillRectangle(86400/filter_len, ax=ax1)
+        if fbands is not None:
+            dcpy.plots.linex(fbands, ax=ax1)
 
         plt.tight_layout()
 
