@@ -457,9 +457,9 @@ class moor:
         plt.tight_layout(w_pad=2, h_pad=-0.5)
 
         box = ax['T'].get_position()
-        axColor = plt.axes([(box.x0 + box.width)*1.03,
+        axColor = plt.axes([(box.x0 + box.width)*1.02,
                             box.y0, 0.01, box.height])
-        plt.colorbar(hdl, cax=axColor, format='%d')
+        plt.colorbar(hdl, cax=axColor)
         axColor.set_ylabel(colorlabel)
         return ax
 
