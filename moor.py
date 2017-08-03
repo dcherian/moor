@@ -258,16 +258,26 @@ class moor:
 
     def PlotFlux(self, ax, t, Jq, alpha=0.5, **kwargs):
 
+        negcolor = '#79BEDB'
+        poscolor = '#e53935'
+
         Jq1 = Jq.copy()
         Jq1[Jq1 > 0] = 0
         ax.fill_between(t, Jq1, linestyle='-',
-                        color='#79BEDB', linewidth=1,
+                        color=negcolor, linewidth=1,
                         alpha=alpha, **kwargs)
         Jq1 = Jq.copy()
         Jq1[Jq1 < 0] = 0
         ax.fill_between(t, Jq1, linestyle='-',
-                        color='#e53935', linewidth=1,
+                        color=poscolor, linewidth=1,
                         alpha=alpha, **kwargs)
+
+        for tt in ax.get_yaxis().get_ticklabels():
+            if tt.get_position()[1] < 0:
+                tt.set_color(negcolor)
+
+            if tt.get_position()[1] > 0:
+                tt.set_color(poscolor)
 
     def avgplt(self, ax, t, x, flen, filt, **kwargs):
         from dcpy.util import MovingAverage
@@ -287,8 +297,9 @@ class moor:
         if ax is None:
             return t, x
         else:
-            ax.plot(t, x, **kwargs)
+            hdl = ax.plot(t, x, **kwargs)
             ax.xaxis_date()
+            return hdl[0]
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400):
         ''' Summary plot for all χpods '''
