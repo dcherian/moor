@@ -401,7 +401,7 @@ class moor:
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
         ax['N2'].legend(labels)
-        ax['N2'].set_ylabel('$N²$ ($10^{-3}$) | $T_z$')
+        ax['N2'].set_ylabel('$N²$ ($10^{-3}$)')
         limy = ax['N2'].get_ylim()
         ax['N2'].set_ylim([0, limy[1]])
 
