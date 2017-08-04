@@ -457,11 +457,11 @@ class moor:
         plt.tight_layout(w_pad=2, h_pad=-0.5)
 
         box = ax['T'].get_position()
-        axColor = plt.axes([(box.x0 + box.width)*1.02,
-                            box.y0, 0.01, box.height])
-        plt.colorbar(hdl, cax=axColor)
-        axColor.set_ylabel(colorlabel)
-        return ax
+        ax['cbar'] = plt.axes([(box.x0 + box.width)*1.02,
+                               box.y0, 0.01, box.height])
+        hcbar = plt.colorbar(hdl, cax=ax['cbar'])
+        ax['cbar'].set_ylabel(colorlabel)
+        return ax, hdl, hcbar
 
     def PlotSpectrum(self, varname, est='best', filter_len=None,
                      nsmooth=5, SubsetLength=None, ticks=None,
