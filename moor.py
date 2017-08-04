@@ -3,6 +3,7 @@ class moor:
 
     def __init__(self, lon, lat, name, datadir):
 
+        import collections
         self.name = name
         self.datadir = datadir
 
@@ -28,31 +29,77 @@ class moor:
         self.met.Ptime = []
 
         # chipods
-        self.χpod = dict()
-        self.zχpod = dict()
+        self.χpod = collections.OrderedDict()
+        self.zχpod = collections.OrderedDict()
 
         # location
         self.lon = lon
         self.lat = lat
 
+        # "special" events
+        self.special = dict()
+
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
-        if FileType == 'ramaprelim':
-            from scipy.io import loadmat
-            import numpy as np
+        import seawater as sw
+        import numpy as np
+        from scipy.io import loadmat
 
+        if FileType == 'ramaprelim':
             mat = loadmat(fname, squeeze_me=True)
-            self.ctd.time = mat['time'] - 367
-            self.ctd.temp = mat['temp'].T
-            self.ctd.sal = mat['sal'].T
-            self.ctd.depth = mat['depth']
-            self.ctd.zmat = np.tile(self.ctd.depth,
-                                    (len(mat['time']), 1))
-            self.ctd.tmat = np.tile(self.ctd.time,
-                                    (len(mat['depth']), 1)).T
-            self.ctd.Ttmat = self.ctd.tmat
-            self.ctd.Tzmat = self.ctd.zmat
-            self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp, self.ctd.Tzmat)
+            if not self.ctd.__dict__:
+                # first time I'm reading CTD data
+                self.ctd.time = mat['time'] - 367
+                self.ctd.temp = mat['temp'].T
+                self.ctd.sal = mat['sal'].T
+                self.ctd.depth = mat['depth']
+                self.ctd.zmat = np.tile(self.ctd.depth,
+                                        (len(mat['time']), 1))
+                self.ctd.tmat = np.tile(self.ctd.time,
+                                        (len(mat['depth']), 1)).T
+                self.ctd.Ttmat = self.ctd.tmat
+                self.ctd.Tzmat = self.ctd.zmat
+                self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp,
+                                     self.ctd.Tzmat)
+            else:
+                # otherwise we append
+                self.ctd.time = np.concatenate([self.ctd.time,
+                                                mat['time'] - 367])
+                self.ctd.temp = np.concatenate([self.ctd.temp,
+                                                mat['temp'].T])
+                self.ctd.sal = np.concatenate([self.ctd.sal, mat['sal'].T])
+                self.ctd.zmat = np.tile(self.ctd.depth,
+                                        (len(self.ctd.time), 1))
+                self.ctd.tmat = np.tile(self.ctd.time,
+                                        (len(mat['depth']), 1)).T
+                self.ctd.Ttmat = self.ctd.tmat
+                self.ctd.Tzmat = self.ctd.zmat
+                self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp,
+                                     self.ctd.Tzmat)
+
+        if FileType == 'rama':
+            import netCDF4 as nc
+            import matplotlib.dates as dt
+
+            fname = fname + 't' + str(self.lat) + 'n' \
+                + str(self.lon) + 'e' + '_10m.cdf'
+            f = nc.Dataset(fname)
+            t0 = f['time'].units[11:]
+            fmt = dt.strpdate2num('%Y-%m-%d %H:%M:%S')
+            t0 = fmt(t0)
+            self.ctd.Tlong = f['T_20'][:].squeeze()
+            self.ctd.Ttlong = f['time'][:] + t0
+            f.close()
+
+            fname = '../data/' + 's' + str(self.lat) + 'n' \
+                    + str(self.lon) + 'e' + '_hr.cdf'
+            f = nc.Dataset(fname)
+            t0 = f['time'].units[11:]
+            fmt = dt.strpdate2num('%Y-%m-%d %H:%M:%S')
+            t0 = fmt(t0)
+            self.ctd.Slong = f['S_41'][:].squeeze()
+            self.ctd.Stlong = f['time'][:] + t0
+            f.close()
 
         if FileType == 'ebob':
             mat = loadmat(self.datadir + '/ancillary/ctd/'
@@ -138,7 +185,7 @@ class moor:
                 + dt.date2num(dt.datetime.date(1800, 1, 1))
 
     def AddChipod(self, name, depth: int,
-                  best: str, fname: str='Turb.mat'):
+                  best: str, fname: str='Turb.mat', dir=None):
 
         import sys
         if 'home/deepak/python' not in sys.path:
@@ -146,10 +193,29 @@ class moor:
 
         import chipy.chipy as chipy
 
-        self.χpod[name] = chipy.chipod(self.datadir + '/data/',
+        if dir is None:
+            dir = self.datadir
+
+        self.χpod[name] = chipy.chipod(dir + '/data/',
                                        str(name), fname, best,
                                        depth=depth)
         self.zχpod[name] = depth
+
+    def SetColorCycle(self, ax):
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        z = np.array(list(self.zχpod.values()))
+        ccycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        corder = np.array(ccycle[:len(z)])
+
+        for zz in z:
+            cex = corder[z == zz]
+            corder[z == zz] = cex[0]
+
+        ccycle[:len(z)] = corder
+        ax.set_prop_cycle('color', list(corder))
 
     def ChipodSeasonalSummary(self, ax=None, filter_len=86400):
 
@@ -324,6 +390,9 @@ class moor:
         ax['Kt'] = plt.subplot(4, 2, 6, sharex=ax['met'])
         ax['Jq'] = plt.subplot(4, 2, 8, sharex=ax['met'])
 
+        for aa in ax:
+            self.SetColorCycle(ax[aa])
+
         # met forcing in ax['met']
         ax['met'].set_clip_on(False)
         ax['met'].set_title(self.name + ' | '
@@ -400,7 +469,7 @@ class moor:
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
-        ax['N2'].legend(labels)
+        ax['N2'].legend(set(labels))
         ax['N2'].set_ylabel('$N²$ ($10^{-3}$)')
         limy = ax['N2'].get_ylim()
         ax['N2'].set_ylim([0, limy[1]])
