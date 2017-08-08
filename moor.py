@@ -46,17 +46,18 @@ class moor:
         from scipy.io import loadmat
 
         if FileType == 'ramaprelim':
-            mat = loadmat(fname, squeeze_me=True)
+            mat = loadmat(fname, squeeze_me=True, struct_as_record=False)
+            mat = mat['rama']
             if not self.ctd.__dict__:
                 # first time I'm reading CTD data
-                self.ctd.time = mat['time'] - 367
-                self.ctd.temp = mat['temp'].T
-                self.ctd.sal = mat['sal'].T
-                self.ctd.depth = mat['depth']
+                self.ctd.time = mat.time - 367
+                self.ctd.temp = mat.temp.T
+                self.ctd.sal = mat.sal.T
+                self.ctd.depth = mat.depth
                 self.ctd.zmat = np.tile(self.ctd.depth,
-                                        (len(mat['time']), 1))
+                                        (len(mat.time), 1))
                 self.ctd.tmat = np.tile(self.ctd.time,
-                                        (len(mat['depth']), 1)).T
+                                        (len(mat.depth), 1)).T
                 self.ctd.Ttmat = self.ctd.tmat
                 self.ctd.Tzmat = self.ctd.zmat
                 self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp,
@@ -64,14 +65,14 @@ class moor:
             else:
                 # otherwise we append
                 self.ctd.time = np.concatenate([self.ctd.time,
-                                                mat['time'] - 367])
+                                                mat.time - 367])
                 self.ctd.temp = np.concatenate([self.ctd.temp,
-                                                mat['temp'].T])
-                self.ctd.sal = np.concatenate([self.ctd.sal, mat['sal'].T])
+                                                mat.temp.T])
+                self.ctd.sal = np.concatenate([self.ctd.sal, mat.sal.T])
                 self.ctd.zmat = np.tile(self.ctd.depth,
                                         (len(self.ctd.time), 1))
                 self.ctd.tmat = np.tile(self.ctd.time,
-                                        (len(mat['depth']), 1)).T
+                                        (len(mat.depth), 1)).T
                 self.ctd.Ttmat = self.ctd.tmat
                 self.ctd.Tzmat = self.ctd.zmat
                 self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp,
