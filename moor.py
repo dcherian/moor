@@ -382,9 +382,11 @@ class moor:
         ax = dict()
         ax['met'] = plt.subplot(4, 2, 1)
         ax['N2'] = plt.subplot(4, 2, 3, sharex=ax['met'])
-        ax['T'] = plt.subplot2grid((4, 2), (2, 0),
-                                   rowspan=2, sharex=ax['met'])
-        ax['T'].rowNum = 3
+        ax['T'] = plt.subplot(4, 2, 5, sharex=ax['met'])
+        ax['S'] = plt.subplot(4, 2, 7, sharex=ax['met'])
+        # ax['T'] = plt.subplot2grid((4, 2), (2, 0),
+        #                            rowspan=2, sharex=ax['met'])
+        # ax['T'].rowNum = 3
 
         ax['Tz'] = plt.subplot(4, 2, 2, sharex=ax['met'])
         ax['χ'] = plt.subplot(4, 2, 4, sharex=ax['met'])
@@ -442,31 +444,50 @@ class moor:
             self.avgplt(ax['Tz'], χ['time'], χ['dTdz'],
                         filter_len, filt, linewidth=lw)
 
-            xlimtemp = ax['T'].get_xlim()
-            ndt = np.int(np.round(1/4/(pod.ctd1.time[1]
-                                       - pod.ctd1.time[0])))
-            try:
-                ax['T'].plot_date(pod.ctd1.time[::ndt],
-                                  - pod.ctd1.z[::ndt], '-',
-                                  linewidth=0.5, color='gray')
-            except:
-                ax['T'].axhline(-pod.depth, color='gray',
-                                linewidth=0.5)
-            ax['T'].set_xlim(xlimtemp)
+            # showing χpod depth on contourf plot
+            # xlimtemp = ax['χ'].get_xlim()
+            # ndt = np.int(np.round(1/4/(pod.ctd1.time[1]
+            #                            - pod.ctd1.time[0])))
+            # try:
+            #     ax['T'].plot_date(pod.ctd1.time[::ndt],
+            #                       - pod.ctd1.z[::ndt], '-',
+            #                       linewidth=0.5, color='gray')
+            # except:
+            #     ax['T'].axhline(-pod.depth, color='gray',
+            #                     linewidth=0.5)
+            # ax['met'].set_xlim(xlimtemp)
 
-            if filt == 'mean':
-                filt1 = None
-            else:
-                filt1 = filt
-
-            pod.PlotEstimate('chi', ee, hax=ax['χ'], filt=filt1,
+            pod.PlotEstimate('chi', ee, hax=ax['χ'], filt=filt,
+                             decimate=True,
                              filter_len=filter_len, linewidth=lw)
-            pod.PlotEstimate('KT', ee, hax=ax['Kt'], filt=filt1,
+            pod.PlotEstimate('KT', ee, hax=ax['Kt'], filt=filt,
+                             decimate=True,
                              filter_len=filter_len, linewidth=lw)
             pod.PlotEstimate('Jq', ee, hax=ax['Jq'], filt=filt,
+                             decimate=True,
                              filter_len=filter_len, linewidth=lw)
 
             labels.append(str(pod.depth) + 'm')
+
+        from cycler import cycler
+        import matplotlib as mpl
+        N = self.ctd.temp.shape[1]-1
+        colors = mpl.cm.Greys_r(np.arange(N)/N)
+        ax['T'].set_prop_cycle(cycler('color', colors))
+        ax['S'].set_prop_cycle(cycler('color', colors))
+        dt = np.nanmean(np.diff(self.ctd.time))*86400
+        nfilt = (86400/2)/dt
+        self.avgplt(ax['T'],
+                    MovingAverage(self.ctd.time, nfilt, axis=0),
+                    MovingAverage(self.ctd.temp[:, :-1], nfilt, axis=0),
+                    flen=None, filt='None', linewidth=lw)
+        self.avgplt(ax['S'],
+                    MovingAverage(self.ctd.time, nfilt, axis=0),
+                    MovingAverage(self.ctd.sal[:, :-1], nfilt, axis=0),
+                    flen=None, filt='None', linewidth=lw)
+        ax['T'].legend([str(aa)+'m' for aa in
+                        np.int32(np.round(self.ctd.depth[:-1]))],
+                       ncol=N)
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
@@ -475,8 +496,10 @@ class moor:
         limy = ax['N2'].get_ylim()
         ax['N2'].set_ylim([0, limy[1]])
 
-        ax['Tz'].set_ylabel('$\partial T/ \partial z$')
-        ax['Tz'].axhline(0, color='gray', zorder=-1)
+        ax['Tz'].set_ylabel('$\partial T/ \partial z$ (symlog)')
+        ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
+        ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
+        ax['Tz'].grid(True, axis='y', linestyle ='--', linewidth=0.5)
 
         ax['χ'].set_title('')
         ax['χ'].set_ylabel('$χ$')
@@ -485,53 +508,60 @@ class moor:
         ax['Kt'].set_ylabel('$K_T$')
 
         ax['Jq'].set_title('')
-        ax['Jq'].axhline(0, color='gray', zorder=-1)
+        ax['Jq'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
         ax['Jq'].set_ylabel('$J_q^t$')
+        ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
+        # ax['Jq'].set_yscale('symlog', linthreshy=10, linscaley=2)
 
+        ax['T'].set_title('')
+        ax['T'].set_ylabel('$T$')
+        ax['S'].set_title('')
+        ax['S'].set_ylabel('$S$')
+
+        ax['met'].set_xlim(xlim)
         plt.gcf().autofmt_xdate()
 
-        dt = np.nanmean(np.diff(self.ctd.time))*86400
-        nfilt = (86400/2)/dt
-        if filt == 'mean':
-            T = MovingAverage(self.ctd.temp, nfilt, axis=0)
-            zT = MovingAverage(self.ctd.Tzmat, nfilt, axis=0)
-            tT = MovingAverage(self.ctd.Ttmat, nfilt, axis=0)
-            S = MovingAverage(self.ctd.sal, nfilt, axis=0)
-            # ρ = MovingAverage(self.ctd.ρ, nfilt, axis=0)
-            tS = MovingAverage(self.ctd.tmat, nfilt, axis=0)
-            zS = MovingAverage(self.ctd.zmat, nfilt, axis=0)
-            cmap = plt.get_cmap('RdYlBu_r')
-            colorlabel = 'T (C)'
-        else:
-            _, T = self.avgplt(None, self.ctd.time, self.ctd.temp,
-                               filter_len, filt)
-            zT = self.ctd.Tzmat
-            tT = self.ctd.Ttmat
-            cmap = plt.get_cmap('RdBu_r')
-            colorlabel = 'T\' (C)'
-            _, S = self.avgplt(None, self.ctd.time, self.ctd.sal,
-                               filter_len, filt)
-            zS = self.ctd.zmat
-            tS = self.ctd.tmat
-            # _, ρ = self.avgplt(None, self.ctd.time, self.ctd.ρ,
-            #               filter_len, filt)
+        # if filt == 'mean':
+        #     T = MovingAverage(self.ctd.temp, nfilt, axis=0)
+        #     zT = MovingAverage(self.ctd.Tzmat, nfilt, axis=0)
+        #     tT = MovingAverage(self.ctd.Ttmat, nfilt, axis=0)
+        #     S = MovingAverage(self.ctd.sal, nfilt, axis=0)
+        #     # ρ = MovingAverage(self.ctd.ρ, nfilt, axis=0)
+        #     tS = MovingAverage(self.ctd.tmat, nfilt, axis=0)
+        #     zS = MovingAverage(self.ctd.zmat, nfilt, axis=0)
+        #     cmap = plt.get_cmap('RdYlBu_r')
+        #     colorlabel = 'T (C)'
+        # else:
+        #     _, T = self.avgplt(None, self.ctd.time, self.ctd.temp,
+        #                        filter_len, filt)
+        #     zT = self.ctd.Tzmat
+        #     tT = self.ctd.Ttmat
+        #     cmap = plt.get_cmap('RdBu_r')
+        #     colorlabel = 'T\' (C)'
+        #     _, S = self.avgplt(None, self.ctd.time, self.ctd.sal,
+        #                        filter_len, filt)
+        #     zS = self.ctd.zmat
+        #     tS = self.ctd.tmat
+        #     # _, ρ = self.avgplt(None, self.ctd.time, self.ctd.ρ,
+        #     #               filter_len, filt)
 
         # hdl = ax[3].contourf(tS, -zS, ρ, 20, zorder=-1,
         #                     cmap=plt.get_cmap('RdYlBu_r'))
-        hdl = ax['T'].contourf(tT, -zT, T, 30, cmap=cmap, zorder=-1)
-        ax['T'].contour(tS, -zS, S, 10,
-                        colors='k', linewidths=0.25, zorder=-1)
-        ax['T'].set_ylabel('depth')
-        ax['met'].set_xlim(xlim)
+        # hdl = ax['T'].contourf(tT, -zT, T, 30, cmap=cmap, zorder=-1)
+        # ax['T'].contour(tS, -zS, S, 10,
+        #                 colors='k', linewidths=0.25, zorder=-1)
+        # ax['T'].set_ylabel('depth')
+        # ax['met'].set_xlim(xlim)
 
         plt.tight_layout(w_pad=2, h_pad=-0.5)
 
-        box = ax['T'].get_position()
-        ax['cbar'] = plt.axes([(box.x0 + box.width)*1.02,
-                               box.y0, 0.01, box.height])
-        hcbar = plt.colorbar(hdl, cax=ax['cbar'])
-        ax['cbar'].set_ylabel(colorlabel)
-        return ax, hdl, hcbar
+        # box = ax['T'].get_position()
+        # ax['cbar'] = plt.axes([(box.x0 + box.width)*1.02,
+        #                        box.y0, 0.01, box.height])
+        # hcbar = plt.colorbar(hdl, cax=ax['cbar'])
+        # ax['cbar'].set_ylabel(colorlabel)
+
+        return ax
 
     def PlotSpectrum(self, varname, est='best', filter_len=None,
                      nsmooth=5, SubsetLength=None, ticks=None,
@@ -857,3 +887,61 @@ class moor:
             return [ax0, ax1, ax2, ax3]
         else:
             return [ax0, ax1, ax2, ax3, ax4, ax5]
+
+    def Budget(self):
+
+        from dcpy.util import MovingAverage
+        import numpy as np
+
+        pod = self.χpod[list(self.χpod.keys())[0]]
+
+        ρ = 1025
+        cp = 4200
+        H = pod.depth
+        T = pod.ctd1.T
+        tT = pod.ctd1.time
+
+        # rate of change of daily average temperature
+        dTdt = np.diff(MovingAverage(T, 144))/(86400)
+        tavg = MovingAverage(tT, 144)
+        tavg = (tavg[0:-1] + tavg[1:])/2
+
+        # rate of heating of water column
+        Q = ρ * cp * dTdt * H
+
+        # budget is Q = Jq0 + Jqt
+        # where both Jqs are positive when they heat the surface
+
+        # get Jq0 on same time grid as Qavg
+        Jq0 = np.interp(tavg, self.met.Jtime, self.met.Jq0)
+
+        Jqt = Q - Jq0
+
+        import matplotlib.pyplot as plt
+        from statsmodels.nonparametric.smoothers_lowess import lowess
+        import dcpy.plots
+
+        ax1 = plt.subplot(311)
+        plt.plot(MovingAverage(tT, 144), MovingAverage(T, 144))
+        ax1.xaxis_date()
+        plt.ylabel('T (1 day avg)')
+
+        plt.subplot(312, sharex=ax1)
+        a = lowess(dTdt, tavg, frac=0.025)
+        plt.plot(a[:,0], a[:,1] * 86400)
+        plt.ylabel('∂T/∂t (C/day)')
+        dcpy.plots.liney(0)
+        dcpy.plots.symyaxis()
+
+        plt.subplot(313, sharex=ax1)
+        a = lowess(Jqt.T, tavg, frac=0.025)
+        plt.plot(a[:, 0], a[:, 1])
+        plt.plot(tavg, Jq0)
+        a = lowess(Q, tavg, frac=0.025)
+        plt.plot(a[:, 0], a[:, 1])
+        plt.legend(['$J_q^t$', '$J_q^0$', '$Q_{avg}$'])
+        dcpy.plots.liney(0)
+
+        dcpy.plots.symyaxis()
+
+        plt.gcf().autofmt_xdate()
