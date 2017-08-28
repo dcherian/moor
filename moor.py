@@ -182,9 +182,11 @@ class moor:
             self.met.P = interpn((time, np.flipud(lat), lon),
                                  np.fliplr(met['prate'][:, :, :]),
                                  (time, self.lat, self.lon))
-            self.met.Ptime = time \
+            self.met.Ptime = time/24 \
                 + dt.date2num(dt.datetime.date(1800, 1, 1))
 
+            # convert from kg/m^2/s to mm/hr
+            self.met.P *= 1/1000 * 1000 * 3600
     def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat', dir=None):
 
@@ -412,6 +414,11 @@ class moor:
                 ax['met'].set_ylim([-0.1, 0.1])
             else:
                 ax['met'].set_ylim([0, 0.3])
+
+        if self.met.P is not []:
+            self.avgplt(ax['met'], self.met.Ptime, self.met.P/10,
+                        flen=None, filt=None, color='deepskyblue',
+                        linewidth=lw, zorder=-1)
 
         if self.met.Jq0 is not []:
             ax00 = ax['met'].twinx()
