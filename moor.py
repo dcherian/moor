@@ -38,6 +38,7 @@ class moor:
 
         # "special" events
         self.special = dict()
+        self.season = dict()
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
@@ -205,6 +206,9 @@ class moor:
                 unit.special[name] = [dt.datetime.strptime(t0, '%Y-%m-%d'),
                                       dt.datetime.strptime(t1, '%Y-%m-%d')]
 
+        # append to the mooring list
+        self.special[name] = unit.special[name]
+
     def AddSeason(self, pods, name, t0, t1):
         import datetime as dt
 
@@ -249,7 +253,8 @@ class moor:
         ccycle[:len(z)] = corder
         ax.set_prop_cycle('color', list(corder))
 
-    def ChipodSeasonalSummary(self, pods=[], ax=None, filter_len=86400):
+    def ChipodSeasonalSummary(self, pods=[], ax=None, filter_len=86400,
+                              labels=[]):
 
         import matplotlib.pyplot as plt
 
@@ -259,7 +264,6 @@ class moor:
             ax.set_title(self.name)
 
         handles = []
-        labels = []
         pos = []
 
         if pods is []:
@@ -274,7 +278,8 @@ class moor:
                                                     idx=idx,
                                                     filter_len=filter_len)
             handles.append(hdl)
-            labels.append(lbl)
+            if labels is []:
+                labels.append(lbl)
             pos.append(p)
 
         ax.set_title(self.name)
