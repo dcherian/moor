@@ -267,7 +267,6 @@ class moor:
         import numpy as np
         import matplotlib.pyplot as plt
         import matplotlib.cm as cm
-        import cmocean as cmo
 
         s0 = 4  # min size of circles
         ns = 3  # scaling for sizea
@@ -474,19 +473,19 @@ class moor:
 
         from cycler import cycler
         import matplotlib as mpl
-        N = self.ctd.temp.shape[1]-1
-        colors = mpl.cm.Greys_r(np.arange(N)/N)
+        N = 5
+        colors = mpl.cm.Greys_r(np.arange(N+1)/(N+1))
         ax['T'].set_prop_cycle(cycler('color', colors))
         ax['S'].set_prop_cycle(cycler('color', colors))
         dt = np.nanmean(np.diff(self.ctd.time))*86400
         nfilt = (86400/2)/dt
         self.avgplt(ax['T'],
                     MovingAverage(self.ctd.time, nfilt, axis=0),
-                    MovingAverage(self.ctd.temp[:, :-1], nfilt, axis=0),
+                    MovingAverage(self.ctd.temp[:, :N], nfilt, axis=0),
                     flen=None, filt='None', linewidth=lw)
         self.avgplt(ax['S'],
                     MovingAverage(self.ctd.time, nfilt, axis=0),
-                    MovingAverage(self.ctd.sal[:, :-1], nfilt, axis=0),
+                    MovingAverage(self.ctd.sal[:, :N], nfilt, axis=0),
                     flen=None, filt='None', linewidth=lw)
         ax['T'].legend([str(aa)+'m' for aa in
                         np.int32(np.round(self.ctd.depth[:-1]))],
