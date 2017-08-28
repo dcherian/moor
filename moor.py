@@ -47,7 +47,11 @@ class moor:
 
         if FileType == 'ramaprelim':
             mat = loadmat(fname, squeeze_me=True, struct_as_record=False)
-            mat = mat['rama']
+            try:
+                mat = mat['rama']
+            except KeyError:
+                pass
+
             if not self.ctd.__dict__:
                 # first time I'm reading CTD data
                 self.ctd.time = mat.time - 367
