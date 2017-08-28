@@ -232,14 +232,18 @@ class moor:
         handles = []
         labels = []
         pos = []
-        for idx, name in enumerate(self.χpod):
-            if pods is not [] and name not in pods:
-                continue
 
+        if pods is []:
+            pods = list(self.χpod.keys())
+
+        if type(pods) is not list:
+            pods = list(pods)
+
+        for idx, name in enumerate(pods):
             hdl, lbl, p = \
-                  self.χpod[name].SeasonalSummary(ax=ax,
-                                                  idx=idx,
-                                                  filter_len=filter_len)
+                    self.χpod[name].SeasonalSummary(ax=ax,
+                                                    idx=idx,
+                                                    filter_len=filter_len)
             handles.append(hdl)
             labels.append(lbl)
             pos.append(p)
