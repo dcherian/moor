@@ -264,9 +264,10 @@ class moor:
             ax.set_title(self.name)
 
         handles = []
+        clabels = []
         pos = []
 
-        if pods is []:
+        if pods == []:
             pods = list(self.χpod.keys())
 
         if type(pods) is not list:
@@ -278,13 +279,15 @@ class moor:
                                                     idx=idx,
                                                     filter_len=filter_len)
             handles.append(hdl)
-            if labels is []:
-                labels.append(lbl)
+            clabels.append(lbl)
             pos.append(p)
 
         ax.set_title(self.name)
 
         if len(self.χpod) > 1:
+            if labels == []:
+                labels = clabels
+
             import numpy as np
             ax.set_xticks(list(np.mean(pos, 0)))
             ax.legend((handles[0]['medians'][0],
@@ -504,7 +507,10 @@ class moor:
         labels = []
 
         xlim = [1e6, 0]
-        for unit in self.χpod:
+        if pods == []:
+            pods = list(self.χpod.keys())
+
+        for unit in pods:
             pod = self.χpod[unit]
 
             if est == 'best':
