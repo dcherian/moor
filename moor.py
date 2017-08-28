@@ -218,12 +218,12 @@ class moor:
         ccycle[:len(z)] = corder
         ax.set_prop_cycle('color', list(corder))
 
-    def ChipodSeasonalSummary(self, ax=None, filter_len=86400):
+    def ChipodSeasonalSummary(self, pods=[], ax=None, filter_len=86400):
 
         import matplotlib.pyplot as plt
 
         if ax is None:
-            plt.figure(figsize=[6.5, 4.5])
+            plt.figure(figsize=[7.5, 4.5])
             ax = plt.gca()
             ax.set_title(self.name)
 
@@ -231,10 +231,13 @@ class moor:
         labels = []
         pos = []
         for idx, name in enumerate(self.χpod):
+            if pods is not [] and name not in pods:
+                continue
+
             hdl, lbl, p = \
-                    self.χpod[name].SeasonalSummary(ax=ax,
-                                                    idx=idx,
-                                                    filter_len=filter_len)
+                  self.χpod[name].SeasonalSummary(ax=ax,
+                                                  idx=idx,
+                                                  filter_len=filter_len)
             handles.append(hdl)
             labels.append(lbl)
             pos.append(p)
