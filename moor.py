@@ -410,7 +410,36 @@ class moor:
             ax.xaxis_date()
             return hdl[0]
 
-    def Plotχpods(self, est: str='best', filt='mean', filter_len=86400):
+    def MarkSeasonsAndSpecials(self, ax, season=True, special=True):
+        import matplotlib.dates as dt
+
+        if season:
+            seasonColor = {'NE': 'beige',
+                           'NE→SW': 'lemonchiffon',
+                           'SW': 'wheat',
+                           'SW→NE': 'honeydew'}
+
+            for pp in self.season:
+                for ss in self.season[pp]:
+                    clr = seasonColor[ss]
+                    ylim = ax.get_ylim()
+                    xx = dt.date2num(self.season[pp][ss])
+                    ax.fill_between(xx, ylim[1], ylim[0],
+                                    facecolor=clr, alpha=0.35,
+                                    zorder=-10, edgecolor=None)
+                    ax.set_ylim(ylim)
+
+        if special:
+            for ss in self.special:
+                ylim = ax.get_ylim()
+                xx = dt.date2num(self.special[ss])
+                ax.fill_between(xx, ylim[1], ylim[0],
+                                facecolor='palevioletred', alpha=0.35,
+                                zorder=-5)
+                ax.set_ylim(ylim)
+
+    def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
+                  pods=[]):
         ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
@@ -453,10 +482,10 @@ class moor:
             else:
                 ax['met'].set_ylim([0, 0.3])
 
-        if self.met.P is not []:
-            self.avgplt(ax['met'], self.met.Ptime, self.met.P/10,
-                        flen=None, filt=None, color='deepskyblue',
-                        linewidth=lw, zorder=-1)
+        # if self.met.P is not []:
+        #     self.avgplt(ax['met'], self.met.Ptime, self.met.P/10,
+        #                 flen=None, filt=None, color='deepskyblue',
+        #                 linewidth=lw, zorder=-1)
 
         if self.met.Jq0 is not []:
             ax00 = ax['met'].twinx()
@@ -514,7 +543,8 @@ class moor:
                              decimate=True,
                              filter_len=filter_len, linewidth=lw)
 
-            labels.append(str(pod.depth) + 'm')
+            if str(pod.depth)+'m' not in labels:
+                labels.append(str(pod.depth) + 'm')
 
         from cycler import cycler
         import matplotlib as mpl
@@ -538,7 +568,7 @@ class moor:
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
-        ax['N2'].legend(set(labels))
+        ax['N2'].legend(labels)
         ax['N2'].set_ylabel('$N²$ ($10^{-3}$)')
         limy = ax['N2'].get_ylim()
         ax['N2'].set_ylim([0, limy[1]])
@@ -567,6 +597,9 @@ class moor:
 
         ax['met'].set_xlim(xlim)
         plt.gcf().autofmt_xdate()
+
+        for name in ['N2', 'T', 'S', 'χ', 'Kt', 'Jq', 'Tz']:
+            self.MarkSeasonsAndSpecials(ax[name])
 
         # if filt == 'mean':
         #     T = MovingAverage(self.ctd.temp, nfilt, axis=0)
