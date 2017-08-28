@@ -187,6 +187,31 @@ class moor:
 
             # convert from kg/m^2/s to mm/hr
             self.met.P *= 1/1000 * 1000 * 3600
+
+    def AddSpecialTimes(self, pods, name, t0, t1):
+        import datetime as dt
+
+        for pp in pods:
+            unit = self.χpod[pp]
+
+            try:
+                unit.special[name] = [dt.datetime.strptime(t0, '%Y-%b-%d'),
+                                      dt.datetime.strptime(t1, '%Y-%b-%d')]
+            except:
+                unit.special[name] = [dt.datetime.strptime(t0, '%Y-%m-%d'),
+                                      dt.datetime.strptime(t1, '%Y-%m-%d')]
+
+    def AddSeason(self, pods, name, t0, t1):
+        import datetime as dt
+
+        for pp in pods:
+            unit = self.χpod[pp]
+            try:
+                unit.season[name] = [dt.datetime.strptime(t0, '%Y-%b-%d'),
+                                     dt.datetime.strptime(t1, '%Y-%b-%d')]
+            except:
+                unit.season[name] = [dt.datetime.strptime(t0, '%Y-%m-%d'),
+                                     dt.datetime.strptime(t1, '%Y-%m-%d')]
     def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat', dir=None):
 
