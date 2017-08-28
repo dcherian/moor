@@ -454,12 +454,12 @@ class moor:
         ax['met'] = plt.subplot(4, 2, 1)
         ax['N2'] = plt.subplot(4, 2, 3, sharex=ax['met'])
         ax['T'] = plt.subplot(4, 2, 5, sharex=ax['met'])
-        ax['S'] = plt.subplot(4, 2, 7, sharex=ax['met'])
+        ax['Tz'] = plt.subplot(4, 2, 7, sharex=ax['met'])
         # ax['T'] = plt.subplot2grid((4, 2), (2, 0),
         #                            rowspan=2, sharex=ax['met'])
         # ax['T'].rowNum = 3
 
-        ax['Tz'] = plt.subplot(4, 2, 2, sharex=ax['met'])
+        ax['S'] = plt.subplot(4, 2, 2, sharex=ax['met'])
         ax['χ'] = plt.subplot(4, 2, 4, sharex=ax['met'])
         ax['Kt'] = plt.subplot(4, 2, 6, sharex=ax['met'])
         ax['Jq'] = plt.subplot(4, 2, 8, sharex=ax['met'])
@@ -482,10 +482,10 @@ class moor:
             else:
                 ax['met'].set_ylim([0, 0.3])
 
-        # if self.met.P is not []:
-        #     self.avgplt(ax['met'], self.met.Ptime, self.met.P/10,
-        #                 flen=None, filt=None, color='deepskyblue',
-        #                 linewidth=lw, zorder=-1)
+        if self.met.P is not []:
+            self.avgplt(ax['met'], self.met.Ptime, self.met.P/10,
+                        flen=None, filt=None, color='lightsalmon',
+                        linewidth=lw, zorder=-1)
 
         if self.met.Jq0 is not []:
             ax00 = ax['met'].twinx()
@@ -600,6 +600,8 @@ class moor:
 
         for name in ['N2', 'T', 'S', 'χ', 'Kt', 'Jq', 'Tz']:
             self.MarkSeasonsAndSpecials(ax[name])
+
+        self.MarkSeasonsAndSpecials(ax['met'], season=False)
 
         # if filt == 'mean':
         #     T = MovingAverage(self.ctd.temp, nfilt, axis=0)
