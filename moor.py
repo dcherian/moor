@@ -65,7 +65,7 @@ class moor:
 
             if not self.ctd.__dict__:
                 # first time I'm reading CTD data
-                self.ctd.time = mat.time - 367
+                self.ctd.time = mat.time - 366
                 self.ctd.temp = mat.temp.T
                 self.ctd.sal = mat.sal.T
                 self.ctd.depth = mat.depth
@@ -80,7 +80,7 @@ class moor:
             else:
                 # otherwise we append
                 self.ctd.time = np.concatenate([self.ctd.time,
-                                                mat.time - 367])
+                                                mat.time - 366])
                 self.ctd.temp = np.concatenate([self.ctd.temp,
                                                 mat.temp.T])
                 self.ctd.sal = np.concatenate([self.ctd.sal, mat.sal.T])
@@ -126,7 +126,7 @@ class moor:
 
             self.ctd.sal = np.ma.masked_array(salt,
                                               mask=np.isnan(salt))
-            self.ctd.tmat = mat['time'].T - 367
+            self.ctd.tmat = mat['time'].T - 366
             self.ctd.zmat = np.float16(pres)
             self.ctd.time = self.ctd.tmat[:, 0]
             self.ctd.depth = pres[10, :]
@@ -139,12 +139,12 @@ class moor:
             self.ctd.temp = np.ma.masked_array(temp,
                                                mask=np.isnan(temp))
             zvec = mat['dbar_dpth']
-            tvec = mat['Time' + fname[-1]] - 367
+            tvec = mat['Time' + fname[-1]] - 366
             self.ctd.Ttmat = np.tile(tvec.T, (len(zvec), 1)).T
             self.ctd.Tzmat = np.tile(zvec, (len(tvec), 1))
 
     def ReadMet(self, fname: str=None,
-                WindType: str='pmel', FluxType: str='sat'):
+                WindType='', FluxType=''):
 
         import airsea as air
         import matplotlib.dates as dt
@@ -156,14 +156,13 @@ class moor:
             if fname is None:
                 raise ValueError('I need a filename for PMEL met data!')
 
-            # find RAMA met file
-            import glob
-            met = nc.Dataset(glob.glob(fname + '/met*.cdf')[0])
+            met = nc.Dataset(fname)
+            self.met.τtime = np.float64(met['time'][:]/24.0/60.0) \
+                + np.float64(dt.date2num(dt.datetime.datetime(2009, 11, 5,
+                                                              19, 30, 0)))
             spd = met['WS_401'][:].squeeze()
             z0 = abs(met['depu'][0])
-            self.met.τtime = np.float64(met['time'][:]/24.0/60.0) \
-                + np.float64(dt.date2num(dt.datetime.date(2013, 12, 1)))
-            self.met.τ = air.windstress.stress(spd, z0)
+            self.met.τ = air.windstress.stress(spd, z0, drag='smith')
 
         elif WindType == 'sat':
             if fname is not None:
@@ -197,11 +196,19 @@ class moor:
             self.met.P = interpn((time, np.flipud(lat), lon),
                                  np.fliplr(met['prate'][:, :, :]),
                                  (time, self.lat, self.lon))
-            self.met.Ptime = time/24 \
+            self.met.Ptime = time/24.0 \
                 + dt.date2num(dt.datetime.date(1800, 1, 1))
 
             # convert from kg/m^2/s to mm/hr
-            self.met.P *= 1/1000 * 1000 * 3600
+            self.met.P *= 1/1000 * 1000 * 3600.0
+
+        elif FluxType == 'merged':
+            from scipy.io import loadmat
+            mat = loadmat(fname, squeeze_me=False)
+            # self.met.Jq0 = -mat['Jq']['swf'][0][0][0]
+            self.met.Jq0 = -mat['Jq']['nhf'][0][0][0]
+            self.met.Jtime = mat['Jq']['t'][0][0][0] - 366
+            self.met.swr = -mat['Jq']['swf'][0][0][0]
 
     def AddSpecialTimes(self, pods, name, t0, t1):
         import datetime as dt
