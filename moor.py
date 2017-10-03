@@ -439,15 +439,20 @@ class moor:
         from dcpy.ts import BandPassButter
         import numpy as np
 
-        dt = (t[1]-t[0]) * 86400
-        if filt == 'mean':
-            t = MovingAverage(t.copy(), flen/dt)
-            x = MovingAverage(x.copy(), flen/dt)
+        dt = (t[3]-t[2]) * 86400
+        if flen is not None:
+            if filt == 'mean':
+                t = MovingAverage(t.copy(), flen/dt)
+                x = MovingAverage(x.copy(), flen/dt)
 
-        if filt == 'bandpass':
-            flen = np.array(flen.copy())
-            assert(len(flen) > 1)
-            x = BandPassButter(x.copy(), 1/flen, dt)
+            elif filt == 'bandpass':
+                flen = np.array(flen.copy())
+                assert(len(flen) > 1)
+                x = BandPassButter(x.copy(), 1/flen, dt)
+
+            else:
+                from dcpy.util import smooth
+                x = smooth(x, flen/dt)
 
         if ax is None:
             return t, x
