@@ -7,8 +7,8 @@ class moor:
         self.name = name
         self.datadir = datadir
 
-        # adcp info
-        self.adcp = dict()
+        # vel info
+        self.vel = dict()
 
         # ctd info
         class ctd:
@@ -27,6 +27,16 @@ class moor:
         self.met.Jtime = []
         self.met.P = []  # precip
         self.met.Ptime = []
+        self.met.swr = []
+
+        # velocity
+        class vel:
+            pass
+
+        self.vel = vel()
+        self.vel.time = []
+        self.vel.u = []
+        self.vel.v = []
 
         # chipods
         self.χpod = collections.OrderedDict()
@@ -220,6 +230,32 @@ class moor:
             except:
                 unit.season[name] = [dt.datetime.strptime(t0, '%Y-%m-%d'),
                                      dt.datetime.strptime(t1, '%Y-%m-%d')]
+
+            self.season[pp] = unit.season
+
+    def ReadVel(self, fname, FileType: str='ebob'):
+        ''' Read velocity data '''
+
+        if FileType == 'pmel':
+            import netCDF4 as nc
+            import matplotlib.dates as dt
+            import numpy as np
+
+            vel = nc.Dataset(fname)
+
+            self.vel.time = np.float64(vel['time'][:]/60.0/24.0) + \
+                np.float64(dt.date2num(dt.datetime.datetime(2013, 11, 29,
+                                                            17, 30, 0)))
+            self.vel.u = vel['U_320'][:].squeeze()/100.0
+            self.vel.v = vel['V_321'][:].squeeze()/100.0
+
+            self.vel.u[self.vel.u > 5] = np.nan
+            self.vel.v[self.vel.v > 5] = np.nan
+
+        if FileType == 'ebob':
+            from scipy.io import loadmat
+            self.adcp = loadmat('../ancillary/adcp/')
+
     def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat', dir=None):
 
@@ -413,6 +449,30 @@ class moor:
             ax.xaxis_date()
             return hdl[0]
 
+    def Quiver(self, t=None, u=None, v=None, ax=None, flen=None,
+               filt=None, color='k'):
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        if ax is None:
+            ax = plt.gca()
+
+        if t is None:
+            t = self.vel.time
+            u = self.vel.u
+            v = self.vel.v
+
+        t1, u = self.avgplt(None, t, u, flen, filt)
+        t1, v = self.avgplt(None, t, v, flen, filt)
+
+        hquiv = ax.quiver(t1, np.zeros_like(t1), u, v,
+                          scale=3, color=color, alpha=0.4)
+        ax.quiverkey(hquiv,
+                     0.3, 0.2, 0.5, '0.5 m/s', labelpos='E',
+                     coordinates='axes')
+
+        return hquiv
+
     def MarkSeasonsAndSpecials(self, ax, season=True, special=True):
         import matplotlib.dates as dt
 
@@ -442,7 +502,7 @@ class moor:
                 ax.set_ylim(ylim)
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
-                  pods=[]):
+                  pods=[], quiv=True):
         ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
@@ -457,24 +517,33 @@ class moor:
         ax['met'] = plt.subplot(4, 2, 1)
         ax['N2'] = plt.subplot(4, 2, 3, sharex=ax['met'])
         ax['T'] = plt.subplot(4, 2, 5, sharex=ax['met'])
-        ax['Tz'] = plt.subplot(4, 2, 7, sharex=ax['met'])
+        if self.vel.u != [] and quiv:
+            ax['v'] = plt.subplot(4, 2, 7, sharex=ax['met'])
+        else:
+            ax['χ'] = plt.subplot(4, 2, 7, sharex=ax['met'])
         # ax['T'] = plt.subplot2grid((4, 2), (2, 0),
         #                            rowspan=2, sharex=ax['met'])
         # ax['T'].rowNum = 3
 
         ax['S'] = plt.subplot(4, 2, 2, sharex=ax['met'])
-        ax['χ'] = plt.subplot(4, 2, 4, sharex=ax['met'])
+        ax['Tz'] = plt.subplot(4, 2, 4, sharex=ax['met'])
         ax['Kt'] = plt.subplot(4, 2, 6, sharex=ax['met'])
         ax['Jq'] = plt.subplot(4, 2, 8, sharex=ax['met'])
+
+        if filter_len is None:
+            filt = None
 
         for aa in ax:
             self.SetColorCycle(ax[aa])
 
         # met forcing in ax['met']
         ax['met'].set_clip_on(False)
-        ax['met'].set_title(self.name + ' | '
-                            + str(np.round(filter_len/86400)) + ' day '
-                            + filt)
+        if filter_len is not None:
+            ax['met'].set_title(self.name + ' | '
+                                + str(np.round(filter_len/86400)) + ' day '
+                                + filt)
+        else:
+            ax['met'].set_title(self.name)
 
         if self.met.τ is not []:
             self.avgplt(ax['met'], self.met.τtime, self.met.τ,
@@ -485,24 +554,24 @@ class moor:
             else:
                 ax['met'].set_ylim([0, 0.3])
 
-        if self.met.P is not []:
+        if self.met.P != []:
             self.avgplt(ax['met'], self.met.Ptime, self.met.P/10,
                         flen=None, filt=None, color='lightsalmon',
                         linewidth=lw, zorder=-1)
 
-        if self.met.Jq0 is not []:
-            ax00 = ax['met'].twinx()
-            ax00.set_zorder(-1)
+        if self.met.Jq0 != []:
+            ax['Jq0'] = ax['met'].twinx()
+            ax['Jq0'].set_zorder(-1)
             time, Jq = self.avgplt(None, self.met.Jtime, self.met.Jq0,
                                    filter_len, filt)
-            ax00.spines['right'].set_visible(True)
-            ax00.spines['left'].set_visible(False)
-            self.PlotFlux(ax00, time, Jq)
-            ax00.xaxis_date()
-            ax00.set_ylabel('$J_q^0$ (W/m²)', labelpad=0)
+            ax['Jq0'].spines['right'].set_visible(True)
+            ax['Jq0'].spines['left'].set_visible(False)
+            self.PlotFlux(ax['Jq0'], time, Jq)
+            ax['Jq0'].xaxis_date()
+            ax['Jq0'].set_ylabel('$J_q^0$ (W/m²)', labelpad=0)
             if filt == 'bandpass':
-                ax00.set_ylim(np.array([-1, 1]) *
-                              np.max(np.abs(ax00.get_ylim())))
+                ax['Jq0'].set_ylim(np.array([-1, 1]) *
+                                   np.max(np.abs(ax['Jq0'].get_ylim())))
 
         labels = []
 
@@ -539,9 +608,11 @@ class moor:
             #                     linewidth=0.5)
             # ax['met'].set_xlim(xlimtemp)
 
-            pod.PlotEstimate('chi', ee, hax=ax['χ'], filt=filt,
-                             decimate=True,
-                             filter_len=filter_len, linewidth=lw)
+            if 'χ' in ax:
+                pod.PlotEstimate('chi', ee, hax=ax['χ'], filt=filt,
+                                 decimate=True,
+                                 filter_len=filter_len, linewidth=lw)
+
             pod.PlotEstimate('KT', ee, hax=ax['Kt'], filt=filt,
                              decimate=True,
                              filter_len=filter_len, linewidth=lw)
@@ -559,15 +630,17 @@ class moor:
         ax['T'].set_prop_cycle(cycler('color', colors))
         ax['S'].set_prop_cycle(cycler('color', colors))
         dt = np.nanmean(np.diff(self.ctd.time))*86400
-        nfilt = (86400/2)/dt
+        if filter_len is not None:
+            nfilt = filter_len/dt
+        else:
+            nfilt = 1
+
         self.avgplt(ax['T'],
                     MovingAverage(self.ctd.time, nfilt, axis=0),
                     MovingAverage(self.ctd.temp[:, :N], nfilt, axis=0),
-                    flen=None, filt='None', linewidth=lw)
-        self.avgplt(ax['S'],
-                    MovingAverage(self.ctd.time, nfilt, axis=0),
-                    MovingAverage(self.ctd.sal[:, :N], nfilt, axis=0),
-                    flen=None, filt='None', linewidth=lw)
+                    flen=None, filt=None, linewidth=lw)
+        self.avgplt(ax['S'], self.ctd.time, self.ctd.sal[:, :N],
+                    flen=None, filt=None, linewidth=lw)
         ax['T'].legend([str(aa)+'m' for aa in
                         np.int32(np.round(self.ctd.depth[:-1]))],
                        ncol=N)
@@ -584,8 +657,16 @@ class moor:
         ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
         ax['Tz'].grid(True, axis='y', linestyle ='--', linewidth=0.5)
 
-        ax['χ'].set_title('')
-        ax['χ'].set_ylabel('$χ$')
+        if 'χ' in ax:
+            ax['χ'].set_title('')
+            ax['χ'].set_ylabel('$χ$')
+        elif 'v' in ax:
+            ax['hquiv'] = self.Quiver(self.vel.time, self.vel.u,
+                                      self.vel.v, ax['v'],
+                                      filter_len, filt)
+            ax['v'].set_title('')
+            ax['v'].set_yticklabels([])
+            ax['v'].set_ylabel('(u,v)')
 
         ax['Kt'].set_title('')
         ax['Kt'].set_ylabel('$K_T$')
@@ -604,8 +685,9 @@ class moor:
         ax['met'].set_xlim(xlim)
         plt.gcf().autofmt_xdate()
 
-        for name in ['N2', 'T', 'S', 'χ', 'Kt', 'Jq', 'Tz']:
-            self.MarkSeasonsAndSpecials(ax[name])
+        for name in ['N2', 'T', 'S', 'v', 'χ', 'Kt', 'Jq', 'Tz']:
+            if name in ax:
+                self.MarkSeasonsAndSpecials(ax[name])
 
         self.MarkSeasonsAndSpecials(ax['met'], season=False)
 
