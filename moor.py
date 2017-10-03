@@ -651,7 +651,9 @@ class moor:
                     MovingAverage(self.ctd.time, nfilt, axis=0),
                     MovingAverage(self.ctd.temp[:, :N], nfilt, axis=0),
                     flen=None, filt=None, linewidth=lw)
-        self.avgplt(ax['S'], self.ctd.time, self.ctd.sal[:, :N],
+        self.avgplt(ax['S'],
+                    MovingAverage(self.ctd.time, nfilt, axis=0),
+                    MovingAverage(self.ctd.sal[:, :N], nfilt, axis=0),
                     flen=None, filt=None, linewidth=lw)
         ax['T'].legend([str(aa)+'m' for aa in
                         np.int32(np.round(self.ctd.depth[:-1]))],
