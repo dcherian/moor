@@ -434,7 +434,8 @@ class moor:
             if tt.get_position()[1] > 0:
                 tt.set_color(poscolor)
 
-    def avgplt(self, ax, t, x, flen, filt, **kwargs):
+
+    def avgplt(self, ax, t, x, flen, filt, axis=-1, **kwargs):
         from dcpy.util import MovingAverage
         from dcpy.ts import BandPassButter
         import numpy as np
@@ -442,8 +443,8 @@ class moor:
         dt = (t[3]-t[2]) * 86400
         if flen is not None:
             if filt == 'mean':
-                t = MovingAverage(t.copy(), flen/dt)
-                x = MovingAverage(x.copy(), flen/dt)
+                t = MovingAverage(t.copy(), flen/dt, axis=axis)
+                x = MovingAverage(x.copy(), flen/dt, axis=axis)
 
             elif filt == 'bandpass':
                 flen = np.array(flen.copy())
@@ -513,12 +514,89 @@ class moor:
                                 zorder=-5)
                 ax.set_ylim(ylim)
 
+    def PlotTS(self, ax, var, filt=None, filter_len=None,
+               kind='timeseries', lw=1):
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        N = 5
+
+        if var is 'T' or var is 'temp':
+            var = self.ctd.temp[:, :N].copy()
+            label = 'T'
+            zV = self.ctd.Tzmat[:, :N].copy()
+            tV = self.ctd.Ttmat[:, :N].copy()
+            cmap = plt.get_cmap('RdBu_r')
+
+        if var is 'S' or var is 'salt' or var is 'sal':
+            var = self.ctd.sal[:, :N].copy()
+            label = 'S'
+            zV = self.ctd.zmat[:, :N].copy()
+            tV = self.ctd.tmat[:, :N].copy()
+            cmap = plt.get_cmap('RdBu_r')
+
+        if filt == 'bandpass':
+            label +='\''
+
+        label = '$' + label + '$'
+
+        if kind is 'timeseries':
+            from cycler import cycler
+            colors = mpl.cm.Greys_r(np.arange(N+1)/(N+1))
+            ax.set_prop_cycle(cycler('color', colors))
+
+            self.avgplt(ax, tV[:, 0], var,
+                        filter_len, filt, axis=0, linewidth=lw)
+            ax.legend([str(aa)+'m' for aa in
+                       np.int32(np.round(self.ctd.depth[:-1]))],
+                      ncol=N)
+            ax.set_ylabel(label)
+
+        # if kind is 'profiles':
+        #     var -= np.nanmean(var, axis=0)
+        #     var += tV
+        #     dt = (tV[1,0] - tV[0,0])*86400.0
+        #     if filter_len is not None:
+        #         N = np.int(np.ceil(filter_len/dt))*6
+        #     else:
+        #         N = 500
+
+        #     # doesn't work yet
+        #     # ax.plot(var.T[::N,:], zV.T[::N,:])
+
+        if kind is 'pcolor':
+            hdl = ax.contourf(tV, -zV, var, 30, cmap=cmap, zorder=-1)
+            ax.contour(tV, -zV, var, 10, colors='gray',
+                       linewidths=0.25, zorder=-1)
+            ax.set_ylabel('depth')
+
+            ax.text(0.95, 0.9, label,
+                    horizontalalignment='center',
+                    verticalalignment='center',
+                    transform=ax.transAxes,
+                    bbox=dict(facecolor='k', alpha=0.05))
+
+            # showing χpod depth
+            for unit in self.χpod:
+                pod = self.χpod[unit]
+                ndt = np.int(np.round(1/4/(pod.ctd1.time[1]
+                                           - pod.ctd1.time[0])))
+                try:
+                    ax.plot_date(pod.ctd1.time[::ndt],
+                                 - pod.ctd1.z[::ndt], '-',
+                                 linewidth=0.5, color='gray')
+                except:
+                    ax.axhline(-pod.depth, color='gray',
+                               linewidth=0.5)
+
+        return hdl
+
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
-                  pods=[], quiv=True):
+                  pods=[], quiv=True, TSkind='timeseries'):
         ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
-        from dcpy.util import MovingAverage
         import numpy as np
 
         plt.figure(figsize=[12.5, 6.5])
@@ -606,19 +684,6 @@ class moor:
             self.avgplt(ax['Tz'], χ['time'], χ['dTdz'],
                         filter_len, filt, linewidth=lw)
 
-            # showing χpod depth on contourf plot
-            # xlimtemp = ax['χ'].get_xlim()
-            # ndt = np.int(np.round(1/4/(pod.ctd1.time[1]
-            #                            - pod.ctd1.time[0])))
-            # try:
-            #     ax['T'].plot_date(pod.ctd1.time[::ndt],
-            #                       - pod.ctd1.z[::ndt], '-',
-            #                       linewidth=0.5, color='gray')
-            # except:
-            #     ax['T'].axhline(-pod.depth, color='gray',
-            #                     linewidth=0.5)
-            # ax['met'].set_xlim(xlimtemp)
-
             if 'χ' in ax:
                 pod.PlotEstimate('chi', ee, hax=ax['χ'], filt=filt,
                                  decimate=True,
@@ -634,29 +699,10 @@ class moor:
             if str(pod.depth)+'m' not in labels:
                 labels.append(str(pod.depth) + 'm')
 
-        from cycler import cycler
-        import matplotlib as mpl
-        N = 5
-        colors = mpl.cm.Greys_r(np.arange(N+1)/(N+1))
-        ax['T'].set_prop_cycle(cycler('color', colors))
-        ax['S'].set_prop_cycle(cycler('color', colors))
-        dt = np.nanmean(np.diff(self.ctd.time))*86400
-        if filter_len is not None:
-            nfilt = filter_len/dt
-        else:
-            nfilt = 1
-
-        self.avgplt(ax['T'],
-                    MovingAverage(self.ctd.time, nfilt, axis=0),
-                    MovingAverage(self.ctd.temp[:, :N], nfilt, axis=0),
-                    flen=None, filt=None, linewidth=lw)
-        self.avgplt(ax['S'],
-                    MovingAverage(self.ctd.time, nfilt, axis=0),
-                    MovingAverage(self.ctd.sal[:, :N], nfilt, axis=0),
-                    flen=None, filt=None, linewidth=lw)
-        ax['T'].legend([str(aa)+'m' for aa in
-                        np.int32(np.round(self.ctd.depth[:-1]))],
-                       ncol=N)
+        ax['Tplot'] = self.PlotTS(ax['T'], 'T', filt, filter_len,
+                                  kind=TSkind, lw=0.5)
+        ax['Splot'] = self.PlotTS(ax['S'], 'S', filt, filter_len,
+                                  kind=TSkind, lw=0.5)
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
@@ -690,11 +736,6 @@ class moor:
         ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
         # ax['Jq'].set_yscale('symlog', linthreshy=10, linscaley=2)
 
-        ax['T'].set_title('')
-        ax['T'].set_ylabel('$T$')
-        ax['S'].set_title('')
-        ax['S'].set_ylabel('$S$')
-
         ax['met'].set_xlim(xlim)
         plt.gcf().autofmt_xdate()
 
@@ -703,38 +744,6 @@ class moor:
                 self.MarkSeasonsAndSpecials(ax[name])
 
         self.MarkSeasonsAndSpecials(ax['met'], season=False)
-
-        # if filt == 'mean':
-        #     T = MovingAverage(self.ctd.temp, nfilt, axis=0)
-        #     zT = MovingAverage(self.ctd.Tzmat, nfilt, axis=0)
-        #     tT = MovingAverage(self.ctd.Ttmat, nfilt, axis=0)
-        #     S = MovingAverage(self.ctd.sal, nfilt, axis=0)
-        #     # ρ = MovingAverage(self.ctd.ρ, nfilt, axis=0)
-        #     tS = MovingAverage(self.ctd.tmat, nfilt, axis=0)
-        #     zS = MovingAverage(self.ctd.zmat, nfilt, axis=0)
-        #     cmap = plt.get_cmap('RdYlBu_r')
-        #     colorlabel = 'T (C)'
-        # else:
-        #     _, T = self.avgplt(None, self.ctd.time, self.ctd.temp,
-        #                        filter_len, filt)
-        #     zT = self.ctd.Tzmat
-        #     tT = self.ctd.Ttmat
-        #     cmap = plt.get_cmap('RdBu_r')
-        #     colorlabel = 'T\' (C)'
-        #     _, S = self.avgplt(None, self.ctd.time, self.ctd.sal,
-        #                        filter_len, filt)
-        #     zS = self.ctd.zmat
-        #     tS = self.ctd.tmat
-        #     # _, ρ = self.avgplt(None, self.ctd.time, self.ctd.ρ,
-        #     #               filter_len, filt)
-
-        # hdl = ax[3].contourf(tS, -zS, ρ, 20, zorder=-1,
-        #                     cmap=plt.get_cmap('RdYlBu_r'))
-        # hdl = ax['T'].contourf(tT, -zT, T, 30, cmap=cmap, zorder=-1)
-        # ax['T'].contour(tS, -zS, S, 10,
-        #                 colors='k', linewidths=0.25, zorder=-1)
-        # ax['T'].set_ylabel('depth')
-        # ax['met'].set_xlim(xlim)
 
         plt.tight_layout(w_pad=2, h_pad=-0.5)
 
