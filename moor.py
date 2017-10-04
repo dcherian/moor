@@ -552,8 +552,7 @@ class moor:
         ax['met'].set_clip_on(False)
         if filter_len is not None:
             ax['met'].set_title(self.name + ' | '
-                                + str(np.round(filter_len/86400)) + ' day '
-                                + filt)
+                                + self.GetFilterLenLabel(filt, filter_len))
         else:
             ax['met'].set_title(self.name)
 
@@ -969,6 +968,22 @@ class moor:
 
         return t1, v1, v2i
 
+    def GetFilterLenLabel(self, filt=None, filter_len=None):
+        if filt is None:
+            txt = 'unfiltered'
+        else:
+            if filter_len > 86399:
+                txt = str(filter_len/86400.0) + ' day'
+            else:
+                if filter_len > 3599:
+                    txt = str(filter_len/60.0/60.0) + ' hr'
+                else:
+                    txt = str(filter_len/60.0) + ' min'
+
+            txt += ' ' + filt
+
+        return txt
+
     def PlotMetCoherence(self, metvars=['Jq', 'wind'], ndayavg=1, nsmooth=4,
                          fbands=None, season=None, multitaper=False,
                          filt=None, filter_len=None):
@@ -994,12 +1009,8 @@ class moor:
             ax4 = plt.subplot(324)
             ax5 = plt.subplot(326, sharex=ax4)
 
-        title = self.name
-        if filt is not None:
-            title += ' | ' + str(filter_len/86400) \
-                     + ' ' + filt
-        else:
-            title += ' | unfiltered'
+        title = self.name + ' | ' \
+                + self.GetFilterLenLabel(filt, filter_len)
         ax0.set_title(title)
 
         for metidx, metvar in enumerate(metvars):
