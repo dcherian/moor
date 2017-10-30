@@ -69,29 +69,24 @@ class moor:
                 self.ctd.temp = mat.temp.T
                 self.ctd.sal = mat.sal.T
                 self.ctd.depth = mat.depth
-                self.ctd.zmat = np.tile(self.ctd.depth,
-                                        (len(mat.time), 1))
-                self.ctd.tmat = np.tile(self.ctd.time,
-                                        (len(mat.depth), 1)).T
+                self.ctd.zmat = np.tile(self.ctd.depth, (len(mat.time), 1))
+                self.ctd.tmat = np.tile(self.ctd.time, (len(mat.depth), 1)).T
                 self.ctd.Ttmat = self.ctd.tmat
                 self.ctd.Tzmat = self.ctd.zmat
                 self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp,
                                      self.ctd.Tzmat)
             else:
                 # otherwise we append
-                self.ctd.time = np.concatenate([self.ctd.time,
-                                                mat.time - 366])
-                self.ctd.temp = np.concatenate([self.ctd.temp,
-                                                mat.temp.T])
+                self.ctd.time = np.concatenate([self.ctd.time, mat.time - 366])
+                self.ctd.temp = np.concatenate([self.ctd.temp, mat.temp.T])
                 self.ctd.sal = np.concatenate([self.ctd.sal, mat.sal.T])
-                self.ctd.zmat = np.tile(self.ctd.depth,
-                                        (len(self.ctd.time), 1))
-                self.ctd.tmat = np.tile(self.ctd.time,
-                                        (len(mat.depth), 1)).T
+                self.ctd.zmat = np.tile(self.ctd.depth, (len(self.ctd.time),
+                                                         1))
+                self.ctd.tmat = np.tile(self.ctd.time, (len(mat.depth), 1)).T
                 self.ctd.Ttmat = self.ctd.tmat
                 self.ctd.Tzmat = self.ctd.zmat
                 self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp,
-                                     self.ctd.Tzmat)
+                                          self.ctd.Tzmat)
 
         if FileType == 'rama':
             import netCDF4 as nc
@@ -118,33 +113,32 @@ class moor:
             f.close()
 
         if FileType == 'ebob':
-            mat = loadmat(self.datadir + '/ancillary/ctd/'
-                          + fname + 'SP-deglitched.mat', squeeze_me=True)
+            mat = loadmat(
+                self.datadir + '/ancillary/ctd/' + fname + 'SP-deglitched.mat',
+                squeeze_me=True)
             temp = mat['temp'].T
             salt = mat['salt'].T
             pres = mat['pres'].T
 
-            self.ctd.sal = np.ma.masked_array(salt,
-                                              mask=np.isnan(salt))
+            self.ctd.sal = np.ma.masked_array(salt, mask=np.isnan(salt))
             self.ctd.tmat = mat['time'].T - 366
             self.ctd.zmat = np.float16(pres)
             self.ctd.time = self.ctd.tmat[:, 0]
             self.ctd.depth = pres[10, :]
             self.ctd.ρ = sw.pden(self.ctd.sal, temp, self.ctd.zmat)
 
-            mat = loadmat(self.datadir + '/ancillary/ctd/'
-                          + 'only_temp/EBOB_' + fname
-                          + '_WTMP.mat', squeeze_me=True)
+            mat = loadmat(
+                self.datadir + '/ancillary/ctd/' + 'only_temp/EBOB_' + fname +
+                '_WTMP.mat',
+                squeeze_me=True)
             temp = mat['Wtmp' + fname[-1]]
-            self.ctd.temp = np.ma.masked_array(temp,
-                                               mask=np.isnan(temp))
+            self.ctd.temp = np.ma.masked_array(temp, mask=np.isnan(temp))
             zvec = mat['dbar_dpth']
             tvec = mat['Time' + fname[-1]] - 366
             self.ctd.Ttmat = np.tile(tvec.T, (len(zvec), 1)).T
             self.ctd.Tzmat = np.tile(zvec, (len(tvec), 1))
 
-    def ReadMet(self, fname: str=None,
-                WindType='', FluxType=''):
+    def ReadMet(self, fname: str=None, WindType='', FluxType=''):
 
         import airsea as air
         import matplotlib.dates as dt
@@ -173,8 +167,8 @@ class moor:
             lat = met['latitude'][:]
             time = met['time'][:]
             self.met.τ = interpn((time, lat, lon),
-                                 met['tau'][:, :, :],
-                                 (time, self.lat, self.lon))
+                                          met['tau'][:, :, :], (time, self.lat,
+                                                                self.lon))
             self.met.τtime = time \
                 + dt.date2num(dt.datetime.date(1950, 1, 1))
 
@@ -217,11 +211,15 @@ class moor:
             unit = self.χpod[pp]
 
             try:
-                unit.special[name] = [dt.datetime.strptime(t0, '%Y-%b-%d'),
-                                      dt.datetime.strptime(t1, '%Y-%b-%d')]
+                unit.special[name] = [
+                    dt.datetime.strptime(t0, '%Y-%b-%d'),
+                    dt.datetime.strptime(t1, '%Y-%b-%d')
+                ]
             except:
-                unit.special[name] = [dt.datetime.strptime(t0, '%Y-%m-%d'),
-                                      dt.datetime.strptime(t1, '%Y-%m-%d')]
+                unit.special[name] = [
+                    dt.datetime.strptime(t0, '%Y-%m-%d'),
+                    dt.datetime.strptime(t1, '%Y-%m-%d')
+                ]
 
         # append to the mooring list
         self.special[name] = unit.special[name]
@@ -232,11 +230,15 @@ class moor:
         for pp in pods:
             unit = self.χpod[pp]
             try:
-                unit.season[name] = [dt.datetime.strptime(t0, '%Y-%b-%d'),
-                                     dt.datetime.strptime(t1, '%Y-%b-%d')]
+                unit.season[name] = [
+                    dt.datetime.strptime(t0, '%Y-%b-%d'),
+                    dt.datetime.strptime(t1, '%Y-%b-%d')
+                ]
             except:
-                unit.season[name] = [dt.datetime.strptime(t0, '%Y-%m-%d'),
-                                     dt.datetime.strptime(t1, '%Y-%m-%d')]
+                unit.season[name] = [
+                    dt.datetime.strptime(t0, '%Y-%m-%d'),
+                    dt.datetime.strptime(t1, '%Y-%m-%d')
+                ]
 
             self.season[pp] = unit.season
 
@@ -253,8 +255,8 @@ class moor:
             self.vel.time = np.float64(vel['time'][:]/60.0/24.0) + \
                 np.float64(dt.date2num(dt.datetime.datetime(2013, 11, 29,
                                                             17, 30, 0)))
-            self.vel.u = vel['U_320'][:].squeeze()/100.0
-            self.vel.v = vel['V_321'][:].squeeze()/100.0
+            self.vel.u = vel['U_320'][:].squeeze() / 100.0
+            self.vel.v = vel['V_321'][:].squeeze() / 100.0
 
             self.vel.u[self.vel.u > 5] = np.nan
             self.vel.v[self.vel.v > 5] = np.nan
@@ -275,9 +277,8 @@ class moor:
         if dir is None:
             dir = self.datadir
 
-        self.χpod[name] = chipy.chipod(dir + '/data/',
-                                       str(name), fname, best,
-                                       depth=depth)
+        self.χpod[name] = chipy.chipod(
+            dir + '/data/', str(name), fname, best, depth=depth)
         self.zχpod[name] = depth
 
     def SetColorCycle(self, ax):
@@ -333,8 +334,7 @@ class moor:
 
             import numpy as np
             ax.set_xticks(list(np.mean(pos, 0)))
-            ax.legend((handles[0]['medians'][0],
-                       handles[-1]['medians'][0]),
+            ax.legend((handles[0]['medians'][0], handles[-1]['medians'][0]),
                       labels)
 
             limy = ax.get_yticks()
@@ -343,8 +343,8 @@ class moor:
             ax.spines['bottom'].set_bounds(limx[0], limx[-1])
 
         if filter_len is not None:
-            ax.set_title(ax.get_title() + ' | filter_len='
-                         + str(filter_len) + ' s')
+            ax.set_title(ax.get_title() + ' | filter_len=' + str(filter_len) +
+                         ' s')
 
         return handles, labels, pos
 
@@ -360,10 +360,13 @@ class moor:
 
         plt.figure(figsize=(6.5, 8.5))
         ax0 = plt.gca()
-        ndt = np.round(1/4/(self.ctd.time[1]-self.ctd.time[0]))
-        hpc = ax0.pcolormesh(self.ctd.time[::ndt], -self.ctd.depth,
-                             self.ctd.temp[::ndt, :].T,
-                             cmap=plt.get_cmap('RdYlBu_r'), zorder=-1)
+        ndt = np.round(1 / 4 / (self.ctd.time[1] - self.ctd.time[0]))
+        hpc = ax0.pcolormesh(
+            self.ctd.time[::ndt],
+            -self.ctd.depth,
+            self.ctd.temp[::ndt, :].T,
+            cmap=plt.get_cmap('RdYlBu_r'),
+            zorder=-1)
         ax0.set_ylabel('depth')
 
         xlim = [1e10, -1e10]
@@ -374,10 +377,8 @@ class moor:
             xlim[1] = np.max([xlim[1], pod.time[-2]])
 
             var, titlestr, scale, _ = pod.ChooseVariable(varname, est)
-            time, var = pod.FilterEstimate(varname,
-                                           pod.time, var,
-                                           filter_len=filter_len,
-                                           subset=True)
+            time, var = pod.FilterEstimate(
+                varname, pod.time, var, filter_len=filter_len, subset=True)
             if scale == 'log':
                 normvar = np.log10(var)
                 dn = normvar - np.nanmin(normvar)
@@ -387,21 +388,21 @@ class moor:
             # running average depths,
             # then interpolate to correct time grid
             time2, depth2 = pod.FilterEstimate('Jq', pod.ctd1.time,
-                                               -pod.ctd1.z, filter_len,
-                                               True)
+                                               -pod.ctd1.z, filter_len, True)
             depth = np.interp(time, time2, depth2)
 
-            hscat[idx] = ax0.scatter(time, depth, s=size,
-                                     c=np.log10(var), alpha=alpha,
-                                     cmap=cm.Greys)
+            hscat[idx] = ax0.scatter(
+                time,
+                depth,
+                s=size,
+                c=np.log10(var),
+                alpha=alpha,
+                cmap=cm.Greys)
             if idx == 0:
-                clim = [np.nanmin(np.log10(var)),
-                        np.nanmax(np.log10(var))]
+                clim = [np.nanmin(np.log10(var)), np.nanmax(np.log10(var))]
             else:
-                clim2 = [np.nanmin(np.log10(var)),
-                         np.nanmax(np.log10(var))]
-                clim = [min([clim[0], clim2[0]]),
-                        max([clim[1], clim2[1]])]
+                clim2 = [np.nanmin(np.log10(var)), np.nanmax(np.log10(var))]
+                clim = [min([clim[0], clim2[0]]), max([clim[1], clim2[1]])]
 
         hscat[0].set_clim(clim)
         hscat[1].set_clim(clim)
@@ -490,10 +491,12 @@ class moor:
         import matplotlib.dates as dt
 
         if season:
-            seasonColor = {'NE': 'beige',
-                           'NE→SW': 'lemonchiffon',
-                           'SW': 'wheat',
-                           'SW→NE': 'honeydew'}
+            seasonColor = {
+                'NE': 'beige',
+                'NE→SW': 'lemonchiffon',
+                'SW': 'wheat',
+                'SW→NE': 'honeydew'
+            }
 
             for pp in self.season:
                 for ss in self.season[pp]:
@@ -537,7 +540,7 @@ class moor:
             cmap = plt.get_cmap('RdBu_r')
 
         if filt == 'bandpass':
-            label +='\''
+            label += '\''
 
         label = '$' + label + '$'
 
@@ -659,8 +662,8 @@ class moor:
             ax['Jq0'].xaxis_date()
             ax['Jq0'].set_ylabel('$J_q^0$ (W/m²)', labelpad=0)
             if filt == 'bandpass':
-                ax['Jq0'].set_ylim(np.array([-1, 1]) *
-                                   np.max(np.abs(ax['Jq0'].get_ylim())))
+                ax['Jq0'].set_ylim(
+                    np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
 
         labels = []
 
@@ -676,33 +679,57 @@ class moor:
 
             χ = pod.chi[ee]
 
-            xlim = [min(xlim[0], pod.time[0]),
-                    max(xlim[1], pod.time[-2])]
+            xlim = [min(xlim[0], pod.time[0]), max(xlim[1], pod.time[-2])]
 
-            self.avgplt(ax['N2'], χ['time'], χ['N2']/1e-4,
-                        filter_len, filt, linewidth=lw)
-            self.avgplt(ax['Tz'], χ['time'], χ['dTdz'],
-                        filter_len, filt, linewidth=lw)
+            self.avgplt(
+                ax['N2'],
+                χ['time'],
+                χ['N2'] / 1e-4,
+                filter_len,
+                filt,
+                linewidth=lw)
+            self.avgplt(
+                ax['Tz'],
+                χ['time'],
+                χ['dTdz'],
+                filter_len,
+                filt,
+                linewidth=lw)
 
             if 'χ' in ax:
-                pod.PlotEstimate('chi', ee, hax=ax['χ'], filt=filt,
-                                 decimate=True,
-                                 filter_len=filter_len, linewidth=lw)
+                pod.PlotEstimate(
+                    'chi',
+                    ee,
+                    hax=ax['χ'],
+                    filt=filt,
+                    decimate=True,
+                    filter_len=filter_len,
+                    linewidth=lw)
 
-            pod.PlotEstimate('KT', ee, hax=ax['Kt'], filt=filt,
-                             decimate=True,
-                             filter_len=filter_len, linewidth=lw)
-            pod.PlotEstimate('Jq', ee, hax=ax['Jq'], filt=filt,
-                             decimate=True,
-                             filter_len=filter_len, linewidth=lw)
+            pod.PlotEstimate(
+                'KT',
+                ee,
+                hax=ax['Kt'],
+                filt=filt,
+                decimate=True,
+                filter_len=filter_len,
+                linewidth=lw)
+            pod.PlotEstimate(
+                'Jq',
+                ee,
+                hax=ax['Jq'],
+                filt=filt,
+                decimate=True,
+                filter_len=filter_len,
+                linewidth=lw)
 
-            if str(pod.depth)+'m' not in labels:
+            if str(pod.depth) + 'm' not in labels:
                 labels.append(str(pod.depth) + 'm')
 
-        ax['Tplot'] = self.PlotTS(ax['T'], 'T', filt, filter_len,
-                                  kind=TSkind, lw=0.5)
-        ax['Splot'] = self.PlotTS(ax['S'], 'S', filt, filter_len,
-                                  kind=TSkind, lw=0.5)
+        ax['Tplot'] = self.PlotTS(
+            ax['T'], 'T', filt, filter_len, kind=TSkind, lw=0.5, t0=t0, t1=t1)
+        ax['Splot'] = self.PlotTS(
+            ax['S'], 'S', filt, filter_len, kind=TSkind, lw=0.5, t0=t0, t1=t1)
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
@@ -714,15 +741,14 @@ class moor:
         ax['Tz'].set_ylabel('$\partial T/ \partial z$ (symlog)')
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
         ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
-        ax['Tz'].grid(True, axis='y', linestyle ='--', linewidth=0.5)
+        ax['Tz'].grid(True, axis='y', linestyle='--', linewidth=0.5)
 
         if 'χ' in ax:
             ax['χ'].set_title('')
             ax['χ'].set_ylabel('$χ$')
         elif 'v' in ax:
-            ax['hquiv'] = self.Quiver(self.vel.time, self.vel.u,
-                                      self.vel.v, ax['v'],
-                                      filter_len, filt)
+            ax['hquiv'] = self.Quiver(self.vel.time, self.vel.u, self.vel.v,
+                                      ax['v'], filter_len, filt)
             ax['v'].set_title('')
             ax['v'].set_yticklabels([])
             ax['v'].set_ylabel('(u,v)')
@@ -841,23 +867,34 @@ class moor:
 
             var, name, _, _ = pod.ChooseVariable(varname)
             # daily average quantities
-            t, var = pod.FilterEstimate('mean', pod.time, var,
-                                        filter_len=filter_len,
-                                        decimate=True)
+            t, var = pod.FilterEstimate(
+                'mean', pod.time, var, filter_len=filter_len, decimate=True)
 
-            t1, T1 = pod.FilterEstimate('mean',
-                                        pod.ctd1.time, pod.ctd1.T,
-                                        filter_len=filter_len, decimate=True)
-            _, S1 = pod.FilterEstimate('mean',
-                                       pod.ctd1.time, pod.ctd1.S,
-                                       filter_len=filter_len, decimate=True)
+            t1, T1 = pod.FilterEstimate(
+                'mean',
+                pod.ctd1.time,
+                pod.ctd1.T,
+                filter_len=filter_len,
+                decimate=True)
+            _, S1 = pod.FilterEstimate(
+                'mean',
+                pod.ctd1.time,
+                pod.ctd1.S,
+                filter_len=filter_len,
+                decimate=True)
 
-            t2, T2 = pod.FilterEstimate('mean',
-                                        pod.ctd2.time, pod.ctd2.T,
-                                        filter_len=filter_len, decimate=True)
-            _, S2 = pod.FilterEstimate('mean',
-                                       pod.ctd2.time, pod.ctd2.S,
-                                       filter_len=filter_len, decimate=True)
+            t2, T2 = pod.FilterEstimate(
+                'mean',
+                pod.ctd2.time,
+                pod.ctd2.T,
+                filter_len=filter_len,
+                decimate=True)
+            _, S2 = pod.FilterEstimate(
+                'mean',
+                pod.ctd2.time,
+                pod.ctd2.S,
+                filter_len=filter_len,
+                decimate=True)
 
             # interpolate onto averaged χpod time grid
             T1 = np.interp(t, t1, T1)
@@ -866,23 +903,33 @@ class moor:
             S2 = np.interp(t, t2, S2)
 
             mask = var > varmin
-            frac = sum(mask)/len(mask)
+            frac = sum(mask) / len(mask)
             if frac < 0.1:
                 alpha = 0.6
             else:
                 alpha = 0.3
 
-            ax.plot(np.concatenate([S1[mask], S2[mask]]),
-                    np.concatenate([T1[mask], T2[mask]]),
-                    color='k', linestyle='None', label=pod.name,
-                    marker=markers[idx], alpha=alpha, zorder=2)
+            ax.plot(
+                np.concatenate([S1[mask], S2[mask]]),
+                np.concatenate([T1[mask], T2[mask]]),
+                color='k',
+                linestyle='None',
+                label=pod.name,
+                marker=markers[idx],
+                alpha=alpha,
+                zorder=2)
 
         for index, z in enumerate(self.ctd.depth):
             S = self.ctd.sal[:, index]
             T = self.ctd.temp[:, index]
-            ax.scatter(S[::10], T[::10], s=size,
-                       facecolor=colors[index], alpha=0.1,
-                       label='CTD '+str(np.int(z))+' m', zorder=-1)
+            ax.scatter(
+                S[::10],
+                T[::10],
+                s=size,
+                facecolor=colors[index],
+                alpha=0.1,
+                label='CTD ' + str(np.int(z)) + ' m',
+                zorder=-1)
 
         # make sure legend has visible entries
         hleg = plt.legend()
@@ -897,8 +944,8 @@ class moor:
 
         # density contours
         ρ = sw.pden(Smat, Tmat, pref) - 1000
-        cs = ax.contour(Smat, Tmat, ρ, colors='gray',
-                        linestyles='dashed', zorder=-1)
+        cs = ax.contour(
+            Smat, Tmat, ρ, colors='gray', linestyles='dashed', zorder=-1)
         ax.clabel(cs, fmt='%.1f')
 
         # labels
@@ -906,12 +953,13 @@ class moor:
         ax.set_ylabel('T')
         ax.set_title(self.name)
 
-        ax.annotate(name + '$^{' +
-                    str(np.round(filter_len/86400, decimals=1))
-                    + ' d}$ > ' + str(varmin),
-                    xy=[0.75, 0.9], xycoords='axes fraction',
-                    size='large',
-                    bbox=dict(facecolor='gray', alpha=0.15, edgecolor='none'))
+        ax.annotate(
+            name + '$^{' + str(np.round(filter_len / 86400, decimals=1)) +
+            ' d}$ > ' + str(varmin),
+            xy=[0.75, 0.9],
+            xycoords='axes fraction',
+            size='large',
+            bbox=dict(facecolor='gray', alpha=0.15, edgecolor='none'))
 
     def PlotCoherence(self, ax, v1, v2, nsmooth=5, multitaper=True):
         import dcpy.ts
@@ -939,8 +987,9 @@ class moor:
         ax[1].set_ylim([-180, 180])
         ax[1].set_yticks([-180, -90, -45, 0, 45, 90, 180])
         ax[1].grid(True, axis='y')
-        ax[1].set_xticklabels([''] + [str('{0:.1f}').format(1/aa)
-                                      for aa in ax[1].get_xticks()[1:]])
+        ax[1].set_xticklabels([''] + [
+            str('{0:.1f}').format(1 / aa) for aa in ax[1].get_xticks()[1:]
+        ])
 
     def ExtractTimeRange(self, t1, v1, t2, v2, ndayavg=None, season=None):
 
@@ -959,13 +1008,13 @@ class moor:
 
         # daily (ndayavg) average before taking spectrum
         if ndayavg is not None:
-            dt1 = (t1[2]-t1[1])*86400
-            v1 = MovingAverage(v1, ndayavg * 86400/dt1)
-            t1 = MovingAverage(t1, ndayavg * 86400/dt1)
+            dt1 = (t1[2] - t1[1]) * 86400
+            v1 = MovingAverage(v1, ndayavg * 86400 / dt1)
+            t1 = MovingAverage(t1, ndayavg * 86400 / dt1)
 
-            dt2 = (t2[2]-t2[1])*86400
-            v2 = MovingAverage(v2, ndayavg * 86400/dt2)
-            t2 = MovingAverage(t2, ndayavg * 86400/dt2)
+            dt2 = (t2[2] - t2[1]) * 86400
+            v2 = MovingAverage(v2, ndayavg * 86400 / dt2)
+            t2 = MovingAverage(t2, ndayavg * 86400 / dt2)
 
         # extract season if asked to
         if season is not None:
@@ -1038,15 +1087,16 @@ class moor:
                 tmet = self.met.τtime
                 axes = [ax4, ax5]
                 label = '$1000τ$'
-                self.avgplt(ax0, tmet, met*1000, filter_len,
-                            filt, label=label)
-                dcpy.ts.PlotSpectrum(10*met, nsmooth=20, ax=ax1)
+                self.avgplt(
+                    ax0, tmet, met * 1000, filter_len, filt, label=label)
+                dcpy.ts.PlotSpectrum(10 * met, nsmooth=20, ax=ax1)
 
             for idx, unit in enumerate(self.χpod):
                 pod = self.χpod[unit]
 
                 v2 = pod.Jq[pod.best].copy()
-                t1, v1, v2i = self.ExtractTimeRange(tmet.copy(), met.copy(),
+                t1, v1, v2i = self.ExtractTimeRange(tmet.copy(),
+                                                    met.copy(),
                                                     pod.time.copy(), v2,
                                                     ndayavg, season)
                 # self.avgplt(ax0, pod.time, pod.chi['mm1']['dTdz']*1e3,
@@ -1070,8 +1120,8 @@ class moor:
 
             axes[0].set_title('between ' + label + ' and $J_q^t$')
             if filter_len is not None:
-                dcpy.plots.FillRectangle(86400/filter_len, ax=axes[0])
-                dcpy.plots.FillRectangle(86400/filter_len, ax=axes[1])
+                dcpy.plots.FillRectangle(86400 / filter_len, ax=axes[0])
+                dcpy.plots.FillRectangle(86400 / filter_len, ax=axes[1])
             if fbands is not None:
                 dcpy.plots.linex(fbands, ax=axes)
 
@@ -1081,7 +1131,7 @@ class moor:
 
         ax1.set_ylabel('PSD')
         if filter_len is not None:
-            dcpy.plots.FillRectangle(86400/filter_len, ax=ax1)
+            dcpy.plots.FillRectangle(86400 / filter_len, ax=ax1)
         if fbands is not None:
             dcpy.plots.linex(fbands, ax=ax1)
 
@@ -1106,9 +1156,9 @@ class moor:
         tT = pod.ctd1.time
 
         # rate of change of daily average temperature
-        dTdt = np.diff(MovingAverage(T, 144))/(86400)
+        dTdt = np.diff(MovingAverage(T, 144)) / (86400)
         tavg = MovingAverage(tT, 144)
-        tavg = (tavg[0:-1] + tavg[1:])/2
+        tavg = (tavg[0:-1] + tavg[1:]) / 2
 
         # rate of heating of water column
         Q = ρ * cp * dTdt * H
@@ -1132,7 +1182,7 @@ class moor:
 
         plt.subplot(312, sharex=ax1)
         a = lowess(dTdt, tavg, frac=0.025)
-        plt.plot(a[:,0], a[:,1] * 86400)
+        plt.plot(a[:, 0], a[:, 1] * 86400)
         plt.ylabel('∂T/∂t (C/day)')
         dcpy.plots.liney(0)
         dcpy.plots.symyaxis()
