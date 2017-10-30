@@ -205,39 +205,39 @@ class moor:
             self.met.swr = -mat['Jq']['swf'][0][0][0]
 
     def AddSpecialTimes(self, pods, name, t0, t1):
-        import datetime as dt
+        import datetime as pdt
 
         for pp in pods:
             unit = self.χpod[pp]
 
             try:
                 unit.special[name] = [
-                    dt.datetime.strptime(t0, '%Y-%b-%d'),
-                    dt.datetime.strptime(t1, '%Y-%b-%d')
+                    pdt.datetime.strptime(t0, '%Y-%b-%d'),
+                    pdt.datetime.strptime(t1, '%Y-%b-%d')
                 ]
             except:
                 unit.special[name] = [
-                    dt.datetime.strptime(t0, '%Y-%m-%d'),
-                    dt.datetime.strptime(t1, '%Y-%m-%d')
+                    pdt.datetime.strptime(t0, '%Y-%m-%d'),
+                    pdt.datetime.strptime(t1, '%Y-%m-%d')
                 ]
 
         # append to the mooring list
         self.special[name] = unit.special[name]
 
     def AddSeason(self, pods, name, t0, t1):
-        import datetime as dt
+        import datetime as pdt
 
         for pp in pods:
             unit = self.χpod[pp]
             try:
                 unit.season[name] = [
-                    dt.datetime.strptime(t0, '%Y-%b-%d'),
-                    dt.datetime.strptime(t1, '%Y-%b-%d')
+                    pdt.datetime.strptime(t0, '%Y-%b-%d'),
+                    pdt.datetime.strptime(t1, '%Y-%b-%d')
                 ]
             except:
                 unit.season[name] = [
-                    dt.datetime.strptime(t0, '%Y-%m-%d'),
-                    dt.datetime.strptime(t1, '%Y-%m-%d')
+                    pdt.datetime.strptime(t0, '%Y-%m-%d'),
+                    pdt.datetime.strptime(t1, '%Y-%m-%d')
                 ]
 
             self.season[pp] = unit.season
