@@ -518,7 +518,7 @@ class moor:
                 ax.set_ylim(ylim)
 
     def PlotTS(self, ax, var, filt=None, filter_len=None,
-               kind='timeseries', lw=1):
+               kind='timeseries', lw=1, t0=None, t1=None):
         import matplotlib as mpl
         import matplotlib.pyplot as plt
         import numpy as np
@@ -617,7 +617,7 @@ class moor:
         return hdl
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
-                  pods=[], quiv=True, TSkind='timeseries'):
+                  pods=[], quiv=True, TSkind='timeseries', t0=None, t1=None):
         ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
