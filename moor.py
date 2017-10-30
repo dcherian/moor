@@ -539,6 +539,15 @@ class moor:
             tV = self.ctd.tmat[:, :N].copy()
             cmap = plt.get_cmap('RdBu_r')
 
+        if t0 is not None and t1 is not None:
+            from dcpy.util import find_approx
+            it0 = find_approx(tV[:, 0], t0)
+            it1 = find_approx(tV[:, 0], t1)
+
+            var = var[it0:it1, :]
+            zV = zV[it0:it1, :]
+            tV = tV[it0:it1, :]
+
         if filt == 'bandpass':
             label += '\''
 
@@ -1039,16 +1048,18 @@ class moor:
         return t1, v1, v2i
 
     def GetFilterLenLabel(self, filt=None, filter_len=None):
+        import numpy as np
+
         if filt is None:
             txt = 'unfiltered'
         else:
-            if filter_len > 86399:
-                txt = str(filter_len/86400.0) + ' day'
+            if np.any(filter_len > 86399):
+                txt = str(filter_len / 86400.0) + ' day'
             else:
-                if filter_len > 3599:
-                    txt = str(filter_len/60.0/60.0) + ' hr'
+                if np.any(filter_len > 3599):
+                    txt = str(filter_len / 60.0 / 60.0) + ' hr'
                 else:
-                    txt = str(filter_len/60.0) + ' min'
+                    txt = str(filter_len / 60.0) + ' min'
 
             txt += ' ' + filt
 
