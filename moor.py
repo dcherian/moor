@@ -549,49 +549,61 @@ class moor:
             colors = mpl.cm.Greys_r(np.arange(N+1)/(N+1))
             ax.set_prop_cycle(cycler('color', colors))
 
-            self.avgplt(ax, tV[:, 0], var,
-                        filter_len, filt, axis=0, linewidth=lw)
-            ax.legend([str(aa)+'m' for aa in
-                       np.int32(np.round(self.ctd.depth[:-1]))],
+            hdl = self.avgplt(
+                ax, tV[:, 0], var, filter_len, filt, axis=0, linewidth=lw)
+            ax.legend([str(aa) + 'm'
+                       for aa in np.int32(np.round(self.ctd.depth[:-1]))],
                       ncol=N)
             ax.set_ylabel(label)
 
-        # if kind is 'profiles':
-        #     var -= np.nanmean(var, axis=0)
-        #     var += tV
-        #     dt = (tV[1,0] - tV[0,0])*86400.0
-        #     if filter_len is not None:
-        #         N = np.int(np.ceil(filter_len/dt))*6
-        #     else:
-        #         N = 500
+        if kind is 'profiles':
+            var -= np.nanmean(var, axis=0)
+            var += tV
+            dt = (tV[1, 0] - tV[0, 0]) * 86400.0
+            if filter_len is not None:
+                N = np.int(np.ceil(filter_len / dt)) * 2
+            else:
+                N = 500
 
-        #     # doesn't work yet
-        #     # ax.plot(var.T[::N,:], zV.T[::N,:])
+            # doesn't work yet
+            hdl = ax.plot(var.T[::N, :], zV.T[::N, :])
 
         if kind is 'pcolor':
-            hdl = ax.contourf(tV, -zV, var, 30, cmap=cmap, zorder=-1)
-            ax.contour(tV, -zV, var, 10, colors='gray',
-                       linewidths=0.25, zorder=-1)
+            hdl = ax.contourf(tV, -zV, var, 25, cmap=cmap, zorder=-1)
+            ax.contour(
+                tV, -zV, var, 10, colors='gray', linewidths=0.25, zorder=-1)
             ax.set_ylabel('depth')
 
-            ax.text(0.95, 0.9, label,
-                    horizontalalignment='center',
-                    verticalalignment='center',
-                    transform=ax.transAxes,
-                    bbox=dict(facecolor='k', alpha=0.05))
+        if kind is 'contour':
+            hdl = ax.contour(
+                tV, -zV, var, 20, colors='gray', linewidths=0.25, zorder=-1)
+            ax.set_ylabel('depth')
+
+        if kind is 'pcolor' or kind is 'contour':
+            # label in top-right corner
+            ax.text(
+                0.95,
+                0.9,
+                label,
+                horizontalalignment='center',
+                verticalalignment='center',
+                transform=ax.transAxes,
+                bbox=dict(facecolor='k', alpha=0.05))
 
             # showing χpod depth
             for unit in self.χpod:
                 pod = self.χpod[unit]
-                ndt = np.int(np.round(1/4/(pod.ctd1.time[1]
-                                           - pod.ctd1.time[0])))
+                ndt = np.int(
+                    np.round(1 / 4 / (pod.ctd1.time[1] - pod.ctd1.time[0])))
                 try:
-                    ax.plot_date(pod.ctd1.time[::ndt],
-                                 - pod.ctd1.z[::ndt], '-',
-                                 linewidth=0.5, color='gray')
+                    ax.plot_date(
+                        pod.ctd1.time[::ndt],
+                        -pod.ctd1.z[::ndt],
+                        '-',
+                        linewidth=0.5,
+                        color='gray')
                 except:
-                    ax.axhline(-pod.depth, color='gray',
-                               linewidth=0.5)
+                    ax.axhline(-pod.depth, color='gray', linewidth=0.5)
 
         return hdl
 
