@@ -167,8 +167,8 @@ class moor:
             lat = met['latitude'][:]
             time = met['time'][:]
             self.met.τ = interpn((time, lat, lon),
-                                          met['tau'][:, :, :], (time, self.lat,
-                                                                self.lon))
+                                 met['tau'][:, :, :],
+                                 (time, self.lat, self.lon))
             self.met.τtime = time \
                 + dt.date2num(dt.datetime.date(1950, 1, 1))
 
