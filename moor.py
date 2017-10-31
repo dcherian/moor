@@ -301,7 +301,7 @@ class moor:
         if 'home/deepak/python' not in sys.path:
             sys.path.append('/home/deepak/python')
 
-        import chipy.chipy as chipy
+        import chipy
 
         if dir is None:
             dir = self.datadir
