@@ -50,6 +50,35 @@ class moor:
         self.special = dict()
         self.season = dict()
 
+    def __repr__(self):
+        import matplotlib.dates as dt
+
+        podstr = ''
+        for unit in self.χpod:
+            pod = self.χpod[unit]
+            podstr += '\t'+pod.name[2:]
+            times = (dt.num2date(pod.time[0]).strftime('%Y-%b-%d')
+                     + ' → '
+                     + dt.num2date(pod.time[-2]).strftime('%Y-%b-%d'))
+            podstr += ' | ' + times + '\n'
+
+        specstr = ''
+        for ss in self.special:
+            specstr += ('\t' + ss + ' | '
+                        + self.special[ss][0].strftime('%Y-%b-%d')
+                        + ' → '
+                        + self.special[ss][1].strftime('%Y-%b-%d')
+                        + '\n')
+
+        specstr = specstr[1:]  # remove initial tab
+
+        return ('mooring ' + self.name
+                + '\nχpods: ' + podstr
+                + '\nEvents: ' + specstr)
+
+    def __str__(self):
+        return self.name + ' mooring'
+
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
         import seawater as sw
