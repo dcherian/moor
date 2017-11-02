@@ -4,16 +4,14 @@ class moor:
     def __init__(self, lon, lat, name, datadir):
 
         import collections
+        import xarray as xr
+
         self.name = name
         self.datadir = datadir
-
-        # vel info
-        self.vel = dict()
 
         # ctd info
         class ctd:
             pass
-
         self.ctd = ctd()
 
         # air-sea stuff
@@ -29,14 +27,7 @@ class moor:
         self.met.Ptime = []
         self.met.swr = []
 
-        # velocity
-        class vel:
-            pass
-
-        self.vel = vel()
-        self.vel.time = []
-        self.vel.u = []
-        self.vel.v = []
+        self.vel = xr.Dataset()
 
         # chipods
         self.χpod = collections.OrderedDict()
@@ -275,20 +266,22 @@ class moor:
         ''' Read velocity data '''
 
         if FileType == 'pmel':
-            import netCDF4 as nc
-            import matplotlib.dates as dt
+            import xarray as xr
             import numpy as np
 
-            vel = nc.Dataset(fname)
+            self.vel = xr.open_dataset(fname, autoclose=True)
 
-            self.vel.time = np.float64(vel['time'][:]/60.0/24.0) + \
-                np.float64(dt.date2num(dt.datetime.datetime(2013, 11, 29,
-                                                            17, 30, 0)))
-            self.vel.u = vel['U_320'][:].squeeze() / 100.0
-            self.vel.v = vel['V_321'][:].squeeze() / 100.0
+            self.vel.rename({'U_320': 'u',
+                             'V_321': 'v'}, inplace=True)
+            self.vel.u.load()
+            self.vel.v.load()
 
-            self.vel.u[self.vel.u > 5] = np.nan
-            self.vel.v[self.vel.v > 5] = np.nan
+            # to m/s
+            self.vel['u'] /= 100.0
+            self.vel['v'] /= 100.0
+
+            self.vel['u'].values[self.vel.u > 5] = np.nan
+            self.vel['v'].values[self.vel.v > 5] = np.nan
 
         if FileType == 'ebob':
             from scipy.io import loadmat
@@ -464,17 +457,28 @@ class moor:
             if tt.get_position()[1] > 0:
                 tt.set_color(poscolor)
 
-
     def avgplt(self, ax, t, x, flen, filt, axis=-1, **kwargs):
+        import xarray as xr
         from dcpy.util import MovingAverage
         from dcpy.ts import BandPassButter
         import numpy as np
 
-        dt = (t[3]-t[2]) * 86400
+        if type(t) is xr.core.dataarray.DataArray:
+            dt = (t[3]-t[2]).values.astype('timedelta64[s]').astype('float32')
+        else:
+            dt = (t[3]-t[2]) * 86400
+
         if flen is not None:
             if filt == 'mean':
-                t = MovingAverage(t.copy(), flen/dt, axis=axis)
-                x = MovingAverage(x.copy(), flen/dt, axis=axis)
+                if type(x) is xr.core.dataarray.DataArray:
+                    N = np.int(np.floor(flen/dt))
+                    a = x.rolling(time=N, center=True, min_periods=1).mean()
+                    a = a.isel(time=slice(N-1, len(a['time'])-N+1, N))
+                    t = a['time']
+                    return t, a
+                else:
+                    t = MovingAverage(t.copy(), flen/dt, axis=axis)
+                    x = MovingAverage(x.copy(), flen/dt, axis=axis)
 
             elif filt == 'bandpass':
                 flen = np.array(flen.copy())
@@ -508,7 +512,8 @@ class moor:
         t1, u = self.avgplt(None, t, u, flen, filt)
         t1, v = self.avgplt(None, t, v, flen, filt)
 
-        hquiv = ax.quiver(t1, np.zeros_like(t1), u, v,
+        hquiv = ax.quiver(t1.values, np.zeros_like(t1.values),
+                          u.values.squeeze(), v.values.squeeze(),
                           scale=3, color=color, alpha=0.4)
         ax.quiverkey(hquiv,
                      0.3, 0.2, 0.5, '0.5 m/s', labelpos='E',
@@ -660,7 +665,7 @@ class moor:
         ax['met'] = plt.subplot(4, 2, 1)
         ax['N2'] = plt.subplot(4, 2, 3, sharex=ax['met'])
         ax['T'] = plt.subplot(4, 2, 5, sharex=ax['met'])
-        if self.vel.u != [] and quiv:
+        if self.vel.u is not [] and quiv:
             ax['v'] = plt.subplot(4, 2, 7, sharex=ax['met'])
         else:
             ax['χ'] = plt.subplot(4, 2, 7, sharex=ax['met'])
