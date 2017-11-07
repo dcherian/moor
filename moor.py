@@ -1,5 +1,5 @@
 class moor:
-    ''' Class for a *single* RAMA/NRL mooring '''
+    ''' Class for a *single* mooring that has χpods '''
 
     def __init__(self, lon, lat, name, datadir):
 
@@ -15,6 +15,7 @@ class moor:
         self.ctd = ctd()
 
         # air-sea stuff
+        # self.met = mooring met data
         class met:
             pass
 
@@ -108,7 +109,7 @@ class moor:
                 self.ctd.Ttmat = self.ctd.tmat
                 self.ctd.Tzmat = self.ctd.zmat
                 self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp,
-                                          self.ctd.Tzmat)
+                                     self.ctd.Tzmat)
 
         if FileType == 'rama':
             import netCDF4 as nc
@@ -661,7 +662,7 @@ class moor:
             for unit in self.χpod:
                 pod = self.χpod[unit]
                 ndt = np.int(
-                    np.round(1 / 4 / (pod.ctd1.time[1] - pod.ctd1.time[0])))
+                    np.round(1/4/(pod.ctd1.time[1] - pod.ctd1.time[0])))
                 try:
                     ax.plot_date(
                         pod.ctd1.time[::ndt],
@@ -771,6 +772,7 @@ class moor:
             ax['Jq0'].set_ylim(
                 np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
 
+        # ---------- χpods
         labels = []
         xlim = [1e6, 0]
         if pods == []:
@@ -786,47 +788,23 @@ class moor:
 
             xlim = [min(xlim[0], pod.time[0]), max(xlim[1], pod.time[-2])]
 
-            self.avgplt(
-                ax['N2'],
-                χ['time'],
-                χ['N2'] / 1e-4,
-                filter_len,
-                filt,
-                linewidth=lw)
-            self.avgplt(
-                ax['Tz'],
-                χ['time'],
-                χ['dTdz'],
-                filter_len,
-                filt,
-                linewidth=lw)
+            self.avgplt(ax['N2'], χ['time'], χ['N2'] / 1e-4,
+                        filter_len, filt, linewidth=lw)
+            self.avgplt(ax['Tz'], χ['time'], χ['dTdz'],
+                        filter_len, filt, linewidth=lw)
 
             if 'χ' in ax:
-                pod.PlotEstimate(
-                    'chi',
-                    ee,
-                    hax=ax['χ'],
-                    filt=filt,
-                    decimate=True,
-                    filter_len=filter_len,
-                    linewidth=lw)
+                pod.PlotEstimate('chi', ee, hax=ax['χ'],
+                                 filt=filt, decimate=True,
+                                 filter_len=filter_len, linewidth=lw)
 
-            pod.PlotEstimate(
-                'KT',
-                ee,
-                hax=ax['Kt'],
-                filt=filt,
-                decimate=True,
-                filter_len=filter_len,
-                linewidth=lw)
-            pod.PlotEstimate(
-                'Jq',
-                ee,
-                hax=ax['Jq'],
-                filt=filt,
-                decimate=True,
-                filter_len=filter_len,
-                linewidth=lw)
+            pod.PlotEstimate('KT', ee, hax=ax['Kt'],
+                             filt=filt, decimate=True,
+                             filter_len=filter_len, linewidth=lw)
+
+            pod.PlotEstimate('Jq', ee, hax=ax['Jq'],
+                             filt=filt, decimate=True,
+                             filter_len=filter_len, linewidth=lw)
 
             if str(pod.depth) + 'm' not in labels:
                 labels.append(str(pod.depth) + 'm')
