@@ -482,6 +482,7 @@ class moor:
         from dcpy.ts import BandPassButter
         import numpy as np
 
+        x_is_xarray = type(x) is xr.core.dataarray.DataArray
         if type(t) is xr.core.dataarray.DataArray:
             dt = (t[3]-t[2]).values.astype('timedelta64[s]').astype('float32')
         else:
@@ -489,7 +490,7 @@ class moor:
 
         if flen is not None:
             if filt == 'mean':
-                if type(x) is xr.core.dataarray.DataArray:
+                if x_is_xarray:
                     N = np.int(np.floor(flen/dt))
                     a = x.rolling(time=N, center=True, min_periods=1).mean()
                     a = a.isel(time=slice(N-1, len(a['time'])-N+1, N))
@@ -502,11 +503,15 @@ class moor:
             elif filt == 'bandpass':
                 flen = np.array(flen.copy())
                 assert(len(flen) > 1)
-                x = BandPassButter(x.copy(), 1/flen, dt)
+                x = BandPassButter(x.copy(), 1/flen, dt, dim='time')
 
             else:
                 from dcpy.util import smooth
-                x = smooth(x, flen/dt)
+                if x_is_xarray:
+                    xnew = smooth(x.values.squeeze(), flen/dt)
+                    x.values = np.reshape(xnew, x.shape)
+                else:
+                    x = smooth(x, flen/dt)
 
         if ax is None:
             return t, x
