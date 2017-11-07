@@ -683,6 +683,7 @@ class moor:
         import matplotlib.pyplot as plt
         import numpy as np
         from dcpy.util import dt64_to_datenum
+        import dcpy.plots
 
         plt.figure(figsize=[12.5, 6.5])
         lw = 0.5
@@ -819,7 +820,10 @@ class moor:
         ax['N2'].legend(labels)
         ax['N2'].set_ylabel('$N²$ ($10^{-3}$)')
         limy = ax['N2'].get_ylim()
-        ax['N2'].set_ylim([0, limy[1]])
+        if filt != 'bandpass':
+            ax['N2'].set_ylim([0, limy[1]])
+        else:
+            dcpy.plots.liney(0)
 
         ax['Tz'].set_ylabel('$\partial T/ \partial z$ (symlog)')
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
