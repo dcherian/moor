@@ -670,11 +670,13 @@ class moor:
         return hdl
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
-                  pods=[], quiv=True, TSkind='timeseries', t0=None, t1=None):
+                  pods=[], quiv=True, TSkind='timeseries', t0=None, t1=None,
+                  met='local', fluxvar='netflux', tau='local'):
         ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
         import numpy as np
+        from dcpy.util import dt64_to_datenum
 
         plt.figure(figsize=[12.5, 6.5])
         lw = 0.5
@@ -703,44 +705,68 @@ class moor:
         for aa in ax:
             self.SetColorCycle(ax[aa])
 
-        # met forcing in ax['met']
-        ax['met'].set_clip_on(False)
         if filter_len is not None:
             ax['met'].set_title(self.name + ' | '
                                 + self.GetFilterLenLabel(filt, filter_len))
         else:
             ax['met'].set_title(self.name)
 
-        if self.met.τ is not []:
+        # ------------ τ
+        ax['met'].set_clip_on(False)
+        if self.met.τ == []:
+            tau = 'tropflux'
+
+        if tau == 'tropflux':
+            self.avgplt(ax['met'],
+                        dt64_to_datenum(self.tropflux.tau.time.values),
+                        self.tropflux.tau.values,
+                        filter_len, filt, color='k',
+                        linewidth=lw, zorder=1)
+        else:
             self.avgplt(ax['met'], self.met.τtime, self.met.τ,
                         filter_len, filt, color='k',
                         linewidth=lw, zorder=1)
-            if filt == 'bandpass':
-                ax['met'].set_ylim([-0.1, 0.1])
-            else:
-                ax['met'].set_ylim([0, 0.3])
 
+        if filt == 'bandpass':
+            ax['met'].set_ylim([-0.1, 0.1])
+        else:
+            ax['met'].set_ylim([0, 0.3])
+
+        # ----------- precip
         if self.met.P != []:
             self.avgplt(ax['met'], self.met.Ptime, self.met.P/10,
-                        flen=None, filt=None, color='lightsalmon',
+                        flen=filter_len, filt=filt, color='slateblue',
                         linewidth=lw, zorder=-1)
 
-        if self.met.Jq0 != []:
-            ax['Jq0'] = ax['met'].twinx()
-            ax['Jq0'].set_zorder(-1)
+        # ------------ flux
+        ax['Jq0'] = ax['met'].twinx()
+        ax['Jq0'].set_zorder(-1)
+
+        if self.met.Jq0 == []:
+            # no mooring flux
+            met = 'tropflux'
+
+        if met == 'tropflux':
+            datenum = dt64_to_datenum(self.tropflux.time.values)
+            time, Jq = self.avgplt(None, datenum,
+                                   self.tropflux[fluxvar].values,
+                                   filter_len, filt)
+            ax['Jq0'].set_ylabel(fluxvar+' (W/m²)', labelpad=0)
+        else:
             time, Jq = self.avgplt(None, self.met.Jtime, self.met.Jq0,
                                    filter_len, filt)
-            ax['Jq0'].spines['right'].set_visible(True)
-            ax['Jq0'].spines['left'].set_visible(False)
-            self.PlotFlux(ax['Jq0'], time, Jq)
-            ax['Jq0'].xaxis_date()
             ax['Jq0'].set_ylabel('$J_q^0$ (W/m²)', labelpad=0)
-            if filt == 'bandpass':
-                ax['Jq0'].set_ylim(
-                    np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
+
+        self.PlotFlux(ax['Jq0'], time, Jq)
+        ax['Jq0'].spines['right'].set_visible(True)
+        ax['Jq0'].spines['left'].set_visible(False)
+        ax['Jq0'].xaxis_date()
+
+        if filt == 'bandpass':
+            ax['Jq0'].set_ylim(
+                np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
 
         labels = []
-
         xlim = [1e6, 0]
         if pods == []:
             pods = list(self.χpod.keys())
