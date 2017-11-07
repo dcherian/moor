@@ -27,6 +27,8 @@ class moor:
         self.met.Ptime = []
         self.met.swr = []
 
+        self.tropflux = []
+
         self.vel = xr.Dataset()
 
         # chipods
@@ -223,6 +225,23 @@ class moor:
             self.met.Jq0 = -mat['Jq']['nhf'][0][0][0]
             self.met.Jtime = mat['Jq']['t'][0][0][0] - 366
             self.met.swr = -mat['Jq']['swf'][0][0][0]
+    def ReadTropflux(self, loc):
+        import xarray as xr
+
+        swr = (xr.open_mfdataset(loc + '/swr*.nc', autoclose=True)
+               .sel(latitude=self.lat, longitude=self.lon, method='nearest')
+               .load())
+        lwr = (xr.open_mfdataset(loc + '/lwr*.nc', autoclose=True)
+               .sel(latitude=self.lat, longitude=self.lon, method='nearest')
+               .load())
+        tau = (xr.open_mfdataset(loc + '/tau*.nc', autoclose=True)
+               .sel(latitude=self.lat, longitude=self.lon, method='nearest')
+               .load())
+        net = (xr.open_mfdataset(loc + '/netflux*.nc', autoclose=True)
+               .sel(latitude=self.lat, longitude=self.lon, method='nearest')
+               .load())
+
+        self.tropflux = xr.merge([swr, lwr, tau, net])
 
     def AddSpecialTimes(self, pods, name, t0, t1):
         import datetime as pdt
