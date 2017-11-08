@@ -890,8 +890,63 @@ class moor:
 
         return ax
 
+    def LagCorr(self, metvar='tau', met='local',
+                freqs=None, filter_len=None, season='SW'):
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from dcpy.util import dt64_to_datenum
+
+        f, ax = plt.subplots(2, 2, sharex=True, sharey=True)
+        f.set_size_inches((8.5, 4.5))
+        ax = np.asarray(ax)
+
+        if met != 'tropflux':
+            tτ, τ = self.avgplt(None,
+                                self.met.τtime, self.met.τ,
+                                filt='mean', flen=filter_len)
+        else:
+            tτ, τ = self.avgplt(None,
+                                dt64_to_datenum(self.tropflux[metvar]
+                                                .time.values),
+                                self.tropflux[metvar].values,
+                                filt='mean', flen=filter_len)
+
+        if freqs is not None:
+            # band pass filter
+            from dcpy.ts import BandPassButter
+            τ = BandPassButter(τ, freqs=freqs, dt=(tτ[3]-tτ[2])*86400.0)
+
+        for idx, unit in enumerate(self.χpod):
+            pod = self.χpod[unit]
+            est = pod.best
+
+            tJ, Jqt = pod.ExtractSeason(pod.time, pod.Jq[est], season)
+            if filter_len is not None:
+                # do some averaging
+                tJ, Jqt = self.avgplt(None,
+                                      tJ, Jqt,
+                                      filt='mean',
+                                      flen=filter_len)
+
+            if freqs is not None:
+                # band pass filter
+                from dcpy.ts import BandPassButter
+                Jqt = BandPassButter(Jqt, freqs=freqs,
+                                     dt=(tJ[3]-tJ[2])*86400.0)
+
+            τi = np.interp(tJ, tτ, τ)
+
+            # calculate and plot cross-correlations
+            plt.axes(ax.ravel()[idx])
+            plt.xcorr(τi[~np.isnan(Jqt)],
+                      Jqt[~np.isnan(Jqt)], maxlags=None)
+            plt.title(pod.name)
+
+        plt.suptitle('Cross-correlation' + str(1/freqs/86400.0) + ' day bandpassed ' + metvar + ' and $J_q^t$ | season='+season)
+
     def PlotAllSpectra(self, filter_len=None, nsmooth=5,
-                       SubsetLength=None, ticks=None):
+                       SubsetLength=None, ticks=None, **kwargs):
 
         import matplotlib.pyplot as plt
 
