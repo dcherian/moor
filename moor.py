@@ -237,21 +237,35 @@ class moor:
 
     def ReadTropflux(self, loc):
         import xarray as xr
+        import seawater as sw
 
-        swr = (xr.open_mfdataset(loc + '/swr*.nc', autoclose=True)
+        swr = (xr.open_mfdataset(loc + '/swr_*.nc', autoclose=True)
                .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                .load())
-        lwr = (xr.open_mfdataset(loc + '/lwr*.nc', autoclose=True)
+        lwr = (xr.open_mfdataset(loc + '/lwr_*.nc', autoclose=True)
                .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                .load())
-        tau = (xr.open_mfdataset(loc + '/tau*.nc', autoclose=True)
+        tau = (xr.open_mfdataset(loc + '/tau_*.nc', autoclose=True)
                .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                .load())
-        net = (xr.open_mfdataset(loc + '/netflux*.nc', autoclose=True)
+        net = (xr.open_mfdataset(loc + '/netflux_*.nc', autoclose=True)
                .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                .load())
 
-        self.tropflux = xr.merge([swr, lwr, tau, net])
+        taux = xr.open_mfdataset(loc + '/taux_*.nc', autoclose=True).taux
+        tauy = xr.open_mfdataset(loc + '/tauy_*.nc', autoclose=True).tauy
+        tx_y = taux.diff(dim='latitude')
+        ty_x = tauy.diff(dim='longitude')
+
+        # tropflux is 1° - lets use that to our advantage
+        lat2m, _ = sw.dist([self.lat-0.5, self.lat+0.5], self.lon, units='m')
+        lon2m, _ = sw.dist(self.lat, [self.lon-0.5, self.lon+0.5], units='m')
+
+        curl = ((ty_x/lon2m - tx_y/lat2m)
+                .sel(latitude=self.lat, longitude=self.lon, method='nearest')
+                .to_dataset(name='curl'))
+
+        self.tropflux = xr.merge([swr, lwr, tau, curl, net])
 
     def AddSpecialTimes(self, pods, name, t0, t1):
         import datetime as pdt
