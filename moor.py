@@ -594,7 +594,7 @@ class moor:
         import matplotlib.pyplot as plt
         import numpy as np
 
-        N = 5
+        N = 6
 
         if var is 'T' or var is 'temp':
             var = self.ctd.temp[:, :N].copy()
@@ -943,7 +943,9 @@ class moor:
                       Jqt[~np.isnan(Jqt)], maxlags=None)
             plt.title(pod.name)
 
-        plt.suptitle('Cross-correlation' + str(1/freqs/86400.0) + ' day bandpassed ' + metvar + ' and $J_q^t$ | season='+season)
+        plt.suptitle('Cross-correlation' + str(1/freqs/86400.0)
+                     + ' day bandpassed ' + metvar
+                     + ' and $J_q^t$ | season=' + season)
 
     def PlotAllSpectra(self, filter_len=None, nsmooth=5,
                        SubsetLength=None, ticks=None, **kwargs):
@@ -956,26 +958,26 @@ class moor:
         self.PlotSpectrum('T', filter_len=filter_len,
                           nsmooth=nsmooth,
                           SubsetLength=SubsetLength,
-                          ticks=ticks, ax=ax1)
+                          ticks=ticks, ax=ax1, **kwargs)
         ax1.set_title(self.name)
 
         ax2 = plt.subplot(412)
         self.PlotSpectrum('χ', filter_len=filter_len,
                           nsmooth=nsmooth,
                           SubsetLength=SubsetLength,
-                          ticks=ticks, ax=ax2)
+                          ticks=ticks, ax=ax2, **kwargs)
 
         ax3 = plt.subplot(413)
         self.PlotSpectrum('KT', filter_len=filter_len,
                           nsmooth=nsmooth,
                           SubsetLength=SubsetLength,
-                          ticks=ticks, ax=ax3)
+                          ticks=ticks, ax=ax3, **kwargs)
 
         ax4 = plt.subplot(414)
         self.PlotSpectrum('Jq', filter_len=filter_len,
                           nsmooth=nsmooth,
                           SubsetLength=SubsetLength,
-                          ticks=ticks, ax=ax4)
+                          ticks=ticks, ax=ax4, **kwargs)
 
         for ax in [ax2, ax3, ax4]:
             ax.get_legend().set_visible(False)
@@ -1142,6 +1144,7 @@ class moor:
         ])
 
     def ExtractTimeRange(self, t1, v1, t2, v2, ndayavg=None, season=None):
+        ''' v1 is sampled to time range of v2 '''
 
         import numpy as np
         from dcpy.util import MovingAverage
@@ -1224,6 +1227,9 @@ class moor:
         ax0.set_title(title)
 
         for metidx, metvar in enumerate(metvars):
+            if metvar is '':
+                continue
+
             if metvar is 'Jq':
                 met = self.met.Jq0
                 tmet = self.met.Jtime
@@ -1235,8 +1241,9 @@ class moor:
                 dcpy.ts.PlotSpectrum(met, ax=ax1, color='k')
 
             if metvar is 'wind':
-                met = self.met.τ
-                tmet = self.met.τtime
+                from dcpy.util import dt64_to_datenum
+                met = self.tropflux.tau.values
+                tmet = dt64_to_datenum(self.tropflux.tau.time.values)
                 axes = [ax4, ax5]
                 label = '$1000τ$'
                 self.avgplt(
