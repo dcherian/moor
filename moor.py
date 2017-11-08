@@ -477,7 +477,7 @@ class moor:
             if tt.get_position()[1] > 0:
                 tt.set_color(poscolor)
 
-    def avgplt(self, ax, t, x, flen, filt, axis=-1, **kwargs):
+    def avgplt(self, ax, t, x, flen, filt, axis=-1, decimate=True, **kwargs):
         import xarray as xr
         from dcpy.util import MovingAverage
         from dcpy.ts import BandPassButter
@@ -498,13 +498,16 @@ class moor:
                     t = a['time']
                     return t, a
                 else:
-                    t = MovingAverage(t.copy(), flen/dt, axis=axis)
-                    x = MovingAverage(x.copy(), flen/dt, axis=axis)
+                    t = MovingAverage(t.copy(), flen/dt,
+                                      axis=axis, decimate=decimate)
+                    x = MovingAverage(x.copy(), flen/dt,
+                                      axis=axis, decimate=decimate)
 
             elif filt == 'bandpass':
                 flen = np.array(flen.copy())
                 assert(len(flen) > 1)
-                x = BandPassButter(x.copy(), 1/flen, dt, dim='time')
+                x = BandPassButter(x.copy(), 1/flen,
+                                   dt, axis=axis, dim='time')
 
             else:
                 from dcpy.util import smooth
@@ -512,7 +515,7 @@ class moor:
                     xnew = smooth(x.values.squeeze(), flen/dt)
                     x.values = np.reshape(xnew, x.shape)
                 else:
-                    x = smooth(x, flen/dt)
+                    x = smooth(x, flen/dt, axis=axis)
 
         if ax is None:
             return t, x
@@ -597,6 +600,11 @@ class moor:
             zV = self.ctd.zmat[:, :N].copy()
             tV = self.ctd.tmat[:, :N].copy()
             cmap = plt.get_cmap('RdBu_r')
+
+        if kind is 'pcolor':
+            # filter before subsetting
+            _, var = self.avgplt(x=var, t=tV[:, 0], ax=None, axis=0,
+                                 filt=filt, flen=filter_len, decimate=False)
 
         if t0 is not None and t1 is not None:
             from dcpy.util import find_approx
