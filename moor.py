@@ -180,6 +180,7 @@ class moor:
             spd = met['WS_401'][:].squeeze()
             z0 = abs(met['depu'][0])
             self.met.τ = air.windstress.stress(spd, z0, drag='smith')
+            met.close()
 
         elif WindType == 'sat':
             if fname is not None:
@@ -205,7 +206,21 @@ class moor:
                                    (time, self.lat, self.lon))
             self.met.Jtime = time \
                 + dt.date2num(dt.datetime.date(1950, 1, 1))
+            met.close()
 
+        elif FluxType == 'merged':
+            from scipy.io import loadmat
+            import xarray as xr
+            import matplotlib.dates as dt
+            mat = loadmat(fname, squeeze_me=False)
+            # self.met.Jq0 = -mat['Jq']['swf'][0][0][0]
+            self.met.Jq0 = -mat['Jq']['nhf'][0][0][0]
+            self.met.Jtime = mat['Jq']['t'][0][0][0] - 366
+            self.met.swr = xr.DataArray(-mat['Jq']['swf'][0][0][0],
+                                        coords=[dt.num2date(self.met.Jtime)],
+                                        dims=['time'], name='shortwave rad.')
+
+        if FluxType == 'precip':
             met = nc.MFDataset('../ncep/prate*')
             lat = met['lat'][:]
             lon = met['lon'][:]
@@ -218,14 +233,8 @@ class moor:
 
             # convert from kg/m^2/s to mm/hr
             self.met.P *= 1/1000 * 1000 * 3600.0
+            met.close()
 
-        elif FluxType == 'merged':
-            from scipy.io import loadmat
-            mat = loadmat(fname, squeeze_me=False)
-            # self.met.Jq0 = -mat['Jq']['swf'][0][0][0]
-            self.met.Jq0 = -mat['Jq']['nhf'][0][0][0]
-            self.met.Jtime = mat['Jq']['t'][0][0][0] - 366
-            self.met.swr = -mat['Jq']['swf'][0][0][0]
     def ReadTropflux(self, loc):
         import xarray as xr
 
