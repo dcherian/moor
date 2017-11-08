@@ -624,9 +624,6 @@ class moor:
             zV = zV[it0:it1, :]
             tV = tV[it0:it1, :]
 
-        if filt == 'bandpass':
-            label += '\''
-
         label = '$' + label + '$'
 
         if kind is 'timeseries':
@@ -666,14 +663,11 @@ class moor:
 
         if kind is 'pcolor' or kind is 'contour':
             # label in top-right corner
-            ax.text(
-                0.95,
-                0.9,
-                label,
-                horizontalalignment='center',
-                verticalalignment='center',
-                transform=ax.transAxes,
-                bbox=dict(facecolor='k', alpha=0.05))
+            ax.text(0.95, 0.9, label,
+                    horizontalalignment='center',
+                    verticalalignment='center',
+                    transform=ax.transAxes,
+                    bbox=dict(facecolor='k', alpha=0.05))
 
             # showing χpod depth
             for unit in self.χpod:
@@ -681,12 +675,9 @@ class moor:
                 ndt = np.int(
                     np.round(1/4/(pod.ctd1.time[1] - pod.ctd1.time[0])))
                 try:
-                    ax.plot_date(
-                        pod.ctd1.time[::ndt],
-                        -pod.ctd1.z[::ndt],
-                        '-',
-                        linewidth=0.5,
-                        color='gray')
+                    ax.plot_date(pod.ctd1.time[::ndt],
+                                 -pod.ctd1.z[::ndt],
+                                 '-', linewidth=0.5, color='gray')
                 except:
                     ax.axhline(-pod.depth, color='gray', linewidth=0.5)
 
@@ -790,6 +781,10 @@ class moor:
             ax['Jq0'].set_ylim(
                 np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
 
+        turbkwargs = {'filt': filt, 'decimate': True,
+                      'filter_len': filter_len,
+                      'linewidth': lw}
+
         # ---------- χpods
         labels = []
         xlim = [1e6, 0]
@@ -812,21 +807,16 @@ class moor:
                         filter_len, filt, linewidth=lw)
 
             if 'χ' in ax:
-                pod.PlotEstimate('chi', ee, hax=ax['χ'],
-                                 filt=filt, decimate=True,
-                                 filter_len=filter_len, linewidth=lw)
+                pod.PlotEstimate('chi', ee, hax=ax['χ'], **turbkwargs)
 
-            pod.PlotEstimate('KT', ee, hax=ax['Kt'],
-                             filt=filt, decimate=True,
-                             filter_len=filter_len, linewidth=lw)
+            pod.PlotEstimate('KT', ee, hax=ax['Kt'], **turbkwargs)
 
-            pod.PlotEstimate('Jq', ee, hax=ax['Jq'],
-                             filt=filt, decimate=True,
-                             filter_len=filter_len, linewidth=lw)
+            pod.PlotEstimate('Jq', ee, hax=ax['Jq'], **turbkwargs)
 
             if str(pod.depth) + 'm' not in labels:
                 labels.append(str(pod.depth) + 'm')
 
+        # -------- T, S
         ax['Tplot'] = self.PlotTS(
             ax['T'], 'T', filt, filter_len, kind=TSkind, lw=0.5, t0=t0, t1=t1)
         ax['Splot'] = self.PlotTS(
@@ -839,8 +829,6 @@ class moor:
         limy = ax['N2'].get_ylim()
         if filt != 'bandpass':
             ax['N2'].set_ylim([0, limy[1]])
-        else:
-            dcpy.plots.liney(0)
 
         ax['Tz'].set_ylabel('$\partial T/ \partial z$ (symlog)')
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
@@ -864,7 +852,6 @@ class moor:
         ax['Jq'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
         ax['Jq'].set_ylabel('$J_q^t$')
         ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
-        # ax['Jq'].set_yscale('symlog', linthreshy=10, linscaley=2)
 
         ax['met'].set_xlim(xlim)
         plt.gcf().autofmt_xdate()
@@ -872,6 +859,10 @@ class moor:
         for name in ['N2', 'T', 'S', 'v', 'χ', 'Kt', 'Jq', 'Tz']:
             if name in ax:
                 self.MarkSeasonsAndSpecials(ax[name])
+                if filt == 'bandpass':
+                    if (name not in ['T', 'S'] or (name in ['T', 'S']
+                                             and TSkind == 'timeseries')):
+                        dcpy.plots.liney(0, ax=ax[name])
 
         self.MarkSeasonsAndSpecials(ax['met'], season=False)
 
