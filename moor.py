@@ -896,10 +896,13 @@ class moor:
         import matplotlib.pyplot as plt
         import numpy as np
         from dcpy.util import dt64_to_datenum
+        import dcpy.plots
 
         f, ax = plt.subplots(2, 2, sharex=True, sharey=True)
         f.set_size_inches((8.5, 4.5))
         ax = np.asarray(ax)
+
+        titlestr = 'Cross-correlation '
 
         if met != 'tropflux':
             tτ, τ = self.avgplt(None,
@@ -916,6 +919,7 @@ class moor:
             # band pass filter
             from dcpy.ts import BandPassButter
             τ = BandPassButter(τ, freqs=freqs, dt=(tτ[3]-tτ[2])*86400.0)
+            titlestr += str(1/freqs/86400.0) + ' day bandpassed '
 
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
@@ -929,6 +933,9 @@ class moor:
                                       filt='mean',
                                       flen=filter_len)
 
+            # sign is an indication of stratification
+            # Jqt = np.abs(Jqt)
+
             if freqs is not None:
                 # band pass filter
                 from dcpy.ts import BandPassButter
@@ -937,15 +944,27 @@ class moor:
 
             τi = np.interp(tJ, tτ, τ)
 
+            if np.all(np.isnan(Jqt)):
+                raise ValueError('Jqt is all NaN. Did you filter too much?')
+
             # calculate and plot cross-correlations
             plt.axes(ax.ravel()[idx])
             plt.xcorr(τi[~np.isnan(Jqt)],
                       Jqt[~np.isnan(Jqt)], maxlags=None)
             plt.title(pod.name)
 
-        plt.suptitle('Cross-correlation' + str(1/freqs/86400.0)
-                     + ' day bandpassed ' + metvar
-                     + ' and $J_q^t$ | season=' + season)
+        dcpy.plots.linex(0, ax=list(ax.ravel()))
+        plt.suptitle(titlestr + metvar
+                     + ' and $J_q^t$ | season=' + season, y=1.01)
+        f.add_subplot(111, frameon=False)
+        # hide tick and tick label of the big axes
+        plt.tick_params(labelcolor='none', top='off',
+                        bottom='off', left='off', right='off')
+        plt.grid(False)
+        plt.ylabel("Correlation coeff.")
+        plt.xlabel(metvar+" lag (days)")
+
+        plt.tight_layout()
 
     def PlotAllSpectra(self, filter_len=None, nsmooth=5,
                        SubsetLength=None, ticks=None, **kwargs):
