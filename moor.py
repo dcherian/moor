@@ -36,6 +36,11 @@ class moor:
         self.χpod = collections.OrderedDict()
         self.zχpod = collections.OrderedDict()
 
+        # combined turb data
+        self.χ = xr.Dataset()
+        self.KT = xr.Dataset()
+        self.Jq = xr.Dataset()
+
         # location
         self.lon = lon
         self.lat = lat
@@ -72,6 +77,45 @@ class moor:
 
     def __str__(self):
         return self.name + ' mooring'
+
+    def CombineTurb(self):
+        import xarray as xr
+        import numpy as np
+        import pandas as pd
+        import matplotlib.dates as mdt
+
+        χ = []
+        KT = []
+        Jq  = []
+
+        for idx, unit in enumerate(self.χpod):
+            pod = self.χpod[unit]
+
+            mask = np.logical_not(np.isnan(pod.time))
+            times = ((-86400 + pod.time[mask]*86400).astype('timedelta64[s]')
+                     + np.datetime64('0001-01-01'))
+
+            χ.append(xr.DataArray(pod.chi[pod.best]['chi'][np.newaxis,mask],
+                                  coords=[[pod.depth], times],
+                                  dims=['depth', 'time'],
+                                  name='χ'))
+
+            KT.append(xr.DataArray(pod.KT[pod.best][np.newaxis,mask],
+                                   coords=[[pod.depth], times],
+                                   dims=['depth', 'time']))
+
+            Jq.append(xr.DataArray(pod.Jq[pod.best][np.newaxis,mask],
+                                   coords=[[pod.depth], times],
+                                   dims=['depth', 'time']))
+
+        self.χ = xr.concat(χ, dim='time')
+        self.χ.name = 'χ'
+
+        self.KT = xr.concat(KT, dim='time')
+        self.KT.name = 'KT'
+
+        self.Jq = xr.concat(Jq, dim='time')
+        self.Jq.name = 'Jq'
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
