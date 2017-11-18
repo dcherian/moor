@@ -194,7 +194,9 @@ class moor:
             z0 = abs(met['depu'][0])
             τ = air.windstress.stress(spd, z0, drag='smith')
 
-            self.met = xr.merge([self.met, xr.DataArray(τ, coords=[met.time.values], dims=['time'], name='τ')])
+            self.met = xr.merge([self.met,
+                                 xr.DataArray(τ, coords=[met.time.values],
+                                              dims=['time'], name='τ')])
 
         elif FluxType == 'merged':
             from scipy.io import loadmat
@@ -254,7 +256,7 @@ class moor:
                 .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                 .to_dataset(name='curl'))
 
-        self.tropflux = xr.merge([swr, lwr, tau, curl, net])
+        self.tropflux = xr.merge([self.tropflux, swr, lwr, tau, curl, net])
 
     def AddSpecialTimes(self, pods, name, t0, t1):
         import datetime as pdt
