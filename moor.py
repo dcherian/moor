@@ -9,14 +9,17 @@ class moor:
         self.name = name
         self.datadir = datadir
 
-        # ctd info
-        self.ctd = xr.Dataset()
+        # location
+        self.lon = lon
+        self.lat = lat
 
-        # air-sea stuff
-        self.met = xr.Dataset()
+        # "special" events
+        self.special = dict()
+        self.season = dict()
 
-        self.tropflux = []
-
+        self.ctd = xr.Dataset()  # TAO CTD
+        self.met = xr.Dataset()  # TAO met
+        self.tropflux = xr.Dataset()  # tropflux
         self.vel = xr.Dataset()
 
         # chipods
@@ -27,14 +30,6 @@ class moor:
         self.χ = xr.Dataset()
         self.KT = xr.Dataset()
         self.Jq = xr.Dataset()
-
-        # location
-        self.lon = lon
-        self.lat = lat
-
-        # "special" events
-        self.special = dict()
-        self.season = dict()
 
     def __repr__(self):
         import matplotlib.dates as dt
