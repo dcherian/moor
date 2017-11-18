@@ -15,18 +15,7 @@ class moor:
         self.ctd = ctd()
 
         # air-sea stuff
-        # self.met = mooring met data
-        class met:
-            pass
-
-        self.met = met()
-        self.met.τ = []  # wind stress
-        self.met.τtime = []
-        self.met.Jq0 = []  # net radiative flux
-        self.met.Jtime = []
-        self.met.P = []  # precip
-        self.met.Ptime = []
-        self.met.swr = []
+        self.met = xr.Dataset()
 
         self.tropflux = []
 
@@ -210,51 +199,21 @@ class moor:
         import airsea as air
         import matplotlib.dates as dt
         import numpy as np
-        import netCDF4 as nc
-        from scipy.interpolate import interpn
+        import xarray as xr
 
         if WindType == 'pmel':
             if fname is None:
                 raise ValueError('I need a filename for PMEL met data!')
 
-            met = nc.Dataset(fname)
-            self.met.τtime = np.float64(met['time'][:]/24.0/60.0) \
-                + np.float64(dt.date2num(dt.datetime.datetime(2009, 11, 5,
-                                                              19, 30, 0)))
-            spd = met['WS_401'][:].squeeze()
+            met = xr.open_dataset(fname, autoclose=True)
+            spd = met.WS_401.squeeze()
             z0 = abs(met['depu'][0])
-            self.met.τ = air.windstress.stress(spd, z0, drag='smith')
-            met.close()
+            τ = air.windstress.stress(spd, z0, drag='smith')
 
-        elif WindType == 'sat':
-            if fname is not None:
-                raise ValueError('Do not provide fname for' +
-                                 ' satellite flux data!')
-            met = nc.MFDataset('../tropflux/tau_tropflux*')
-            lon = met['longitude'][:]
-            lat = met['latitude'][:]
-            time = met['time'][:]
-            self.met.τ = interpn((time, lat, lon),
-                                 met['tau'][:, :, :],
-                                 (time, self.lat, self.lon))
-            self.met.τtime = time \
-                + dt.date2num(dt.datetime.date(1950, 1, 1))
-
-        if FluxType == 'sat':
-            met = nc.MFDataset('../tropflux/netflux_*')
-            lon = met['longitude'][:]
-            lat = met['latitude'][:]
-            time = met['time'][:]
-            self.met.Jq0 = interpn((time, lat, lon),
-                                   met['netflux'][:, :, :],
-                                   (time, self.lat, self.lon))
-            self.met.Jtime = time \
-                + dt.date2num(dt.datetime.date(1950, 1, 1))
-            met.close()
+            self.met = xr.merge([self.met, xr.DataArray(τ, coords=[met.time.values], dims=['time'], name='τ')])
 
         elif FluxType == 'merged':
             from scipy.io import loadmat
-            import xarray as xr
             import matplotlib.dates as dt
             mat = loadmat(fname, squeeze_me=False)
             # self.met.Jq0 = -mat['Jq']['swf'][0][0][0]
@@ -280,6 +239,8 @@ class moor:
             met.close()
 
     def ReadTropflux(self, loc):
+        ''' Read tropflux data. Save in moor.tropflux'''
+
         import xarray as xr
         import seawater as sw
 
@@ -786,7 +747,7 @@ class moor:
 
         # ------------ τ
         ax['met'].set_clip_on(False)
-        if self.met.τ == []:
+        if 'τ' not in self.met:
             tau = 'tropflux'
 
         if tau == 'tropflux':
@@ -796,7 +757,7 @@ class moor:
                         filter_len, filt, color='k',
                         linewidth=lw, zorder=1)
         else:
-            self.avgplt(ax['met'], self.met.τtime, self.met.τ,
+            self.avgplt(ax['met'], self.met.τ.time, self.met.τ,
                         filter_len, filt, color='k',
                         linewidth=lw, zorder=1)
 
@@ -806,8 +767,8 @@ class moor:
             ax['met'].set_ylim([0, 0.3])
 
         # ----------- precip
-        if self.met.P != []:
-            self.avgplt(ax['met'], self.met.Ptime, self.met.P/10,
+        if 'P' in self.met:
+            self.avgplt(ax['met'], self.met.P.time, self.met.P/10,
                         flen=filter_len, filt=filt, color='slateblue',
                         linewidth=lw, zorder=-1)
 
@@ -815,7 +776,7 @@ class moor:
         ax['Jq0'] = ax['met'].twinx()
         ax['Jq0'].set_zorder(-1)
 
-        if self.met.Jq0 == []:
+        if 'Jq0' in self.met:
             # no mooring flux
             met = 'tropflux'
 
@@ -825,12 +786,14 @@ class moor:
                                    self.tropflux[fluxvar].values,
                                    filter_len, filt)
             ax['Jq0'].set_ylabel(fluxvar+' (W/m²)', labelpad=0)
-        else:
+            self.PlotFlux(ax['Jq0'], time, Jq)
+
+        elif 'Jq0' in self.met:
             time, Jq = self.avgplt(None, self.met.Jtime, self.met.Jq0,
                                    filter_len, filt)
             ax['Jq0'].set_ylabel('$J_q^0$ (W/m²)', labelpad=0)
+            self.PlotFlux(ax['Jq0'], time, Jq)
 
-        self.PlotFlux(ax['Jq0'], time, Jq)
         ax['Jq0'].spines['right'].set_visible(True)
         ax['Jq0'].spines['left'].set_visible(False)
         ax['Jq0'].xaxis_date()
@@ -839,15 +802,25 @@ class moor:
             ax['Jq0'].set_ylim(
                 np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
 
-        turbkwargs = {'filt': filt, 'decimate': True,
-                      'filter_len': filter_len,
-                      'linewidth': lw}
-
         # ---------- χpods
         labels = []
         xlim = [1e6, 0]
         if pods == []:
             pods = list(self.χpod.keys())
+
+        turbkwargs = {'filt': filt, 'decimate': True,
+                      'filter_len': filter_len,
+                      'linewidth': lw}
+
+        from dcpy.plots import offset_line_plot
+        if 'χ' in ax:
+            offset_line_plot(self.χ, x='time', y='depth', remove_mean=False, offset=0, ax=ax['χ'])
+            ax['χ'].set_yscale('log')
+
+        offset_line_plot(self.KT, x='time', y='depth', remove_mean=False, offset=0, ax=ax['Kt'])
+        ax['Kt'].set_yscale('log')
+        offset_line_plot(self.Jq, x='time', y='depth', remove_mean=False, offset=0, ax=ax['Jq'])
+        ax['Jq'].set_yscale('log')
 
         for unit in pods:
             pod = self.χpod[unit]
@@ -864,12 +837,12 @@ class moor:
             self.avgplt(ax['Tz'], χ['time'], χ['dTdz'],
                         filter_len, filt, linewidth=lw)
 
-            if 'χ' in ax:
-                pod.PlotEstimate('chi', ee, hax=ax['χ'], **turbkwargs)
+            # if 'χ' in ax:
+            #     pod.PlotEstimate('chi', ee, hax=ax['χ'], **turbkwargs)
 
-            pod.PlotEstimate('KT', ee, hax=ax['Kt'], **turbkwargs)
+            # pod.PlotEstimate('KT', ee, hax=ax['Kt'], **turbkwargs)
 
-            pod.PlotEstimate('Jq', ee, hax=ax['Jq'], **turbkwargs)
+            # pod.PlotEstimate('Jq', ee, hax=ax['Jq'], **turbkwargs)
 
             if str(pod.depth) + 'm' not in labels:
                 labels.append(str(pod.depth) + 'm')
