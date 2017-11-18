@@ -10,9 +10,7 @@ class moor:
         self.datadir = datadir
 
         # ctd info
-        class ctd:
-            pass
-        self.ctd = ctd()
+        self.ctd = xr.Dataset()
 
         # air-sea stuff
         self.met = xr.Dataset()
@@ -110,7 +108,9 @@ class moor:
 
         import seawater as sw
         import numpy as np
+        import xarray as xr
         from scipy.io import loadmat
+        import dcpy.util
 
         if FileType == 'ramaprelim':
             mat = loadmat(fname, squeeze_me=True, struct_as_record=False)
@@ -119,30 +119,19 @@ class moor:
             except KeyError:
                 pass
 
-            if not self.ctd.__dict__:
-                # first time I'm reading CTD data
-                self.ctd.time = mat.time - 366
-                self.ctd.temp = mat.temp.T
-                self.ctd.sal = mat.sal.T
-                self.ctd.depth = mat.depth
-                self.ctd.zmat = np.tile(self.ctd.depth, (len(mat.time), 1))
-                self.ctd.tmat = np.tile(self.ctd.time, (len(mat.depth), 1)).T
-                self.ctd.Ttmat = self.ctd.tmat
-                self.ctd.Tzmat = self.ctd.zmat
-                self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp,
-                                     self.ctd.Tzmat)
-            else:
-                # otherwise we append
-                self.ctd.time = np.concatenate([self.ctd.time, mat.time - 366])
-                self.ctd.temp = np.concatenate([self.ctd.temp, mat.temp.T])
-                self.ctd.sal = np.concatenate([self.ctd.sal, mat.sal.T])
-                self.ctd.zmat = np.tile(self.ctd.depth, (len(self.ctd.time),
-                                                         1))
-                self.ctd.tmat = np.tile(self.ctd.time, (len(mat.depth), 1)).T
-                self.ctd.Ttmat = self.ctd.tmat
-                self.ctd.Tzmat = self.ctd.zmat
-                self.ctd.ρ = sw.pden(self.ctd.sal, self.ctd.temp,
-                                     self.ctd.Tzmat)
+            time = dcpy.util.mdatenum2dt64(mat.time-366)
+            z = np.floor(mat.depth)
+            temp = xr.DataArray(mat.temp, dims=['depth', 'time'],
+                                coords=[z, time], name='T')
+            sal = xr.DataArray(mat.sal, dims=['depth', 'time'],
+                               coords=[z, time], name='S')
+
+            zmat = np.tile(z, (len(mat.time), 1)).T
+            ρ = xr.DataArray(sw.pden(sal, temp, zmat),
+                             dims=['depth', 'time'], coords=[z, time],
+                             name='ρ')
+
+            self.ctd = xr.merge([self.ctd, temp, sal, ρ])
 
         if FileType == 'rama':
             import netCDF4 as nc
@@ -607,32 +596,22 @@ class moor:
                                 zorder=-5)
                 ax.set_ylim(ylim)
 
-    def PlotTS(self, ax, var, filt=None, filter_len=None,
+    def PlotCTD(self, name, ax=None, filt=None, filter_len=None,
                kind='timeseries', lw=1, t0=None, t1=None):
         import matplotlib as mpl
         import matplotlib.pyplot as plt
         import numpy as np
 
         N = 6
+        if ax is None:
+            ax = plt.gca()
 
-        if var is 'T' or var is 'temp':
-            var = self.ctd.temp[:, :N].copy()
-            label = 'T'
-            zV = self.ctd.Tzmat[:, :N].copy()
-            tV = self.ctd.Ttmat[:, :N].copy()
-            cmap = plt.get_cmap('RdBu_r')
+        cmap = plt.get_cmap('RdBu_r')
 
-        if var is 'S' or var is 'salt' or var is 'sal':
-            var = self.ctd.sal[:, :N].copy()
-            label = 'S'
-            zV = self.ctd.zmat[:, :N].copy()
-            tV = self.ctd.tmat[:, :N].copy()
-            cmap = plt.get_cmap('RdBu_r')
-
-        if kind is 'pcolor':
+        if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
             # filter before subsetting
-            _, var = self.avgplt(x=var, t=tV[:, 0], ax=None, axis=0,
-                                 filt=filt, flen=filter_len, decimate=False)
+            _, var = self.avgplt(x=self.ctd[name].values, t=self.ctd.time.values, ax=None,
+                                 axis=1, filt=filt, flen=filter_len, decimate=False)
 
         if t0 is not None and t1 is not None:
             from dcpy.util import find_approx
@@ -643,7 +622,7 @@ class moor:
             zV = zV[it0:it1, :]
             tV = tV[it0:it1, :]
 
-        label = '$' + label + '$'
+        label = '$' + self.ctd[name].name + '$'
 
         if kind is 'timeseries':
             from cycler import cycler
@@ -669,18 +648,23 @@ class moor:
             # doesn't work yet
             hdl = ax.plot(var.T[::N, :], zV.T[::N, :])
 
-        if kind is 'pcolor':
-            hdl = ax.contourf(tV, -zV, var, 25, cmap=cmap, zorder=-1)
-            ax.contour(
-                tV, -zV, var, 10, colors='gray', linewidths=0.25, zorder=-1)
+        if kind is 'pcolor' or kind is 'contourf':
+            hdl = []
+            hdl.append(self.ctd[name].plot.contourf(ax=ax, levels=25,
+                                                    cmap=cmap,
+                                                    zorder=-1))
+            hdl.append(self.ctd[name].plot.contour(ax=ax, levels=20,
+                                                   colors='gray',
+                                                   linewidths=0.25,
+                                                   zorder=-1))
             ax.set_ylabel('depth')
 
         if kind is 'contour':
-            hdl = ax.contour(
-                tV, -zV, var, 20, colors='gray', linewidths=0.25, zorder=-1)
+            hdl = self.ctd[name].plot.contour(ax=ax, levels=20, colors='gray',
+                                              linewidths=0.25, zorder=-1)
             ax.set_ylabel('depth')
 
-        if kind is 'pcolor' or kind is 'contour':
+        if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
             # label in top-right corner
             ax.text(0.95, 0.9, label,
                     horizontalalignment='center',
@@ -689,16 +673,8 @@ class moor:
                     bbox=dict(facecolor='k', alpha=0.05))
 
             # showing χpod depth
-            for unit in self.χpod:
-                pod = self.χpod[unit]
-                ndt = np.int(
-                    np.round(1/4/(pod.ctd1.time[1] - pod.ctd1.time[0])))
-                try:
-                    ax.plot_date(pod.ctd1.time[::ndt],
-                                 -pod.ctd1.z[::ndt],
-                                 '-', linewidth=0.5, color='gray')
-                except:
-                    ax.axhline(-pod.depth, color='gray', linewidth=0.5)
+            if 'depth' in self.χ:
+                [ax.axhline(z, color='gray', linewidth=0.5) for z in self.χ.depth]
 
         return hdl
 
@@ -848,9 +824,9 @@ class moor:
                 labels.append(str(pod.depth) + 'm')
 
         # -------- T, S
-        ax['Tplot'] = self.PlotTS(
+        ax['Tplot'] = self.PlotCTD(
             ax['T'], 'T', filt, filter_len, kind=TSkind, lw=0.5, t0=t0, t1=t1)
-        ax['Splot'] = self.PlotTS(
+        ax['Splot'] = self.PlotCTD(
             ax['S'], 'S', filt, filter_len, kind=TSkind, lw=0.5, t0=t0, t1=t1)
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
