@@ -594,10 +594,11 @@ class moor:
                 ax.set_ylim(ylim)
 
     def PlotCTD(self, name, ax=None, filt=None, filter_len=None,
-               kind='timeseries', lw=1, t0=None, t1=None):
+                kind='timeseries', lw=1, t0=None, t1=None, **kwargs):
         import matplotlib as mpl
         import matplotlib.pyplot as plt
         import numpy as np
+        import dcpy.ts
 
         N = 6
         if ax is None:
@@ -607,8 +608,8 @@ class moor:
 
         if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
             # filter before subsetting
-            _, var = self.avgplt(x=self.ctd[name].values, t=self.ctd.time.values, ax=None,
-                                 axis=1, filt=filt, flen=filter_len, decimate=False)
+            var = dcpy.ts.xfilter(self.ctd[name], dim='time',
+                                  kind=filt, flen=filter_len, decimate=False)
 
         if t0 is not None and t1 is not None:
             from dcpy.util import find_approx
@@ -647,18 +648,20 @@ class moor:
 
         if kind is 'pcolor' or kind is 'contourf':
             hdl = []
-            hdl.append(self.ctd[name].plot.contourf(ax=ax, levels=25,
-                                                    cmap=cmap,
-                                                    zorder=-1))
-            hdl.append(self.ctd[name].plot.contour(ax=ax, levels=20,
-                                                   colors='gray',
-                                                   linewidths=0.25,
-                                                   zorder=-1))
+            hdl.append(var.plot.contourf(ax=ax, levels=25,
+                                         cmap=cmap, zorder=-1,
+                                         **kwargs))
+            hdl.append(var.plot.contour(ax=ax, levels=20,
+                                        colors='gray',
+                                        linewidths=0.25,
+                                        zorder=-1, **kwargs))
             ax.set_ylabel('depth')
+            ax.invert_yaxis()
 
         if kind is 'contour':
-            hdl = self.ctd[name].plot.contour(ax=ax, levels=20, colors='gray',
-                                              linewidths=0.25, zorder=-1)
+            hdl = var.plot.contour(ax=ax, levels=20, colors='gray',
+                                   linewidths=0.25, zorder=-1,
+                                   **kwargs)
             ax.set_ylabel('depth')
 
         if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
@@ -671,7 +674,8 @@ class moor:
 
             # showing χpod depth
             if 'depth' in self.χ:
-                [ax.axhline(z, color='gray', linewidth=0.5) for z in self.χ.depth]
+                [ax.axhline(z, color='gray', linewidth=0.5)
+                 for z in self.χ.depth]
 
         return hdl
 
@@ -781,19 +785,26 @@ class moor:
         if pods == []:
             pods = list(self.χpod.keys())
 
-        turbkwargs = {'filt': filt, 'decimate': True,
-                      'filter_len': filter_len,
-                      'linewidth': lw}
+        filtargs = {'kind': filt, 'decimate': True,
+                    'flen': filter_len, 'dim': 'time'}
+        plotargs = {'linewidth': lw}
 
         from dcpy.plots import offset_line_plot
+        from dcpy.ts import xfilter
+
         if 'χ' in ax:
-            offset_line_plot(self.χ, x='time', y='depth', remove_mean=False, offset=0, ax=ax['χ'])
+            offset_line_plot(self.χ.pipe(xfilter, **filtargs),
+                             x='time', y='depth', remove_mean=False,
+                             offset=0, ax=ax['χ'], **plotargs)
             ax['χ'].set_yscale('log')
 
-        offset_line_plot(self.KT, x='time', y='depth', remove_mean=False, offset=0, ax=ax['Kt'])
+        offset_line_plot(self.KT.pipe(xfilter, **filtargs),
+                         x='time', y='depth', remove_mean=False,
+                         offset=0, ax=ax['Kt'], **plotargs)
         ax['Kt'].set_yscale('log')
-        offset_line_plot(self.Jq, x='time', y='depth', remove_mean=False, offset=0, ax=ax['Jq'])
-        ax['Jq'].set_yscale('log')
+        offset_line_plot(self.Jq.pipe(xfilter, **filtargs),
+                         x='time', y='depth', remove_mean=False,
+                         offset=0, ax=ax['Jq'], **plotargs)
 
         for unit in pods:
             pod = self.χpod[unit]
@@ -810,21 +821,14 @@ class moor:
             self.avgplt(ax['Tz'], χ['time'], χ['dTdz'],
                         filter_len, filt, linewidth=lw)
 
-            # if 'χ' in ax:
-            #     pod.PlotEstimate('chi', ee, hax=ax['χ'], **turbkwargs)
-
-            # pod.PlotEstimate('KT', ee, hax=ax['Kt'], **turbkwargs)
-
-            # pod.PlotEstimate('Jq', ee, hax=ax['Jq'], **turbkwargs)
-
             if str(pod.depth) + 'm' not in labels:
                 labels.append(str(pod.depth) + 'm')
 
         # -------- T, S
-        ax['Tplot'] = self.PlotCTD(
-            ax['T'], 'T', filt, filter_len, kind=TSkind, lw=0.5, t0=t0, t1=t1)
-        ax['Splot'] = self.PlotCTD(
-            ax['S'], 'S', filt, filter_len, kind=TSkind, lw=0.5, t0=t0, t1=t1)
+        ctdargs = dict(filt=filt, filter_len=filter_len, kind=TSkind,
+                    lw=0.5, t0=t0, t1=t1, add_colorbar=False)
+        ax['Tplot'] = self.PlotCTD('T', ax['T'], **ctdargs)
+        ax['Splot'] = self.PlotCTD('S', ax['S'], **ctdargs)
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
