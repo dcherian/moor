@@ -61,6 +61,7 @@ class moor:
         return self.name + ' mooring'
 
     def CombineTurb(self):
+        ''' Combines all χpod χ, KT, Jq into a single DataArray each '''
         import xarray as xr
         import numpy as np
         import pandas as pd
@@ -84,20 +85,20 @@ class moor:
 
             KT.append(xr.DataArray(pod.KT[pod.best][np.newaxis,mask],
                                    coords=[[pod.depth], times],
-                                   dims=['depth', 'time']))
+                                   dims=['depth', 'time'], name='KT'))
 
             Jq.append(xr.DataArray(pod.Jq[pod.best][np.newaxis,mask],
                                    coords=[[pod.depth], times],
-                                   dims=['depth', 'time']))
+                                   dims=['depth', 'time'], name='Jq'))
 
-        self.χ = xr.concat(χ, dim='time')
-        self.χ.name = 'χ'
+        ds = xr.merge(χ)
+        self.χ = ds.χ
 
-        self.KT = xr.concat(KT, dim='time')
-        self.KT.name = 'KT'
+        ds = xr.merge(KT)
+        self.KT = ds.KT
 
-        self.Jq = xr.concat(Jq, dim='time')
-        self.Jq.name = 'Jq'
+        ds = xr.merge(Jq)
+        self.Jq = ds.Jq
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
