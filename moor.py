@@ -92,13 +92,13 @@ class moor:
                                    dims=['depth', 'time'], name='Jq'))
 
         ds = xr.merge(χ)
-        self.χ = ds.χ
+        self.χ = ds.χ.resample('10min', dim='time', how='mean')
 
         ds = xr.merge(KT)
-        self.KT = ds.KT
+        self.KT = ds.KT.resample('10min', dim='time', how='mean')
 
         ds = xr.merge(Jq)
-        self.Jq = ds.Jq
+        self.Jq = ds.Jq.resample('10min', dim='time', how='mean')
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
