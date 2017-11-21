@@ -498,6 +498,8 @@ class moor:
         from dcpy.ts import BandPassButter
         import numpy as np
 
+        x = x.copy()
+
         x_is_xarray = type(x) is xr.core.dataarray.DataArray
         if type(t) is xr.core.dataarray.DataArray:
             dt = (t[3]-t[2]).values.astype('timedelta64[s]').astype('float32')
@@ -674,9 +676,7 @@ class moor:
                     bbox=dict(facecolor='k', alpha=0.05))
 
             # showing χpod depth
-            if 'depth' in self.χ:
-                [ax.axhline(z, color='gray', linewidth=0.5)
-                 for z in self.χ.depth]
+            [ax.axhline(z, color='gray', linewidth=0.5) for z in self.χ.depth]
 
         return hdl
 
@@ -714,7 +714,7 @@ class moor:
         if filter_len is None:
             filt = None
 
-        for aa in ax:
+        for aa in ['Tz', 'N2']:
             self.SetColorCycle(ax[aa])
 
         if filter_len is not None:
@@ -754,7 +754,7 @@ class moor:
         ax['Jq0'] = ax['met'].twinx()
         ax['Jq0'].set_zorder(-1)
 
-        if 'Jq0' in self.met:
+        if 'Jq0' not in self.met:
             # no mooring flux
             met = 'tropflux'
 
@@ -788,22 +788,22 @@ class moor:
 
         filtargs = {'kind': filt, 'decimate': True,
                     'flen': filter_len, 'dim': 'time'}
-        plotargs = {'linewidth': lw}
+        plotargs = {'linewidth': lw, 'legend': False}
 
         from dcpy.plots import offset_line_plot
         from dcpy.ts import xfilter
 
         if 'χ' in ax:
-            offset_line_plot(self.χ.pipe(xfilter, **filtargs),
+            offset_line_plot(self.χ.copy().pipe(xfilter, **filtargs),
                              x='time', y='depth', remove_mean=False,
                              offset=0, ax=ax['χ'], **plotargs)
             ax['χ'].set_yscale('log')
 
-        offset_line_plot(self.KT.pipe(xfilter, **filtargs),
+        offset_line_plot(self.KT.copy().pipe(xfilter, **filtargs),
                          x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['Kt'], **plotargs)
         ax['Kt'].set_yscale('log')
-        offset_line_plot(self.Jq.pipe(xfilter, **filtargs),
+        offset_line_plot(self.Jq.copy().pipe(xfilter, **filtargs),
                          x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['Jq'], **plotargs)
 
