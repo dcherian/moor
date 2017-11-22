@@ -301,8 +301,9 @@ class moor:
     def ReadVel(self, fname, FileType: str='ebob'):
         ''' Read velocity data '''
 
+        import xarray as xr
+
         if FileType == 'pmel':
-            import xarray as xr
             import numpy as np
 
             self.vel = xr.open_dataset(fname, autoclose=True)
@@ -321,7 +322,17 @@ class moor:
 
         if FileType == 'ebob':
             from scipy.io import loadmat
-            self.adcp = loadmat('../ancillary/adcp/')
+            import dcpy.util
+
+            adcp = loadmat('../ancillary/adcp/' + self.name + '.mat')
+            import IPython; IPython.core.debugger.set_trace()
+
+            z = adcp['depth_levels'].squeeze()
+            time = dcpy.util.mdatenum2dt64(adcp['date_time']-366).squeeze()
+            self.vel = xr.Dataset({'u': (['depth', 'time'], adcp['u']/100),
+                                   'v': (['depth', 'time'], adcp['v']/100)},
+                                  coords={'depth': z, 'time': time})
+
 
     def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat', dir=None):
