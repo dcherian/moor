@@ -117,12 +117,13 @@ class moor:
 
             time = dcpy.util.mdatenum2dt64(mat.time-366)
             z = np.floor(mat.depth)
+            zmat = np.tile(z, (len(mat.time), 1)).T
+
             temp = xr.DataArray(mat.temp, dims=['depth', 'time'],
                                 coords=[z, time], name='T')
             sal = xr.DataArray(mat.sal, dims=['depth', 'time'],
                                coords=[z, time], name='S')
 
-            zmat = np.tile(z, (len(mat.time), 1)).T
             ρ = xr.DataArray(sw.pden(sal, temp, zmat),
                              dims=['depth', 'time'], coords=[z, time],
                              name='ρ')
@@ -154,30 +155,30 @@ class moor:
             f.close()
 
         if FileType == 'ebob':
-            mat = loadmat(
-                self.datadir + '/ancillary/ctd/' + fname + 'SP-deglitched.mat',
-                squeeze_me=True)
-            temp = mat['temp'].T
-            salt = mat['salt'].T
-            pres = mat['pres'].T
+            mat = loadmat(self.datadir + '/ancillary/ctd/' +
+                          fname + 'SP-deglitched.mat', squeeze_me=True)
+            temp = mat['temp']
+            salt = mat['salt']
+            pres = mat['pres']
+            ρ = sw.pden(salt, temp, pres)
 
-            self.ctd.sal = np.ma.masked_array(salt, mask=np.isnan(salt))
-            self.ctd.tmat = mat['time'].T - 366
-            self.ctd.zmat = np.float16(pres)
-            self.ctd.time = self.ctd.tmat[:, 0]
-            self.ctd.depth = pres[10, :]
-            self.ctd.ρ = sw.pden(self.ctd.sal, temp, self.ctd.zmat)
+            mat2 = loadmat(self.datadir + '/ancillary/ctd/' +
+                           'only_temp/EBOB_' + fname + '_WTMP.mat',
+                           squeeze_me=True)
+            temp2 = mat2['Wtmp' + fname[-1]].T
 
-            mat = loadmat(
-                self.datadir + '/ancillary/ctd/' + 'only_temp/EBOB_' + fname +
-                '_WTMP.mat',
-                squeeze_me=True)
-            temp = mat['Wtmp' + fname[-1]]
-            self.ctd.temp = np.ma.masked_array(temp, mask=np.isnan(temp))
-            zvec = mat['dbar_dpth']
-            tvec = mat['Time' + fname[-1]] - 366
-            self.ctd.Ttmat = np.tile(tvec.T, (len(zvec), 1)).T
-            self.ctd.Tzmat = np.tile(zvec, (len(tvec), 1))
+            time = dcpy.util.mdatenum2dt64(mat['time']-366)
+            pres = np.float16(pres)
+            z2 = mat2['dbar_dpth']
+
+            self.ctd = xr.Dataset({'S': (['z', 'time'], salt),
+                                   'T_S': (['z', 'time'], temp),
+                                   'T': (['z2', 'time'], temp2),
+                                   'ρ': (['z', 'time'], ρ)},
+                                  coords={'depth': (['z', 'time'], pres),
+                                          'depth2': ('z2', z2),
+                                          'time': ('time', time[0,:])})
+            self.ctd['depth'] = self.ctd.depth.fillna(0)
 
     def ReadMet(self, fname: str=None, WindType='', FluxType=''):
 
@@ -625,6 +626,10 @@ class moor:
 
         label = '$' + self.ctd[name].name + '$'
 
+        if self.ctd.depth.ndim > 1 and name is 'S':
+            kwargs['x'] = 'time'
+            kwargs['y'] = 'depth'
+
         if kind is 'timeseries':
             from cycler import cycler
             colors = mpl.cm.Greys_r(np.arange(N+1)/(N+1))
@@ -698,7 +703,7 @@ class moor:
         ax['met'] = plt.subplot(4, 2, 1)
         ax['N2'] = plt.subplot(4, 2, 3, sharex=ax['met'])
         ax['T'] = plt.subplot(4, 2, 5, sharex=ax['met'])
-        if self.vel.u is not [] and quiv:
+        if self.vel and self.vel.u is not [] and quiv:
             ax['v'] = plt.subplot(4, 2, 7, sharex=ax['met'])
         else:
             ax['χ'] = plt.subplot(4, 2, 7, sharex=ax['met'])
