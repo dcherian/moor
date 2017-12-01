@@ -31,6 +31,10 @@ class moor:
         self.KT = xr.Dataset()
         self.Jq = xr.Dataset()
 
+        # combine Tz, N² for χpod depths
+        self.Tz = xr.Dataset()
+        self.N2 = xr.Dataset()
+
     def __repr__(self):
         import matplotlib.dates as dt
 
@@ -70,6 +74,8 @@ class moor:
         χ = []
         KT = []
         Jq  = []
+        Tz = []
+        N2 = []
 
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
@@ -91,6 +97,17 @@ class moor:
                                    coords=[[pod.depth], times],
                                    dims=['depth', 'time'], name='Jq'))
 
+            Tz.append(xr.DataArray(pod.chi[pod.best]['dTdz'][np.newaxis,mask],
+                                  coords=[[pod.depth], times],
+                                  dims=['depth', 'time'],
+                                  name='Tz'))
+
+            N2.append(xr.DataArray(pod.chi[pod.best]['N2'][np.newaxis,mask],
+                                  coords=[[pod.depth], times],
+                                  dims=['depth', 'time'],
+                                  name='N2'))
+
+
         ds = xr.merge(χ)
         self.χ = ds.χ.resample('10min', dim='time', how='mean')
 
@@ -99,6 +116,13 @@ class moor:
 
         ds = xr.merge(Jq)
         self.Jq = ds.Jq.resample('10min', dim='time', how='mean')
+
+        ds = xr.merge(Tz)
+        self.Tz = ds.Tz.resample('10min', dim='time', how='mean')
+
+        ds = xr.merge(N2)
+        self.N2 = ds.N2.resample('10min', dim='time', how='mean')
+
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
@@ -705,6 +729,8 @@ class moor:
         import numpy as np
         from dcpy.util import dt64_to_datenum
         import dcpy.plots
+        from dcpy.plots import offset_line_plot
+        from dcpy.ts import xfilter
 
         plt.figure(figsize=[12.5, 6.5])
         lw = 0.5
@@ -727,11 +753,12 @@ class moor:
         ax['Kt'] = plt.subplot(4, 2, 6, sharex=ax['met'])
         ax['Jq'] = plt.subplot(4, 2, 8, sharex=ax['met'])
 
+        filtargs = {'kind': filt, 'decimate': True,
+                    'flen': filter_len, 'dim': 'time'}
+        plotargs = {'linewidth': lw, 'legend': False}
+
         if filter_len is None:
             filt = None
-
-        for aa in ['Tz', 'N2']:
-            self.SetColorCycle(ax[aa])
 
         if filter_len is not None:
             ax['met'].set_title(self.name + ' | '
@@ -796,18 +823,19 @@ class moor:
             ax['Jq0'].set_ylim(
                 np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
 
+        offset_line_plot(self.N2.copy().pipe(xfilter, **filtargs)/1e-4,
+                         x='time', y='depth', remove_mean=False,
+                         offset=0, ax=ax['N2'], **plotargs)
+
+        offset_line_plot(self.Tz.copy().pipe(xfilter, **filtargs),
+                         x='time', y='depth', remove_mean=False,
+                         offset=0, ax=ax['Tz'], **plotargs)
+
         # ---------- χpods
         labels = []
         xlim = [1e6, 0]
         if pods == []:
             pods = list(self.χpod.keys())
-
-        filtargs = {'kind': filt, 'decimate': True,
-                    'flen': filter_len, 'dim': 'time'}
-        plotargs = {'linewidth': lw, 'legend': False}
-
-        from dcpy.plots import offset_line_plot
-        from dcpy.ts import xfilter
 
         if 'χ' in ax:
             offset_line_plot(self.χ.copy().pipe(xfilter, **filtargs),
@@ -823,24 +851,6 @@ class moor:
                          x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['Jq'], **plotargs)
 
-        for unit in pods:
-            pod = self.χpod[unit]
-
-            if est == 'best':
-                ee = pod.best
-
-            χ = pod.chi[ee]
-
-            xlim = [min(xlim[0], pod.time[0]), max(xlim[1], pod.time[-2])]
-
-            self.avgplt(ax['N2'], χ['time'], χ['N2'] / 1e-4,
-                        filter_len, filt, linewidth=lw)
-            self.avgplt(ax['Tz'], χ['time'], χ['dTdz'],
-                        filter_len, filt, linewidth=lw)
-
-            if str(pod.depth) + 'm' not in labels:
-                labels.append(str(pod.depth) + 'm')
-
         # -------- T, S
         ctdargs = dict(filt=filt, filter_len=filter_len, kind=TSkind,
                     lw=0.5, t0=t0, t1=t1, add_colorbar=False)
@@ -849,8 +859,8 @@ class moor:
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
-        ax['N2'].legend(labels)
-        ax['N2'].set_ylabel('$N²$ ($10^{-3}$)')
+        ax['N2'].legend([str(zz)+' m' for zz in self.N2.depth.values])
+        ax['N2'].set_ylabel('$N²$ ($10^{-4}$)')
         limy = ax['N2'].get_ylim()
         if filt != 'bandpass':
             ax['N2'].set_ylim([0, limy[1]])
@@ -878,7 +888,8 @@ class moor:
         ax['Jq'].set_ylabel('$J_q^t$')
         ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
 
-        ax['met'].set_xlim(xlim)
+        ax['met'].set_xlim([self.χ.time.min().values,
+                            self.χ.time.max().values])
         plt.gcf().autofmt_xdate()
 
         for name in ['N2', 'T', 'S', 'v', 'χ', 'Kt', 'Jq', 'Tz']:
