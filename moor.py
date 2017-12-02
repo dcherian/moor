@@ -68,12 +68,10 @@ class moor:
         ''' Combines all χpod χ, KT, Jq into a single DataArray each '''
         import xarray as xr
         import numpy as np
-        import pandas as pd
-        import matplotlib.dates as mdt
 
         χ = []
         KT = []
-        Jq  = []
+        Jq = []
         Tz = []
         N2 = []
 
@@ -106,7 +104,6 @@ class moor:
                                   coords=[[pod.depth], times],
                                   dims=['depth', 'time'],
                                   name='N2'))
-
 
         ds = xr.merge(χ)
         self.χ = ds.χ.resample('10min', dim='time', how='mean')
@@ -346,14 +343,12 @@ class moor:
             import dcpy.util
 
             adcp = loadmat('../ancillary/adcp/' + self.name + '.mat')
-            import IPython; IPython.core.debugger.set_trace()
 
             z = adcp['depth_levels'].squeeze()
             time = dcpy.util.mdatenum2dt64(adcp['date_time']-366).squeeze()
             self.vel = xr.Dataset({'u': (['depth', 'time'], adcp['u']/100),
                                    'v': (['depth', 'time'], adcp['v']/100)},
                                   coords={'depth': z, 'time': time})
-
 
     def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat', dir=None):
