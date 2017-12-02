@@ -123,7 +123,6 @@ class moor:
         ds = xr.merge(N2)
         self.N2 = ds.N2.resample('10min', dim='time', how='mean')
 
-
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
         import seawater as sw
@@ -208,7 +207,6 @@ class moor:
 
         import airsea as air
         import matplotlib.dates as dt
-        import numpy as np
         import xarray as xr
 
         if WindType == 'pmel':
@@ -226,7 +224,6 @@ class moor:
 
         elif FluxType == 'merged':
             from scipy.io import loadmat
-            import matplotlib.dates as dt
             mat = loadmat(fname, squeeze_me=False)
             # self.met.Jq0 = -mat['Jq']['swf'][0][0][0]
             self.met.Jq0 = -mat['Jq']['nhf'][0][0][0]
@@ -756,6 +753,7 @@ class moor:
             ax['v'] = plt.subplot(4, 2, 7, sharex=ax['met'])
         else:
             ax['χ'] = plt.subplot(4, 2, 7, sharex=ax['met'])
+
         # ax['T'] = plt.subplot2grid((4, 2), (2, 0),
         #                            rowspan=2, sharex=ax['met'])
         # ax['T'].rowNum = 3
