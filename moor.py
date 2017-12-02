@@ -633,7 +633,7 @@ class moor:
                 ax.set_ylim(ylim)
 
     def PlotCTD(self, name, ax=None, filt=None, filter_len=None,
-                kind='timeseries', lw=1, t0=None, t1=None, **kwargs):
+                kind='timeseries', lw=1, region={}, **kwargs):
         import matplotlib as mpl
         import matplotlib.pyplot as plt
         import numpy as np
@@ -648,16 +648,9 @@ class moor:
         if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
             # filter before subsetting
             var = dcpy.ts.xfilter(self.ctd[name], dim='time',
-                                  kind=filt, flen=filter_len, decimate=False)
+                                  kind=filt, flen=filter_len, decimate=True)
 
-        if t0 is not None and t1 is not None:
-            from dcpy.util import find_approx
-            it0 = find_approx(tV[:, 0], t0)
-            it1 = find_approx(tV[:, 0], t1)
-
-            var = var[it0:it1, :]
-            zV = zV[it0:it1, :]
-            tV = tV[it0:it1, :]
+        var = var.sel(**region)
 
         label = '$' + self.ctd[name].name + '$'
 
@@ -721,7 +714,7 @@ class moor:
         return hdl
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
-                  pods=[], quiv=True, TSkind='timeseries', t0=None, t1=None,
+                  pods=[], quiv=True, TSkind='timeseries', region={},
                   met='local', fluxvar='netflux', tau='local'):
         ''' Summary plot for all χpods '''
 
@@ -823,11 +816,15 @@ class moor:
             ax['Jq0'].set_ylim(
                 np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
 
-        offset_line_plot(self.N2.copy().pipe(xfilter, **filtargs)/1e-4,
+        offset_line_plot((self.N2.copy()
+                          .pipe(xfilter, **filtargs)
+                          .sel(**region))/1e-4,
                          x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['N2'], **plotargs)
 
-        offset_line_plot(self.Tz.copy().pipe(xfilter, **filtargs),
+        offset_line_plot((self.Tz.copy()
+                          .pipe(xfilter, **filtargs)
+                          .sel(**region)),
                          x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['Tz'], **plotargs)
 
@@ -838,22 +835,28 @@ class moor:
             pods = list(self.χpod.keys())
 
         if 'χ' in ax:
-            offset_line_plot(self.χ.copy().pipe(xfilter, **filtargs),
+            offset_line_plot((self.χ.copy()
+                              .pipe(xfilter, **filtargs)
+                              .sel(**region)),
                              x='time', y='depth', remove_mean=False,
                              offset=0, ax=ax['χ'], **plotargs)
             ax['χ'].set_yscale('log')
 
-        offset_line_plot(self.KT.copy().pipe(xfilter, **filtargs),
+        offset_line_plot((self.KT.copy()
+                          .pipe(xfilter, **filtargs)
+                          .sel(**region)),
                          x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['Kt'], **plotargs)
         ax['Kt'].set_yscale('log')
-        offset_line_plot(self.Jq.copy().pipe(xfilter, **filtargs),
+        offset_line_plot((self.Jq.copy()
+                          .pipe(xfilter, **filtargs)
+                          .sel(**region)),
                          x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['Jq'], **plotargs)
 
         # -------- T, S
         ctdargs = dict(filt=filt, filter_len=filter_len, kind=TSkind,
-                    lw=0.5, t0=t0, t1=t1, add_colorbar=False)
+                    lw=0.5, region=region, add_colorbar=False)
         ax['Tplot'] = self.PlotCTD('T', ax['T'], **ctdargs)
         ax['Splot'] = self.PlotCTD('S', ax['S'], **ctdargs)
 
@@ -888,8 +891,8 @@ class moor:
         ax['Jq'].set_ylabel('$J_q^t$')
         ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
 
-        ax['met'].set_xlim([self.χ.time.min().values,
-                            self.χ.time.max().values])
+        ax['met'].set_xlim([self.χ.sel(**region).time.min().values,
+                            self.χ.sel(**region).time.max().values])
         plt.gcf().autofmt_xdate()
 
         for name in ['N2', 'T', 'S', 'v', 'χ', 'Kt', 'Jq', 'Tz']:
