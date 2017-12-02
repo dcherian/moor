@@ -1,21 +1,45 @@
+def _decode_time(t0, t1):
+    '''
+    Utility function to decode time ranges.
+    TODO: Use some pandas functionality here
+    '''
+    import datetime as pdt
+
+    try:
+        times = (
+            pdt.datetime.strptime(t0, '%Y-%b-%d'),
+            pdt.datetime.strptime(t1, '%Y-%b-%d')
+        )
+    except:
+        times = (
+            pdt.datetime.strptime(t0, '%Y-%m-%d'),
+            pdt.datetime.strptime(t1, '%Y-%m-%d')
+        )
+
+    return times
+
+
 class moor:
     ''' Class for a *single* mooring that has χpods '''
 
-    def __init__(self, lon, lat, name, datadir):
+    def __init__(self, lon, lat, name, kind, datadir):
 
         import collections
         import xarray as xr
 
         self.name = name
+        self.kind = kind
         self.datadir = datadir
 
         # location
         self.lon = lon
         self.lat = lat
 
-        # "special" events
-        self.special = dict()
-        self.season = dict()
+        self.AddSeason()
+        self.special = dict()  # "special" events
+
+        self.deployments = []
+        self.deploy = dict()
 
         self.ctd = xr.Dataset()  # TAO CTD
         self.met = xr.Dataset()  # TAO met
@@ -279,42 +303,42 @@ class moor:
         self.tropflux = xr.merge([self.tropflux, swr, lwr, tau, curl, net])
 
     def AddSpecialTimes(self, pods, name, t0, t1):
-        import datetime as pdt
 
         for pp in pods:
-            unit = self.χpod[pp]
-
-            try:
-                unit.special[name] = [
-                    pdt.datetime.strptime(t0, '%Y-%b-%d'),
-                    pdt.datetime.strptime(t1, '%Y-%b-%d')
-                ]
-            except:
-                unit.special[name] = [
-                    pdt.datetime.strptime(t0, '%Y-%m-%d'),
-                    pdt.datetime.strptime(t1, '%Y-%m-%d')
-                ]
+            self.χpod[pp].special[name] = _decode_time(t0, t1)
 
         # append to the mooring list
-        self.special[name] = unit.special[name]
+        self.special[name] = self.χpod[pp].special[name]
 
-    def AddSeason(self, pods, name, t0, t1):
-        import datetime as pdt
+    def AddSeason(self):
 
-        for pp in pods:
-            unit = self.χpod[pp]
-            try:
-                unit.season[name] = [
-                    pdt.datetime.strptime(t0, '%Y-%b-%d'),
-                    pdt.datetime.strptime(t1, '%Y-%b-%d')
-                ]
-            except:
-                unit.season[name] = [
-                    pdt.datetime.strptime(t0, '%Y-%m-%d'),
-                    pdt.datetime.strptime(t1, '%Y-%m-%d')
-                ]
+        # canonical values for 12N
+        seasons = dict()
+        seasons['2014'] = {
+            'NE': ('2013-Dec-01', '2014-Feb-14'),
+            'NE→SW':  ('2014-Feb-15', '2014-May-05'),
+            'SW': ('2014-May-06', '2014-Sep-24'),
+            'SW→NE': ('2014-Sep-25', '2014-Dec-12')
+        }
 
-            self.season[pp] = unit.season
+        seasons['2015'] = {
+            'NE': ('2014-Dec-12', '2015-Mar-01'),
+            'NE→SW': ('2015-Mar-01', '2015-May-15'),
+            'SW': ('2015-May-16', '2015-Oct-14'),
+            'SW→NE': ('2015-Oct-15', '2015-Dec-01')
+        }
+
+        self.season = seasons
+        # save in datetime format
+        for year in seasons.keys():
+            for name in seasons[year]:
+                t0, t1 = seasons[year][name]
+                self.season[year][name] = _decode_time(t0, t1)
+
+    def AddDeployment(self, name, t0, t1):
+
+        self.deployments.append(name)
+        self.deploy[name] = _decode_time(t0, t1)
 
     def ReadVel(self, fname, FileType: str='ebob'):
         ''' Read velocity data '''
