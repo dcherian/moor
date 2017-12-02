@@ -771,10 +771,12 @@ class moor:
             filt = None
 
         if filter_len is not None:
-            ax['met'].set_title(self.name + ' | '
-                                + self.GetFilterLenLabel(filt, filter_len))
+            titlestr = (self.name + ' | '
+                        + self.GetFilterLenLabel(filt, filter_len))
         else:
-            ax['met'].set_title(self.name)
+            titlestr = self.name
+
+        plt.suptitle(titlestr, y=1.03)
 
         # ------------ τ
         ax['met'].set_clip_on(False)
