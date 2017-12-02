@@ -680,8 +680,10 @@ class moor:
                 else:
                     ydim = 'depth'
 
-            hdl = offset_line_plot(var, x='time', y=ydim,
-                                   remove_mean=False, offset=0, legend=False)
+            hdl = offset_line_plot(var, x='time', y=ydim, ax=ax,
+                                   remove_mean=False, offset=0, legend=False,
+                                   lw=0.5, robust=False)
+
             ax.legend([str(aa) + 'm'
                        for aa in np.int32(np.round(var.depth))],
                       ncol=N)
