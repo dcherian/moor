@@ -638,6 +638,7 @@ class moor:
         import matplotlib.pyplot as plt
         import numpy as np
         import dcpy.ts
+        from dcpy.plots import offset_line_plot
 
         N = 6
         if ax is None:
@@ -645,28 +646,44 @@ class moor:
 
         cmap = plt.get_cmap('RdBu_r')
 
-        if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
-            # filter before subsetting
-            var = dcpy.ts.xfilter(self.ctd[name], dim='time',
-                                  kind=filt, flen=filter_len, decimate=True)
-
+        # filter before subsetting
+        var = dcpy.ts.xfilter(self.ctd[name], dim='time',
+                              kind=filt, flen=filter_len, decimate=True)
         var = var.sel(**region)
 
         label = '$' + self.ctd[name].name + '$'
 
+        # ebob hacks
         if self.ctd.depth.ndim > 1 and name is 'S':
-            kwargs['x'] = 'time'
-            kwargs['y'] = 'depth'
+            if kind is 'timeseries':
+                # compress depth dimension
+                var['depth'] = self.ctd.S.depth.median(dim='time')
+            else:
+                kwargs['x'] = 'time'
+                kwargs['y'] = 'depth'
+
+        if self.ctd.depth.ndim > 1 and name is 'T' and kind is 'timeseries':
+            # too many depths to timeseries!
+            kind = 'pcolor'
 
         if kind is 'timeseries':
             from cycler import cycler
             colors = mpl.cm.Greys_r(np.arange(N+1)/(N+1))
             ax.set_prop_cycle(cycler('color', colors))
 
-            hdl = self.avgplt(
-                ax, tV[:, 0], var, filter_len, filt, axis=0, linewidth=lw)
+            # more ebob hackery
+            if 'z2' in var.dims:
+                ydim = 'z2'
+            else:
+                if 'z' in var.dims:
+                    ydim = 'z'
+                else:
+                    ydim = 'depth'
+
+            hdl = offset_line_plot(var, x='time', y=ydim,
+                                   remove_mean=False, offset=0, legend=False)
             ax.legend([str(aa) + 'm'
-                       for aa in np.int32(np.round(self.ctd.depth[:-1]))],
+                       for aa in np.int32(np.round(var.depth))],
                       ncol=N)
             ax.set_ylabel(label)
 
