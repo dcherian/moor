@@ -229,6 +229,7 @@ class moor:
         import airsea as air
         import matplotlib.dates as dt
         import xarray as xr
+        from dcpy.util import mdatenum2dt64
 
         if WindType == 'pmel':
             if fname is None:
@@ -246,27 +247,28 @@ class moor:
         elif FluxType == 'merged':
             from scipy.io import loadmat
             mat = loadmat(fname, squeeze_me=False)
-            # self.met.Jq0 = -mat['Jq']['swf'][0][0][0]
-            self.met.Jq0 = -mat['Jq']['nhf'][0][0][0]
-            self.met.Jtime = mat['Jq']['t'][0][0][0] - 366
-            self.met.swr = xr.DataArray(-mat['Jq']['swf'][0][0][0],
-                                        coords=[dt.num2date(self.met.Jtime)],
-                                        dims=['time'], name='shortwave rad.')
+            Jtime = mdatenum2dt64(mat['Jq']['t'][0][0][0] - 366)
+            Jq0 = xr.DataArray(-mat['Jq']['nhf'][0][0][0],
+                               dims=['Jtime'], coords=[Jtime],
+                               name='Jq0')
+            swr = xr.DataArray(-mat['Jq']['swf'][0][0][0],
+                               dims=['Jtime'], coords=[Jtime],
+                               name='swr')
 
-        if FluxType == 'precip':
-            met = nc.MFDataset('../ncep/prate*')
-            lat = met['lat'][:]
-            lon = met['lon'][:]
-            time = met['time'][:]
-            self.met.P = interpn((time, np.flipud(lat), lon),
-                                 np.fliplr(met['prate'][:, :, :]),
-                                 (time, self.lat, self.lon))
-            self.met.Ptime = time/24.0 \
-                + dt.date2num(dt.datetime.date(1800, 1, 1))
+            self.met = xr.merge([self.met, Jq0, swr])
 
-            # convert from kg/m^2/s to mm/hr
-            self.met.P *= 1/1000 * 1000 * 3600.0
-            met.close()
+    def ReadNcep(self):
+        ''' Read NCEP precip rate '''
+        import xarray as xr
+
+        P = (xr.open_mfdataset('../ncep/prate*', autoclose=True)
+             .sel(lon=self.lon, lat=self.lat, method='nearest').load())
+
+        P = P.rename(dict(time='Ptime', prate='P'))
+        # convert from kg/m^2/s to mm/hr
+        P *= 1/1000 * 1000 * 3600.0
+
+        self.met = xr.merge([self.met, P])
 
     def ReadTropflux(self, loc):
         ''' Read tropflux data. Save in moor.tropflux'''
@@ -837,14 +839,16 @@ class moor:
             time, Jq = self.avgplt(None, datenum,
                                    self.tropflux[fluxvar].values,
                                    filter_len, filt)
-            ax['Jq0'].set_ylabel(fluxvar+' (W/m²)', labelpad=0)
             self.PlotFlux(ax['Jq0'], time, Jq)
 
         elif 'Jq0' in self.met:
-            time, Jq = self.avgplt(None, self.met.Jtime, self.met.Jq0,
+            datenum = dt64_to_datenum(self.met.Jtime.values)
+            time, Jq = self.avgplt(None, datenum,
+                                   self.met.Jq0.values,
                                    filter_len, filt)
-            ax['Jq0'].set_ylabel('$J_q^0$ (W/m²)', labelpad=0)
-            self.PlotFlux(ax['Jq0'], time, Jq)
+
+        ax['Jq0'].set_ylabel(fluxvar+' (W/m²)', labelpad=0)
+        self.PlotFlux(ax['Jq0'], time, Jq)
 
         ax['Jq0'].spines['right'].set_visible(True)
         ax['Jq0'].spines['left'].set_visible(False)
