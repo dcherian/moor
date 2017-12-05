@@ -896,11 +896,13 @@ class moor:
                          x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['Kt'], **plotargs)
         ax['Kt'].set_yscale('log')
-        offset_line_plot((self.Jq.copy()
-                          .pipe(xfilter, **filtargs)
-                          .sel(**region)),
-                         x='time', y='depth', remove_mean=False,
+
+        Jqt = (self.Jq.copy()
+               .pipe(xfilter, **filtargs)
+               .sel(**region))
+        offset_line_plot(Jqt, x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['Jq'], **plotargs)
+        ax['Jq'].set_ylim(dcpy.plots.robust_lim(np.ravel(Jqt)))
 
         # -------- T, S
         ctdargs = dict(filt=filt, filter_len=filter_len, kind=TSkind,
