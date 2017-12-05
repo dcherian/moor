@@ -753,7 +753,7 @@ class moor:
         return hdl
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
-                  pods=[], quiv=True, TSkind='timeseries', region={},
+                  quiv=True, TSkind='timeseries', region={},
                   met='local', fluxvar='netflux', tau='local', event=None):
         ''' Summary plot for all χpods '''
 
@@ -881,11 +881,6 @@ class moor:
                          offset=0, ax=ax['Tz'], **plotargs)
 
         # ---------- χpods
-        labels = []
-        xlim = [1e6, 0]
-        if pods == []:
-            pods = list(self.χpod.keys())
-
         if 'χ' in ax:
             offset_line_plot((self.χ.copy()
                               .pipe(xfilter, **filtargs)
