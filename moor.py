@@ -36,8 +36,7 @@ class moor:
         self.lat = lat
 
         self.AddSeason()
-        self.special = dict()  # "special" events
-
+        self.events = dict()
         self.deployments = []
         self.deploy = dict()
 
@@ -72,11 +71,11 @@ class moor:
             podstr += ' | ' + times + '\n'
 
         specstr = ''
-        for ss in self.special:
+        for ss in self.events:
             specstr += ('\t' + ss + ' | '
-                        + self.special[ss][0].strftime('%Y-%b-%d')
+                        + self.events[ss][0].strftime('%Y-%b-%d')
                         + ' → '
-                        + self.special[ss][1].strftime('%Y-%b-%d')
+                        + self.events[ss][1].strftime('%Y-%b-%d')
                         + '\n')
 
         specstr = specstr[1:]  # remove initial tab
@@ -304,13 +303,13 @@ class moor:
 
         self.tropflux = xr.merge([self.tropflux, swr, lwr, tau, curl, net])
 
-    def AddSpecialTimes(self, pods, name, t0, t1):
+    def AddEvents(self, pods, name, t0, t1):
 
         for pp in pods:
-            self.χpod[pp].special[name] = _decode_time(t0, t1)
+            self.χpod[pp].events[name] = _decode_time(t0, t1)
 
         # append to the mooring list
-        self.special[name] = self.χpod[pp].special[name]
+        self.events[name] = self.χpod[pp].events[name]
 
     def AddSeason(self):
 
@@ -620,7 +619,7 @@ class moor:
 
         return hquiv
 
-    def MarkSeasonsAndSpecials(self, ax, season=True, special=True):
+    def MarkSeasonsAndEvents(self, ax, season=True, events=True):
         import matplotlib.dates as dt
 
         if season:
@@ -641,10 +640,10 @@ class moor:
                                     zorder=-10, edgecolor=None)
                     ax.set_ylim(ylim)
 
-        if special:
-            for ss in self.special:
+        if events:
+            for ss in self.events:
                 ylim = ax.get_ylim()
-                xx = dt.date2num(self.special[ss])
+                xx = dt.date2num(self.events[ss])
                 ax.fill_between(xx, ylim[1], ylim[0],
                                 facecolor='palevioletred', alpha=0.35,
                                 zorder=-5)
@@ -752,7 +751,7 @@ class moor:
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
                   pods=[], quiv=True, TSkind='timeseries', region={},
-                  met='local', fluxvar='netflux', tau='local'):
+                  met='local', fluxvar='netflux', tau='local', event=None):
         ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
@@ -796,6 +795,13 @@ class moor:
                         + self.GetFilterLenLabel(filt, filter_len))
         else:
             titlestr = self.name
+
+        if event is not None:
+            t0, t1 = self.events[event]
+            dt = np.timedelta64(5, 'D')
+            region['time'] = slice(np.datetime64(t0)-dt,
+                                   np.datetime64(t1)+dt)
+            titlestr += '| Event = ' + event
 
         plt.suptitle(titlestr, y=1.03)
 
@@ -939,13 +945,13 @@ class moor:
 
         for name in ['N2', 'T', 'S', 'v', 'χ', 'Kt', 'Jq', 'Tz']:
             if name in ax:
-                self.MarkSeasonsAndSpecials(ax[name])
+                self.MarkSeasonsAndEvents(ax[name])
                 if filt == 'bandpass':
-                    if (name not in ['T', 'S'] or (name in ['T', 'S']
-                                             and TSkind == 'timeseries')):
+                    if (name not in ['T', 'S'] or
+                            (name in ['T', 'S'] and TSkind == 'timeseries')):
                         dcpy.plots.liney(0, ax=ax[name])
 
-        self.MarkSeasonsAndSpecials(ax['met'], season=False)
+        self.MarkSeasonsAndEvents(ax['met'], season=False)
 
         plt.tight_layout(w_pad=2, h_pad=-0.5)
 
