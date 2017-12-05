@@ -831,7 +831,8 @@ class moor:
 
         # ----------- precip
         if 'P' in self.met:
-            self.avgplt(ax['met'], self.met.P.time, self.met.P/10,
+            self.avgplt(ax['met'], self.met.P.Ptime.values,
+                        self.met.P.values/10,
                         flen=filter_len, filt=filt, color='slateblue',
                         linewidth=lw, zorder=-1)
 
