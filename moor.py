@@ -1,22 +1,10 @@
 def _decode_time(t0, t1):
     '''
     Utility function to decode time ranges.
-    TODO: Use some pandas functionality here
     '''
-    import datetime as pdt
+    import pandas as pd
 
-    try:
-        times = (
-            pdt.datetime.strptime(t0, '%Y-%b-%d'),
-            pdt.datetime.strptime(t1, '%Y-%b-%d')
-        )
-    except:
-        times = (
-            pdt.datetime.strptime(t0, '%Y-%m-%d'),
-            pdt.datetime.strptime(t1, '%Y-%m-%d')
-        )
-
-    return times
+    return (pd.to_datetime(t0), pd.to_datetime(t1))
 
 
 class moor:
@@ -802,8 +790,7 @@ class moor:
         if event is not None:
             t0, t1 = self.events[event]
             dt = np.timedelta64(5, 'D')
-            region['time'] = slice(np.datetime64(t0)-dt,
-                                   np.datetime64(t1)+dt)
+            region['time'] = slice(t0-dt, t1+dt)
             titlestr += '| Event = ' + event
 
         plt.suptitle(titlestr, y=1.03)
