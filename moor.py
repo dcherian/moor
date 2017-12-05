@@ -555,9 +555,12 @@ class moor:
 
         x_is_xarray = type(x) is xr.core.dataarray.DataArray
         if type(t) is xr.core.dataarray.DataArray:
-            dt = (t[3]-t[2]).values.astype('timedelta64[s]').astype('float32')
+            dt = (t[3]-t[2]).values
         else:
             dt = (t[3]-t[2]) * 86400
+
+        if np.issubdtype(dt.dtype, np.timedelta64):
+            dt = dt.astype('timedelta64[s]').astype('float32')
 
         if flen is not None:
             if filt == 'mean':
