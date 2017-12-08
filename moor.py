@@ -1397,58 +1397,83 @@ class moor:
 
     def Budget(self):
 
-        from dcpy.util import MovingAverage
         import numpy as np
-
-        pod = self.χpod[list(self.χpod.keys())[0]]
+        import scipy as sp
+        import xarray as xr
+        import matplotlib.pyplot as plt
+        # from statsmodels.nonparametric.smoothers_lowess import lowess
+        # import dcpy.plots
 
         ρ = 1025
         cp = 4200
-        H = pod.depth
-        T = pod.ctd1.T
-        tT = pod.ctd1.time
 
-        # rate of change of daily average temperature
-        dTdt = np.diff(MovingAverage(T, 144)) / (86400)
-        tavg = MovingAverage(tT, 144)
-        tavg = (tavg[0:-1] + tavg[1:]) / 2
+        T = self.ctd['T']
+        f = sp.interpolate.RectBivariateSpline(T.time.astype('float32'),
+                                               T.depth, T.values.T,
+                                               kx=1, ky=1)
+        idepths = np.arange(1, 100, 1)
+        Ti = xr.DataArray(f(T.time.astype('float32'), idepths),
+                          dims=['time', 'depth'],
+                          coords=[T.time, idepths])
 
-        # rate of heating of water column
-        Q = ρ * cp * dTdt * H
+        Q = ρ * cp * xr.apply_ufunc(sp.integrate.cumtrapz,
+                                    Ti, Ti.depth,
+                                    kwargs={'axis': -1})
+        Q['depth'] = Q.depth[:-1]
 
-        # budget is Q = Jq0 + Jqt
+        # Qest = T.sel(depth=10) * 10 * ρ * cp
+        # Qest.plot()
+        # Q.sel(depth=10).plot(ax=plt.gca())
+
+        # rate of change of heat content
+        dt = Q.time.diff(dim='time')/np.timedelta64(1, 's')
+        dQdt = Q.diff(dim='time')/dt.astype('float32')
+
+        # dTest = (dQdt/ρ/cp/10).sel(depth=10)
+        # dTobs = (Ti/600).sel(depth=5).diff(dim='time')
+
+        # budget is dQ/dt = Jq0 + Jqt
         # where both Jqs are positive when they heat the surface
+        # i.e. Jqt > 0 → heat is moving upward
+        Jq0 = xr.DataArray(np.interp(Q.time.astype(np.float32),
+                                     self.met.Jtime.astype(np.float32)*1e9,
+                                     self.met.Jq0),
+                           dims=['time'], coords=[Q.time])
 
-        # get Jq0 on same time grid as Qavg
-        Jq0 = np.interp(tavg, self.met.Jtime, self.met.Jq0)
+        resample_args = {'time': '3H'}
+        Jqt_1D = ((dQdt - Jq0).sel(depth=self.Jq.depth)
+                  .resample(**resample_args).mean(dim='time'))
+        Jqt = self.Jq.resample(**resample_args).mean(dim='time')
 
-        Jqt = Q - Jq0
+        def plot(j, ax):
+            [j.sel(time='2014', depth=z).plot(ax=axx, lw=0.5)
+             for (axx, z) in zip(ax, j.depth)]
 
-        import matplotlib.pyplot as plt
-        from statsmodels.nonparametric.smoothers_lowess import lowess
-        import dcpy.plots
+        _, ax = plt.subplots(3, 1)
+        plot(Jqt, ax)
+        plot(Jqt_1D, ax)
 
-        ax1 = plt.subplot(311)
-        plt.plot(MovingAverage(tT, 144), MovingAverage(T, 144))
-        ax1.xaxis_date()
-        plt.ylabel('T (1 day avg)')
+        # ax1 = plt.subplot(311)
+        # plt.plot(MovingAverage(tT, 144), MovingAverage(T, 144))
+        # ax1.xaxis_date()
+        # plt.ylabel('T (1 day avg)')
 
-        plt.subplot(312, sharex=ax1)
-        a = lowess(dTdt, tavg, frac=0.025)
-        plt.plot(a[:, 0], a[:, 1] * 86400)
-        plt.ylabel('∂T/∂t (C/day)')
-        dcpy.plots.liney(0)
-        dcpy.plots.symyaxis()
+        # plt.subplot(312, sharex=ax1)
+        # a = lowess(dTdt, tavg, frac=0.025)
+        # plt.plot(a[:, 0], a[:, 1] * 86400)
+        # plt.ylabel('∂T/∂t (C/day)')
+        # dcpy.plots.liney(0)
+        # dcpy.plots.symyaxis()
 
-        plt.subplot(313, sharex=ax1)
-        a = lowess(Jqt.T, tavg, frac=0.025)
-        plt.plot(a[:, 0], a[:, 1])
-        plt.plot(tavg, Jq0)
-        a = lowess(Q, tavg, frac=0.025)
-        plt.plot(a[:, 0], a[:, 1])
-        plt.legend(['$J_q^t$', '$J_q^0$', '$Q_{avg}$'])
-        dcpy.plots.liney(0)
+        # plt.subplot(313, sharex=ax1)
+        # a = lowess(Jqt.T, tavg, frac=0.025)
+        # plt.plot(a[:, 0], a[:, 1])
+        # plt.plot(tavg, Jq0)
+        # a = lowess(Q, tavg, frac=0.025)
+        # plt.plot(a[:, 0], a[:, 1])
+        # plt.legend(['$J_q^t$', '$J_q^0$', '$Q_{avg}$'])
+        # dcpy.plots.liney(0)
 
-        dcpy.plots.symyaxis()
+        # dcpy.plots.symyaxis()
 
-        plt.gcf().autofmt_xdate()
+        # plt.gcf().autofmt_xdate()
