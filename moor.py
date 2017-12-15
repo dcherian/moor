@@ -7,6 +7,28 @@ def _decode_time(t0, t1):
     return (pd.to_datetime(t0), pd.to_datetime(t1))
 
 
+def _corner_label(label: str, x=0.95, y=0.9, ax=None, alpha=0.05):
+    '''
+    Adds label to a location specified by (x,y).
+
+    Input:
+        (x,y) : location in normalized axis co-ordinates
+                default: (0.95, 0.9)
+        label : string
+    '''
+
+    import matplotlib.pyplot as plt
+
+    if ax is None:
+        ax = plt.gca()
+
+    ax.text(x, y, label,
+            horizontalalignment='center',
+            verticalalignment='center',
+            transform=ax.transAxes,
+            bbox=dict(facecolor='k', alpha=alpha))
+
+
 class moor:
     ''' Class for a *single* mooring that has χpods '''
 
@@ -729,11 +751,7 @@ class moor:
 
         if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
             # label in top-right corner
-            ax.text(0.95, 0.9, label,
-                    horizontalalignment='center',
-                    verticalalignment='center',
-                    transform=ax.transAxes,
-                    bbox=dict(facecolor='k', alpha=0.05))
+            _corner_label(label, ax=ax)
 
             # showing χpod depth
             [ax.axhline(z, color='gray', linewidth=0.5) for z in self.χ.depth]
