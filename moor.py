@@ -32,6 +32,42 @@ def _corner_label(label: str, x=0.95, y=0.9, ax=None, alpha=0.05):
             bbox=dict(facecolor='k', alpha=alpha))
 
 
+def _colorbar2(mappable):
+
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+    try:
+        ax = mappable.axes
+    except AttributeError:
+        ax = mappable.ax
+
+    fig = ax.figure
+
+    # http://joseph-long.com/writing/colorbars/ and
+    # https://matplotlib.org/mpl_toolkits/axes_grid/users/overview.html
+    # create an axes on the right side of ax. The width of cax will be 5%
+    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("bottom", size="3%", pad=0.05)
+
+    return fig.colorbar(mappable, cax=cax)
+
+
+def _colorbar(hdl):
+
+    try:
+        ax = hdl.axes
+    except AttributeError:
+        ax = hdl.ax
+
+    box = ax.get_position()
+    axcbar = plt.axes([(box.x0 + box.width)*1.02,
+                       box.y0, 0.01, box.height])
+    hcbar = plt.colorbar(hdl, axcbar)
+
+    return hcbar
+
+
 class moor:
     ''' Class for a *single* mooring that has χpods '''
 
@@ -940,7 +976,7 @@ class moor:
         if filt != 'bandpass':
             ax['N2'].set_ylim([0, limy[1]])
 
-        ax['Tz'].set_ylabel('$\partial T/ \partial z$ (symlog)')
+        _corner_label('$\partial T/ \partial z$ (symlog)', ax=ax['Tz'])
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
         ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
         ax['Tz'].grid(True, axis='y', linestyle='--', linewidth=0.5)
@@ -963,12 +999,14 @@ class moor:
             else:
                 vargs = dict(robust=True, yincrease=False, levels=50,
                           add_colorbar=False)
-                (self.vel.u.copy()
-                 .pipe(xfilter, **filtargs)
-                 .sel(**region)).plot.contourf(ax=ax['u'], **vargs)
-                (self.vel.v.copy()
-                 .pipe(xfilter, **filtargs)
-                 .sel(**region)).plot.contourf(ax=ax['v'], **vargs)
+                ax['Uplot'] = (self.vel.u.copy()
+                               .pipe(xfilter, **filtargs)
+                               .sel(**region)
+                               .plot.contourf(ax=ax['u'], **vargs))
+                ax['Vplot'] = (self.vel.v.copy()
+                               .pipe(xfilter, **filtargs)
+                               .sel(**region)
+                               .plot.contourf(ax=ax['v'], **vargs))
 
                 labelargs = dict(x=0.05, y=0.15, alpha=0.05)
                 _corner_label('u', **labelargs, ax=ax['u'])
@@ -980,13 +1018,12 @@ class moor:
                 ax['v'].set_ylim(ax['T'].get_ylim())
 
         ax['Kt'].set_title('')
-
-        ax['Kt'].set_ylabel('$K_T$')
+        _corner_label('$K_T$', ax=ax['Kt'])
 
         ax['Jq'].set_title('')
         ax['Jq'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
-        ax['Jq'].set_ylabel('$J_q^t$')
-        ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
+        _corner_label('$J_q^t$', ax=ax['Jq'])
+        # ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
 
         ax['met'].set_xlim([self.χ.sel(**region).time.min().values,
                             self.χ.sel(**region).time.max().values])
@@ -1002,12 +1039,17 @@ class moor:
 
         self.MarkSeasonsAndEvents(ax['met'], season=False)
 
-        plt.tight_layout(w_pad=2, h_pad=-0.5)
+        plt.tight_layout(w_pad=5, h_pad=-0.5)
 
-        # box = ax['T'].get_position()
-        # ax['cbar'] = plt.axes([(box.x0 + box.width)*1.02,
-        #                        box.y0, 0.01, box.height])
-        # hcbar = plt.colorbar(hdl, cax=ax['cbar'])
+        hcbar = dict()
+        hcbar['T'] = _colorbar(ax['Tplot'][0])
+
+        if 'Uplot' in ax:
+            hcbar['u'] = _colorbar(ax['Uplot'])
+
+        if 'Vplot' in ax:
+            hcbar['v'] = _colorbar(ax['Vplot'])
+
         # ax['cbar'].set_ylabel(colorlabel)
 
         return ax
