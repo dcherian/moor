@@ -355,12 +355,12 @@ class moor:
             from scipy.io import loadmat
             import dcpy.util
 
-            adcp = loadmat('../ancillary/adcp/' + self.name + '.mat')
+            adcp = loadmat('../ebob/ancillary/adcp/' + self.name + '.mat')
 
             z = adcp['depth_levels'].squeeze()
             time = dcpy.util.mdatenum2dt64(adcp['date_time']-366).squeeze()
-            self.vel = xr.Dataset({'u': (['depth', 'time'], adcp['u']/100),
-                                   'v': (['depth', 'time'], adcp['v']/100)},
+            self.vel = xr.Dataset({'u': (['depth', 'time'], adcp['uu']/100),
+                                   'v': (['depth', 'time'], adcp['vv']/100)},
                                   coords={'depth': z, 'time': time})
 
     def AddChipod(self, name, depth: int,
