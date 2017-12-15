@@ -770,27 +770,32 @@ class moor:
         from dcpy.plots import offset_line_plot
         from dcpy.ts import xfilter
 
-        plt.figure(figsize=[12.5, 6.5])
+        plt.figure(figsize=[12.5, 7.5])
         lw = 0.5
 
         # initialize axes
         ax = dict()
-        ax['met'] = plt.subplot(4, 2, 1)
-        ax['N2'] = plt.subplot(4, 2, 3, sharex=ax['met'])
-        ax['T'] = plt.subplot(4, 2, 5, sharex=ax['met'])
+        ax['met'] = plt.subplot(5, 2, 1)
+        ax['N2'] = plt.subplot(5, 2, 3, sharex=ax['met'])
+        ax['T'] = plt.subplot(5, 2, 5, sharex=ax['met'])
         if self.vel and self.vel.u is not [] and quiv:
-            ax['v'] = plt.subplot(4, 2, 7, sharex=ax['met'])
+            ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'])
+            if self.kind == 'ebob':
+                ax['v'] = plt.subplot(5, 2, 9, sharex=ax['met'])
+            else:
+                ax['v'] = ax['u']
+                ax['χ'] = plt.subplot(5, 2, 9, sharex=ax['met'])
         else:
-            ax['χ'] = plt.subplot(4, 2, 7, sharex=ax['met'])
+            ax['χ'] = plt.subplot(5, 2, 7, sharex=ax['met'])
 
         # ax['T'] = plt.subplot2grid((4, 2), (2, 0),
         #                            rowspan=2, sharex=ax['met'])
         # ax['T'].rowNum = 3
 
-        ax['S'] = plt.subplot(4, 2, 2, sharex=ax['met'])
-        ax['Tz'] = plt.subplot(4, 2, 4, sharex=ax['met'])
-        ax['Kt'] = plt.subplot(4, 2, 6, sharex=ax['met'])
-        ax['Jq'] = plt.subplot(4, 2, 8, sharex=ax['met'])
+        ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'])
+        ax['Tz'] = plt.subplot(5, 2, 6, sharex=ax['met'])
+        ax['Kt'] = plt.subplot(5, 2, 8, sharex=ax['met'])
+        ax['Jq'] = plt.subplot(5, 2, 10, sharex=ax['met'])
 
         filtargs = {'kind': filt, 'decimate': True,
                     'flen': filter_len, 'dim': 'time'}
@@ -911,8 +916,8 @@ class moor:
         # -------- T, S
         ctdargs = dict(filt=filt, filter_len=filter_len, kind=TSkind,
                     lw=0.5, region=region, add_colorbar=False)
-        ax['Tplot'] = self.PlotCTD('T', ax['T'], **ctdargs)
         ax['Splot'] = self.PlotCTD('S', ax['S'], **ctdargs)
+        ax['Tplot'] = self.PlotCTD('T', ax['T'], **ctdargs)
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
@@ -931,13 +936,36 @@ class moor:
             ax['χ'].set_title('')
             ax['χ'].set_ylabel('$χ$')
         elif 'v' in ax:
-            ax['hquiv'] = self.Quiver(self.vel.time, self.vel.u, self.vel.v,
-                                      ax['v'], filter_len, filt)
-            ax['v'].set_title('')
-            ax['v'].set_yticklabels([])
-            ax['v'].set_ylabel('(u,v)')
+            if self.kind == 'ebob':
+                quiv = False
+
+            if quiv:
+                ax['hquiv'] = self.Quiver(self.vel.time, self.vel.u,
+                                          self.vel.v,
+                                          ax['v'], filter_len, filt)
+                ax['v'].set_title('')
+                ax['v'].set_yticklabels([])
+                ax['v'].set_ylabel('(u,v)')
+
+            else:
+                vargs = dict(robust=True, yincrease=False, levels=50,
+                          add_colorbar=False)
+                (self.vel.u.copy()
+                 .pipe(xfilter, **filtargs)
+                 .sel(**region)).plot.contourf(ax=ax['u'], **vargs)
+                (self.vel.v.copy()
+                 .pipe(xfilter, **filtargs)
+                 .sel(**region)).plot.contourf(ax=ax['v'], **vargs)
+
+                labelargs = dict(x=0.05, y=0.15, alpha=0.05)
+                _corner_label('u', **labelargs, ax=ax['u'])
+                _corner_label('v', **labelargs, ax=ax['v'])
+
+                ax['u'].set_ylim(ax['T'].get_ylim())
+                ax['v'].set_ylim(ax['T'].get_ylim())
 
         ax['Kt'].set_title('')
+
         ax['Kt'].set_ylabel('$K_T$')
 
         ax['Jq'].set_title('')
