@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+
+
 def _decode_time(t0, t1):
     '''
     Utility function to decode time ranges.
@@ -57,7 +60,7 @@ class moor:
 
         # chipods
         self.χpod = collections.OrderedDict()
-        self.zχpod = collections.OrderedDict()
+        self.zχpod = dict([])
 
         # combined turb data
         self.χ = xr.Dataset()
@@ -140,6 +143,16 @@ class moor:
 
         ds = xr.merge(χ)
         self.χ = ds.χ  # .resample('10min', dim='time', how='mean')
+
+        if self.kind == 'ebob':
+            self.zχpod = (np.array([[5, 10]]).T
+                          + self.ctd.depth.isel(z=slice(0,2)))
+
+        else:
+            self.zχpod = xr.DataArray(self.χ.depth.values[:, np.newaxis]
+                                      * np.ones_like(self.χ),
+                                      dims=['depth', 'time'],
+                                      coords=[self.χ.depth, self.χ.time])
 
         ds = xr.merge(KT)
         self.KT = ds.KT  # .resample('10min', dim='time', how='mean')
@@ -393,16 +406,16 @@ class moor:
         if dir is None:
             dir = self.datadir
 
-        self.χpod[name] = chipy.chipod(
-            dir + '/data/', str(name), fname, best, depth=depth)
-        self.zχpod[name] = depth
+        self.χpod[name] = chipy.chipod(dir + '/data/',
+                                       str(name), fname,
+                                       best, depth=depth)
 
     def SetColorCycle(self, ax):
 
         import matplotlib.pyplot as plt
         import numpy as np
 
-        z = np.array(list(self.zχpod.values()))
+        z = np.array(list(self.zχpod.isel(time=1).values()))
         ccycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
         corder = np.array(ccycle[:len(z)])
 
@@ -746,13 +759,17 @@ class moor:
             ax.set_ylabel('depth')
 
         if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
-            # label in top-right corner
             _corner_label(label, ax=ax)
-
-            # showing χpod depth
-            [ax.axhline(z, color='gray', linewidth=0.5) for z in self.χ.depth]
+            self.PlotχpodDepth(ax=ax)
 
         return hdl
+
+    def PlotχpodDepth(self, ax=None):
+        if ax is None:
+            ax = plt.gca()
+
+        ax.plot(self.zχpod.time, self.zχpod.transpose(),
+                color='gray', lw=0.5)
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
                   quiv=True, TSkind='timeseries', region={},
@@ -956,6 +973,8 @@ class moor:
                 labelargs = dict(x=0.05, y=0.15, alpha=0.05)
                 _corner_label('u', **labelargs, ax=ax['u'])
                 _corner_label('v', **labelargs, ax=ax['v'])
+                self.PlotχpodDepth(ax=ax['u'])
+                self.PlotχpodDepth(ax=ax['v'])
 
                 ax['u'].set_ylim(ax['T'].get_ylim())
                 ax['v'].set_ylim(ax['T'].get_ylim())
