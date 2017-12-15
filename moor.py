@@ -107,29 +107,29 @@ class moor:
                                    dims=['depth', 'time'], name='Jq'))
 
             Tz.append(xr.DataArray(pod.chi[pod.best]['dTdz'][np.newaxis,mask],
-                                  coords=[[pod.depth], times],
-                                  dims=['depth', 'time'],
-                                  name='Tz'))
+                                   coords=[[pod.depth], times],
+                                   dims=['depth', 'time'],
+                                   name='Tz'))
 
             N2.append(xr.DataArray(pod.chi[pod.best]['N2'][np.newaxis,mask],
-                                  coords=[[pod.depth], times],
-                                  dims=['depth', 'time'],
-                                  name='N2'))
+                                   coords=[[pod.depth], times],
+                                   dims=['depth', 'time'],
+                                   name='N2'))
 
         ds = xr.merge(χ)
-        self.χ = ds.χ.resample('10min', dim='time', how='mean')
+        self.χ = ds.χ  # .resample('10min', dim='time', how='mean')
 
         ds = xr.merge(KT)
-        self.KT = ds.KT.resample('10min', dim='time', how='mean')
+        self.KT = ds.KT  # .resample('10min', dim='time', how='mean')
 
         ds = xr.merge(Jq)
-        self.Jq = ds.Jq.resample('10min', dim='time', how='mean')
+        self.Jq = ds.Jq  # .resample('10min', dim='time', how='mean')
 
         ds = xr.merge(Tz)
-        self.Tz = ds.Tz.resample('10min', dim='time', how='mean')
+        self.Tz = ds.Tz  # .resample('10min', dim='time', how='mean')
 
         ds = xr.merge(N2)
-        self.N2 = ds.N2.resample('10min', dim='time', how='mean')
+        self.N2 = ds.N2  # .resample('10min', dim='time', how='mean')
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
