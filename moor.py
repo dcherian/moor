@@ -388,10 +388,6 @@ class moor:
     def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat', dir=None):
 
-        import sys
-        if 'home/deepak/python' not in sys.path:
-            sys.path.append('/home/deepak/python')
-
         import chipy
 
         if dir is None:
