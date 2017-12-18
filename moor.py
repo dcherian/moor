@@ -735,7 +735,7 @@ class moor:
             ax = plt.gca()
 
         if name == 'T':
-            cmap = cmo.cm.thermal
+            cmap = 'viridis'
         else:
             cmap = cmo.cm.haline
 
@@ -795,6 +795,9 @@ class moor:
             hdl = ax.plot(var.T[::N, :], zV.T[::N, :])
 
         if kind is 'pcolor' or kind is 'contourf':
+            if 'robust' not in kwargs:
+                kwargs['robust'] = True
+
             hdl = []
             hdl.append(var.plot.contourf(ax=ax, levels=25,
                                          cmap=cmap, zorder=-1,
@@ -827,7 +830,7 @@ class moor:
         ax.plot(self.zχpod.time,
                 self.zχpod.pipe(xfilter, kind='mean', flen=86400)
                 .transpose(),
-                color='gray', lw=0.5)
+                color='k', lw=0.5)
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
                   quiv=True, TSkind='timeseries', region={},
