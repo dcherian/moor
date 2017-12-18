@@ -1,5 +1,7 @@
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 def _decode_time(t0, t1):
     '''
@@ -26,10 +28,11 @@ def _corner_label(label: str, x=0.95, y=0.9, ax=None, alpha=0.05):
         ax = plt.gca()
 
     ax.text(x, y, label,
+            color='white',
             horizontalalignment='center',
             verticalalignment='center',
             transform=ax.transAxes,
-            bbox=dict(facecolor='k', alpha=alpha))
+            bbox=dict(facecolor='dimgray', edgecolor=None))
 
 
 def _colorbar2(mappable):
@@ -760,7 +763,7 @@ class moor:
             ax = plt.gca()
 
         if name == 'T':
-            cmap = 'viridis'
+            cmap = mpl.cm.YlOrBr
         else:
             cmap = cmo.cm.haline
 
@@ -809,17 +812,17 @@ class moor:
                       ncol=ncol)
             ax.set_ylabel(label)
 
-        if kind is 'profiles':
-            var -= np.nanmean(var, axis=0)
-            var += tV
-            dt = (tV[1, 0] - tV[0, 0]) * 86400.0
-            if filter_len is not None:
-                N = np.int(np.ceil(filter_len / dt)) * 2
-            else:
-                N = 500
+        # if kind is 'profiles':
+        #     var -= np.nanmean(var, axis=0)
+        #     var += tV
+        #     dt = (tV[1, 0] - tV[0, 0]) * 86400.0
+        #     if filter_len is not None:
+        #         N = np.int(np.ceil(filter_len / dt)) * 2
+        #     else:
+        #         N = 500
 
-            # doesn't work yet
-            hdl = ax.plot(var.T[::N, :], zV.T[::N, :])
+        #     # doesn't work yet
+        #     hdl = ax.plot(var.T[::N, :], zV.T[::N, :])
 
         if kind is 'pcolor' or kind is 'contourf':
             if 'robust' not in kwargs:
@@ -830,7 +833,7 @@ class moor:
                                          cmap=cmap, zorder=-1,
                                          **kwargs))
             hdl.append(var.plot.contour(ax=ax, levels=20,
-                                        colors='gray',
+                                        colors='k',
                                         linewidths=0.25,
                                         zorder=-1, **kwargs))
             ax.set_ylabel('depth')
@@ -844,11 +847,14 @@ class moor:
 
         if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
             _corner_label(label, ax=ax)
-            self.PlotχpodDepth(ax=ax)
+            if self.kind == 'ebob':
+                self.PlotχpodDepth(ax=ax, color='k')
+            else:
+                self.PlotχpodDepth(ax=ax)
 
         return hdl
 
-    def PlotχpodDepth(self, ax=None):
+    def PlotχpodDepth(self, ax=None, color='lightgray', **kwargs):
         from dcpy.ts import xfilter
 
         if ax is None:
@@ -856,8 +862,7 @@ class moor:
 
         ax.plot(self.zχpod.time,
                 self.zχpod.pipe(xfilter, kind='mean', flen=86400)
-                .transpose(),
-                color='k', lw=0.5)
+                .transpose(), color=color, **kwargs)
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
                   quiv=True, TSkind='timeseries', region={},
@@ -870,7 +875,7 @@ class moor:
         from dcpy.plots import offset_line_plot
         from dcpy.ts import xfilter
 
-        plt.figure(figsize=[12.5, 7.5])
+        plt.figure(figsize=[11.0, 7.5])
         lw = 0.5
 
         # initialize axes
@@ -1027,7 +1032,7 @@ class moor:
         if filt != 'bandpass':
             ax['N2'].set_ylim([0, limy[1]])
 
-        _corner_label('$\partial T/ \partial z$ (symlog)', x=0.8, ax=ax['Tz'])
+        _corner_label('$\partial T/ \partial z$', ax=ax['Tz'])
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
         ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
         ax['Tz'].grid(True, axis='y', linestyle='--', linewidth=0.5)
@@ -1035,59 +1040,72 @@ class moor:
         if 'χ' in ax:
             ax['χ'].set_title('')
             ax['χ'].set_ylabel('$χ$')
-        elif 'v' in ax:
+
+        if 'v' in ax:
+            uplt = (self.vel.u.copy().squeeze()
+                    .pipe(xfilter, **filtargs)
+                    .sel(**region))
+            vplt = (self.vel.v.copy().squeeze()
+                    .pipe(xfilter, **filtargs)
+                    .sel(**region))
+
             if self.kind == 'ebob':
                 quiv = False
 
             if quiv:
-                ax['hquiv'] = self.Quiver(self.vel.time, self.vel.u,
-                                          self.vel.v,
-                                          ax['v'], filter_len, filt)
+                ax['hquiv'] = self.Quiver(self.vel.time, uplt, vplt,
+                                          ax['v'])
                 ax['v'].set_title('')
                 ax['v'].set_yticklabels([])
                 ax['v'].set_ylabel('(u,v)')
 
             else:
-                vargs = dict(robust=True, yincrease=False, levels=50,
-                             add_colorbar=False, cmap='RdBu_r', center=0)
-                uplt = (self.vel.u.copy()
-                        .pipe(xfilter, **filtargs)
-                        .sel(**region))
-                vplt = (self.vel.v.copy()
-                        .pipe(xfilter, **filtargs)
-                        .sel(**region))
+                if self.kind == 'rama':
+                    ax['Uplot'] = uplt.plot(ax=ax['u'], lw=0.5)
+                    ax['Vplot'] = vplt.plot(ax=ax['v'], lw=0.5)
+                    ax['u'].legend(('u', 'v'),
+                                   title=('depth={0} m')
+                                   .format(self.vel.u.depth.values[0], '%d'),
+                                   ncol=2)
+                    ax['u'].axhline(0, color='gray', lw=0.5)
+                    ax['v'].set_ylabel('(m/s)')
+                    ax['v'].set_title('')
 
-                import xarray as xr
-                udict = xr.plot.utils._determine_cmap_params(uplt.values,
-                                                             robust=True)
-                vdict = xr.plot.utils._determine_cmap_params(vplt.values,
-                                                             robust=True)
-                mn = np.min([udict['vmin'], vdict['vmin']])
-                mx = np.max([udict['vmax'], vdict['vmax']])
+                if self.kind == 'ebob':
+                    vargs = dict(robust=True, yincrease=False, levels=50,
+                                 add_colorbar=False, cmap='RdBu_r', center=0)
 
-                vargs['vmin'] = -1*np.max(np.abs([mn, mx]))
-                vargs['vmax'] = np.max(np.abs([mn, mx]))
+                    import xarray as xr
+                    udict = xr.plot.utils._determine_cmap_params(uplt.values,
+                                                                 robust=True)
+                    vdict = xr.plot.utils._determine_cmap_params(vplt.values,
+                                                                 robust=True)
+                    mn = np.min([udict['vmin'], vdict['vmin']])
+                    mx = np.max([udict['vmax'], vdict['vmax']])
 
-                ax['Uplot'] = uplt.plot.contourf(ax=ax['u'], **vargs)
-                ax['Vplot'] = vplt.plot.contourf(ax=ax['v'], **vargs)
+                    vargs['vmin'] = -1*np.max(np.abs([mn, mx]))
+                    vargs['vmax'] = np.max(np.abs([mn, mx]))
 
-                labelargs = dict(x=0.05, y=0.15, alpha=0.05)
-                _corner_label('u', **labelargs, ax=ax['u'])
-                _corner_label('v', **labelargs, ax=ax['v'])
-                self.PlotχpodDepth(ax=ax['u'])
-                self.PlotχpodDepth(ax=ax['v'])
+                    ax['Uplot'] = uplt.plot.contourf(ax=ax['u'], **vargs)
+                    ax['Vplot'] = vplt.plot.contourf(ax=ax['v'], **vargs)
 
-                ax['u'].set_ylim(ax['T'].get_ylim())
-                ax['v'].set_ylim(ax['T'].get_ylim())
+                    labelargs = dict(x=0.05, y=0.15, alpha=0.05)
+                    _corner_label('u', **labelargs, ax=ax['u'])
+                    _corner_label('v', **labelargs, ax=ax['v'])
+                    self.PlotχpodDepth(ax=ax['u'], color='k')
+                    self.PlotχpodDepth(ax=ax['v'], color='k')
+
+                    ax['u'].set_ylim(ax['T'].get_ylim())
+                    ax['v'].set_ylim(ax['T'].get_ylim())
 
         ax['Kt'].set_title('')
         _corner_label('$K_T$', ax=ax['Kt'])
 
         ax['Jq'].set_title('')
         ax['Jq'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
+
         _corner_label('$J_q^t$', ax=ax['Jq'])
         # ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
-
         ax['met'].set_xlim([self.χ.sel(**region).time.min().values,
                             self.χ.sel(**region).time.max().values])
         plt.gcf().autofmt_xdate()
@@ -1105,9 +1123,12 @@ class moor:
         plt.tight_layout(w_pad=5, h_pad=-0.5)
 
         hcbar = dict()
-        hcbar['T'] = _colorbar(ax['Tplot'][0])
+        if isinstance(ax['Tplot'][0], mpl.contour.QuadContourSet):
+            hcbar['T'] = _colorbar(ax['Tplot'][0])
+        if isinstance(ax['Splot'][0], mpl.contour.QuadContourSet):
+            hcbar['S'] = _colorbar(ax['Splot'][0])
 
-        if 'Uplot' in ax and 'Vplot' in ax:
+        if 'Uplot' in ax and 'Vplot' in ax and self.kind == 'ebob':
             hcbar['uv'] = _colorbar(ax['Uplot'], [ax['u'], ax['v']])
 
         # ax['cbar'].set_ylabel(colorlabel)
