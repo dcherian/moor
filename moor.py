@@ -1020,15 +1020,27 @@ class moor:
 
             else:
                 vargs = dict(robust=True, yincrease=False, levels=50,
-                          add_colorbar=False)
-                ax['Uplot'] = (self.vel.u.copy()
-                               .pipe(xfilter, **filtargs)
-                               .sel(**region)
-                               .plot.contourf(ax=ax['u'], **vargs))
-                ax['Vplot'] = (self.vel.v.copy()
-                               .pipe(xfilter, **filtargs)
-                               .sel(**region)
-                               .plot.contourf(ax=ax['v'], **vargs))
+                             add_colorbar=False, cmap='RdBu_r', center=0)
+                uplt = (self.vel.u.copy()
+                        .pipe(xfilter, **filtargs)
+                        .sel(**region))
+                vplt = (self.vel.v.copy()
+                        .pipe(xfilter, **filtargs)
+                        .sel(**region))
+
+                import xarray as xr
+                udict = xr.plot.utils._determine_cmap_params(uplt.values,
+                                                             robust=True)
+                vdict = xr.plot.utils._determine_cmap_params(vplt.values,
+                                                             robust=True)
+                mn = np.min([udict['vmin'], vdict['vmin']])
+                mx = np.max([udict['vmax'], vdict['vmax']])
+
+                vargs['vmin'] = -1*np.max(np.abs([mn, mx]))
+                vargs['vmax'] = np.max(np.abs([mn, mx]))
+
+                ax['Uplot'] = uplt.plot.contourf(ax=ax['u'], **vargs)
+                ax['Vplot'] = vplt.plot.contourf(ax=ax['v'], **vargs)
 
                 labelargs = dict(x=0.05, y=0.15, alpha=0.05)
                 _corner_label('u', **labelargs, ax=ax['u'])
