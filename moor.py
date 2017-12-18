@@ -173,44 +173,50 @@ class moor:
         tcommon = ((-86400 + tmatlab * 86400).astype('timedelta64[s]')
                    + np.datetime64('0001-01-01'))
 
+        interpargs = {'left': np.nan, 'right': np.nan}
+
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
-
             mask = np.logical_not(np.isnan(pod.time))
-            χ.append(xr.DataArray(np.interp(tmatlab, pod.time[mask],
-                                            pod.chi[pod.best]['chi'][mask])[np.newaxis,:],
-                                  coords=[[pod.depth], tcommon],
-                                  dims=['depth', 'time'],
-                                  name='χ'))
+            χ.append(xr.DataArray(
+                np.interp(tmatlab, pod.time[mask],
+                          pod.chi[pod.best]['chi'][mask],
+                          **interpargs)[np.newaxis, :],
+                coords=[[pod.depth], tcommon],
+                dims=['depth', 'time'], name='χ'))
 
-            KT.append(xr.DataArray(np.interp(tmatlab, pod.time,
-                                             pod.KT[pod.best])[np.newaxis,:],
-                                   coords=[[pod.depth], tcommon],
-                                   dims=['depth', 'time'], name='KT'))
+            KT.append(xr.DataArray(
+                np.interp(tmatlab, pod.time, pod.KT[pod.best],
+                          **interpargs)[np.newaxis, :],
+                coords=[[pod.depth], tcommon],
+                dims=['depth', 'time'], name='KT'))
 
-            Jq.append(xr.DataArray(np.interp(tmatlab, pod.time,
-                                             pod.Jq[pod.best])[np.newaxis,:],
-                                   coords=[[pod.depth], tcommon],
-                                   dims=['depth', 'time'], name='Jq'))
+            Jq.append(xr.DataArray(
+                np.interp(tmatlab, pod.time, pod.Jq[pod.best],
+                          **interpargs)[np.newaxis, :],
+                coords=[[pod.depth], tcommon],
+                dims=['depth', 'time'], name='Jq'))
 
-            Tz.append(xr.DataArray(np.interp(tmatlab, pod.time[mask],
-                                             pod.chi[pod.best]['dTdz'][mask])[np.newaxis,:],
-                                   coords=[[pod.depth], tcommon],
-                                   dims=['depth', 'time'],
-                                   name='Tz'))
+            Tz.append(xr.DataArray(
+                np.interp(tmatlab, pod.time[mask],
+                          pod.chi[pod.best]['dTdz'][mask],
+                          **interpargs)[np.newaxis, :],
+                coords=[[pod.depth], tcommon],
+                dims=['depth', 'time'], name='Tz'))
 
-            N2.append(xr.DataArray(np.interp(tmatlab, pod.time[mask],
-                                             pod.chi[pod.best]['N2'][mask])[np.newaxis,:],
-                                   coords=[[pod.depth], tcommon],
-                                   dims=['depth', 'time'],
-                                   name='N2'))
+            N2.append(xr.DataArray(
+                np.interp(tmatlab, pod.time[mask],
+                          pod.chi[pod.best]['N2'][mask],
+                          **interpargs)[np.newaxis, :],
+                coords=[[pod.depth], tcommon],
+                dims=['depth', 'time'], name='N2'))
 
         ds = xr.merge(χ)
         self.χ = ds.χ  # .resample('10min', dim='time', how='mean')
 
         if self.kind == 'ebob':
             self.zχpod = (np.array([[5, 10]]).T
-                          + self.ctd.depth.isel(z=slice(0,2)))
+                          + self.ctd.depth.isel(z=slice(0, 2)))
 
         else:
             self.zχpod = xr.DataArray(self.χ.depth.values[:, np.newaxis]
