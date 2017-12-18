@@ -162,6 +162,7 @@ class moor:
         Jq = []
         Tz = []
         N2 = []
+        z = []
 
         t = []
         for idx, unit in enumerate(self.χpod):
@@ -211,6 +212,13 @@ class moor:
                 coords=[[pod.depth], tcommon],
                 dims=['depth', 'time'], name='N2'))
 
+            z.append(xr.DataArray(
+                np.interp(tmatlab, pod.time[mask],
+                          pod.depth * np.ones_like(pod.time[mask]),
+                          **interpargs)[np.newaxis, :],
+                dims=['depth', 'time'],
+                coords=[[pod.depth], tcommon], name='zχpod'))
+
         ds = xr.merge(χ)
         self.χ = ds.χ  # .resample('10min', dim='time', how='mean')
 
@@ -219,10 +227,7 @@ class moor:
                           + self.ctd.depth.isel(z=slice(0, 2)))
 
         else:
-            self.zχpod = xr.DataArray(self.χ.depth.values[:, np.newaxis]
-                                      * np.ones_like(self.χ),
-                                      dims=['depth', 'time'],
-                                      coords=[self.χ.depth, self.χ.time])
+            self.zχpod = xr.merge(z).zχpod
 
         ds = xr.merge(KT)
         self.KT = ds.KT  # .resample('10min', dim='time', how='mean')
