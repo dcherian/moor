@@ -745,7 +745,6 @@ class moor:
         import cmocean as cmo
         from dcpy.plots import offset_line_plot
 
-        N = 6
         if ax is None:
             ax = plt.gca()
 
@@ -776,6 +775,7 @@ class moor:
 
         if kind is 'timeseries':
             from cycler import cycler
+            N = len(var.depth)
             colors = mpl.cm.Greys_r(np.arange(N+1)/(N+1))
             ax.set_prop_cycle(cycler('color', colors))
 
@@ -792,9 +792,10 @@ class moor:
                                    remove_mean=False, offset=0, legend=False,
                                    lw=0.5, robust=False)
 
+            ncol = N if N < 5 else 5
             ax.legend([str(aa) + 'm'
                        for aa in np.int32(np.round(var.depth))],
-                      ncol=N)
+                      ncol=ncol)
             ax.set_ylabel(label)
 
         if kind is 'profiles':
