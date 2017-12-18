@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 def _decode_time(t0, t1):
     '''
@@ -61,7 +61,22 @@ def _colorbar(hdl, ax=None):
         except AttributeError:
             ax = hdl.ax
 
-    box = ax.get_position()
+    if not isinstance(ax, list):
+        box = ax.get_position()
+
+    if isinstance(ax, list) and len(ax) > 2:
+        raise ValueError('_colorbar only supports passing 2 axes')
+
+    if isinstance(ax, list) and len(ax) == 2:
+        box = ax[0].get_position()
+        box2 = ax[1].get_position()
+
+        box.y0 = np.min([box.y0, box2.y0])
+        box.y1 = np.max([box.y1, box2.y1])
+
+        box.y0 += box.height * 0.05
+        box.y1 -= box.height * 0.05
+
     axcbar = plt.axes([(box.x0 + box.width)*1.02,
                        box.y0, 0.01, box.height])
     hcbar = plt.colorbar(hdl, axcbar)
@@ -838,7 +853,6 @@ class moor:
         ''' Summary plot for all χpods '''
 
         import matplotlib.pyplot as plt
-        import numpy as np
         from dcpy.util import dt64_to_datenum
         import dcpy.plots
         from dcpy.plots import offset_line_plot
@@ -1081,11 +1095,8 @@ class moor:
         hcbar = dict()
         hcbar['T'] = _colorbar(ax['Tplot'][0])
 
-        if 'Uplot' in ax:
-            hcbar['u'] = _colorbar(ax['Uplot'])
-
-        if 'Vplot' in ax:
-            hcbar['v'] = _colorbar(ax['Vplot'])
+        if 'Uplot' in ax and 'Vplot' in ax:
+            hcbar['uv'] = _colorbar(ax['Uplot'], [ax['u'], ax['v']])
 
         # ax['cbar'].set_ylabel(colorlabel)
 
