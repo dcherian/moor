@@ -709,17 +709,22 @@ class moor:
 
     def PlotCTD(self, name, ax=None, filt=None, filter_len=None,
                 kind='timeseries', lw=1, region={}, **kwargs):
+
         import matplotlib as mpl
         import matplotlib.pyplot as plt
         import numpy as np
         import dcpy.ts
+        import cmocean as cmo
         from dcpy.plots import offset_line_plot
 
         N = 6
         if ax is None:
             ax = plt.gca()
 
-        cmap = plt.get_cmap('RdBu_r')
+        if name == 'T':
+            cmap = cmo.cm.thermal
+        else:
+            cmap = cmo.cm.haline
 
         # filter before subsetting
         var = dcpy.ts.xfilter(self.ctd[name], dim='time',
@@ -801,10 +806,14 @@ class moor:
         return hdl
 
     def PlotχpodDepth(self, ax=None):
+        from dcpy.ts import xfilter
+
         if ax is None:
             ax = plt.gca()
 
-        ax.plot(self.zχpod.time, self.zχpod.transpose(),
+        ax.plot(self.zχpod.time,
+                self.zχpod.pipe(xfilter, kind='mean', flen=86400)
+                .transpose(),
                 color='gray', lw=0.5)
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
@@ -827,7 +836,7 @@ class moor:
         ax['met'] = plt.subplot(5, 2, 1)
         ax['N2'] = plt.subplot(5, 2, 3, sharex=ax['met'])
         ax['T'] = plt.subplot(5, 2, 5, sharex=ax['met'])
-        if self.vel and self.vel.u is not [] and quiv:
+        if quiv or self.vel:
             ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'])
             if self.kind == 'ebob':
                 ax['v'] = plt.subplot(5, 2, 9, sharex=ax['met'])
@@ -976,7 +985,8 @@ class moor:
         if filt != 'bandpass':
             ax['N2'].set_ylim([0, limy[1]])
 
-        _corner_label('$\partial T/ \partial z$ (symlog)', ax=ax['Tz'])
+        _corner_label('$\partial T/ \partial z$ (symlog)',
+                      x = 0.8, ax=ax['Tz'])
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
         ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
         ax['Tz'].grid(True, axis='y', linestyle='--', linewidth=0.5)
