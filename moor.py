@@ -147,33 +147,45 @@ class moor:
         Tz = []
         N2 = []
 
+        t = []
+        for idx, unit in enumerate(self.χpod):
+            pod = self.χpod[unit]
+            t.append(pod.time)
+
+        tall = (np.array([[np.nanmin(tt), np.nanmax(tt)] for tt in t]))
+        tmatlab = np.arange(np.nanmin(tall), np.nanmax(tall), 10*60/86400)
+        tcommon = ((-86400 + tmatlab * 86400).astype('timedelta64[s]')
+                   + np.datetime64('0001-01-01'))
+
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
 
             mask = np.logical_not(np.isnan(pod.time))
-            times = ((-86400 + pod.time[mask]*86400).astype('timedelta64[s]')
-                     + np.datetime64('0001-01-01'))
-
-            χ.append(xr.DataArray(pod.chi[pod.best]['chi'][np.newaxis,mask],
-                                  coords=[[pod.depth], times],
+            χ.append(xr.DataArray(np.interp(tmatlab, pod.time[mask],
+                                            pod.chi[pod.best]['chi'][mask])[np.newaxis,:],
+                                  coords=[[pod.depth], tcommon],
                                   dims=['depth', 'time'],
                                   name='χ'))
 
-            KT.append(xr.DataArray(pod.KT[pod.best][np.newaxis,mask],
-                                   coords=[[pod.depth], times],
+            KT.append(xr.DataArray(np.interp(tmatlab, pod.time,
+                                             pod.KT[pod.best])[np.newaxis,:],
+                                   coords=[[pod.depth], tcommon],
                                    dims=['depth', 'time'], name='KT'))
 
-            Jq.append(xr.DataArray(pod.Jq[pod.best][np.newaxis,mask],
-                                   coords=[[pod.depth], times],
+            Jq.append(xr.DataArray(np.interp(tmatlab, pod.time,
+                                             pod.Jq[pod.best])[np.newaxis,:],
+                                   coords=[[pod.depth], tcommon],
                                    dims=['depth', 'time'], name='Jq'))
 
-            Tz.append(xr.DataArray(pod.chi[pod.best]['dTdz'][np.newaxis,mask],
-                                   coords=[[pod.depth], times],
+            Tz.append(xr.DataArray(np.interp(tmatlab, pod.time[mask],
+                                             pod.chi[pod.best]['dTdz'][mask])[np.newaxis,:],
+                                   coords=[[pod.depth], tcommon],
                                    dims=['depth', 'time'],
                                    name='Tz'))
 
-            N2.append(xr.DataArray(pod.chi[pod.best]['N2'][np.newaxis,mask],
-                                   coords=[[pod.depth], times],
+            N2.append(xr.DataArray(np.interp(tmatlab, pod.time[mask],
+                                             pod.chi[pod.best]['N2'][mask])[np.newaxis,:],
+                                   coords=[[pod.depth], tcommon],
                                    dims=['depth', 'time'],
                                    name='N2'))
 
