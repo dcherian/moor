@@ -53,12 +53,13 @@ def _colorbar2(mappable):
     return fig.colorbar(mappable, cax=cax)
 
 
-def _colorbar(hdl):
+def _colorbar(hdl, ax=None):
 
-    try:
-        ax = hdl.axes
-    except AttributeError:
-        ax = hdl.ax
+    if ax is None:
+        try:
+            ax = hdl.axes
+        except AttributeError:
+            ax = hdl.ax
 
     box = ax.get_position()
     axcbar = plt.axes([(box.x0 + box.width)*1.02,
@@ -997,8 +998,7 @@ class moor:
         if filt != 'bandpass':
             ax['N2'].set_ylim([0, limy[1]])
 
-        _corner_label('$\partial T/ \partial z$ (symlog)',
-                      x = 0.8, ax=ax['Tz'])
+        _corner_label('$\partial T/ \partial z$ (symlog)', x=0.8, ax=ax['Tz'])
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
         ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
         ax['Tz'].grid(True, axis='y', linestyle='--', linewidth=0.5)
