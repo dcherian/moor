@@ -222,8 +222,11 @@ class moor:
                 dims=['depth', 'time'],
                 coords=[[pod.depth], tcommon], name='zχpod'))
 
-        ds = xr.merge(χ)
-        self.χ = ds.χ  # .resample('10min', dim='time', how='mean')
+        self.χ = xr.merge(χ).χ
+        self.KT = xr.merge(KT).KT
+        self.Jq = xr.merge(Jq).Jq
+        self.Tz = xr.merge(Tz).Tz
+        self.N2 = xr.merge(N2).N2
 
         if self.kind == 'ebob':
             self.zχpod = (np.array([[5, 10]]).T
@@ -232,17 +235,6 @@ class moor:
         else:
             self.zχpod = xr.merge(z).zχpod
 
-        ds = xr.merge(KT)
-        self.KT = ds.KT  # .resample('10min', dim='time', how='mean')
-
-        ds = xr.merge(Jq)
-        self.Jq = ds.Jq  # .resample('10min', dim='time', how='mean')
-
-        ds = xr.merge(Tz)
-        self.Tz = ds.Tz  # .resample('10min', dim='time', how='mean')
-
-        ds = xr.merge(N2)
-        self.N2 = ds.N2  # .resample('10min', dim='time', how='mean')
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
@@ -1585,13 +1577,14 @@ class moor:
         import scipy as sp
         import xarray as xr
         import matplotlib.pyplot as plt
+        import dcpy.ts
         # from statsmodels.nonparametric.smoothers_lowess import lowess
         # import dcpy.plots
 
         ρ = 1025
         cp = 4200
 
-        T = self.ctd['T']
+        T = dcpy.ts.xfilter(self.ctd['T'], kind='hann', flen=2*3600.0)
         f = sp.interpolate.RectBivariateSpline(T.time.astype('float32'),
                                                T.depth, T.values.T,
                                                kx=1, ky=1)
@@ -1610,8 +1603,9 @@ class moor:
         # Q.sel(depth=10).plot(ax=plt.gca())
 
         # rate of change of heat content
-        dt = Q.time.diff(dim='time')/np.timedelta64(1, 's')
-        dQdt = Q.diff(dim='time')/dt.astype('float32')
+        dt = (Q.time.diff(dim='time')/np.timedelta64(1, 's')).astype('float32')
+        # dQdt = xr.apply_ufunc(np.gradient, Q[1:,:], dt.values, kwargs={'axis': 0})
+        dQdt = Q.diff(dim='time')/dt
 
         # dTest = (dQdt/ρ/cp/10).sel(depth=10)
         # dTobs = (Ti/600).sel(depth=5).diff(dim='time')
@@ -1624,13 +1618,26 @@ class moor:
                                      self.met.Jq0),
                            dims=['time'], coords=[Q.time])
 
+        swr = xr.DataArray(np.interp(Q.time.astype(np.float32),
+                                     self.met.Jtime.astype(np.float32)*1e9,
+                                     self.met.swr),
+                           dims=['time'], coords=[Q.time])
+
+        # penetrative heating
+        Ih = 0.45 * swr * np.exp(-0.04*Ti.depth)
+
+        intIh = xr.apply_ufunc(sp.integrate.cumtrapz,
+                               Ih, Ih.depth,
+                               kwargs={'axis': -1})
+        intIh['depth'] = intIh.depth[:-1]
+
         resample_args = {'time': '3H'}
-        Jqt_1D = ((dQdt - Jq0).sel(depth=self.Jq.depth)
+        Jqt_1D = ((dQdt - intIh - Jq0).sel(depth=self.Jq.depth)
                   .resample(**resample_args).mean(dim='time'))
         Jqt = self.Jq.resample(**resample_args).mean(dim='time')
 
         def plot(j, ax):
-            [j.sel(time='2014', depth=z).plot(ax=axx, lw=0.5)
+            [j.sel(time='2014-02-01', depth=z).plot(ax=axx, lw=0.5)
              for (axx, z) in zip(ax, j.depth)]
 
         _, ax = plt.subplots(3, 1)
