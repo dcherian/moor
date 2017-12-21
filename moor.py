@@ -750,9 +750,11 @@ class moor:
 
         return hquiv
 
-    def MarkSeasonsAndEvents(self, ax, season=True, events=True):
+    def MarkSeasonsAndEvents(self, ax=None, season=True, events=True):
         import matplotlib.dates as dt
 
+        if ax is None:
+            ax = plt.gca()
         if season:
             seasonColor = {
                 'NE': 'beige',
@@ -796,7 +798,7 @@ class moor:
         if name == 'T':
             cmap = mpl.cm.YlOrBr
         else:
-            cmap = cmo.cm.haline
+            cmap = cmo.cm.haline_r
 
         # filter before subsetting
         var = dcpy.ts.xfilter(self.ctd[name], dim='time',
@@ -912,8 +914,8 @@ class moor:
         # initialize axes
         ax = dict()
         ax['met'] = plt.subplot(5, 2, 1)
+        ax['T'] = plt.subplot(5, 2, 2, sharex=ax['met'])
         ax['N2'] = plt.subplot(5, 2, 3, sharex=ax['met'])
-        ax['T'] = plt.subplot(5, 2, 5, sharex=ax['met'])
         if quiv or self.vel:
             ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'])
             if self.kind == 'ebob':
@@ -1094,10 +1096,9 @@ class moor:
                 if self.kind == 'rama':
                     ax['Uplot'] = uplt.plot(ax=ax['u'], lw=0.5)
                     ax['Vplot'] = vplt.plot(ax=ax['v'], lw=0.5)
-                    ax['u'].legend(('u', 'v'),
-                                   title=('depth={0} m')
-                                   .format(self.vel.u.depth.values[0], '%d'),
-                                   ncol=2)
+                    zint = uplt.depth.values.astype('int32')
+                    ax['u'].legend(('$u_{'+str(zint)+'}$',
+                                    '$v_{'+str(zint)+'}$'), ncol=2)
                     ax['u'].axhline(0, color='gray', lw=0.5)
                     ax['v'].set_ylabel('(m/s)')
                     ax['v'].set_title('')
