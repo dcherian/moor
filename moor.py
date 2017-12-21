@@ -1,14 +1,16 @@
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy as sp
 import xarray as xr
+import pandas as pd
+import seawater as sw
 from .accessors import MonsoonAccessor
 
 def _decode_time(t0, t1):
     '''
     Utility function to decode time ranges.
     '''
-    import pandas as pd
 
     return (pd.to_datetime(t0), pd.to_datetime(t1))
 
@@ -22,8 +24,6 @@ def _corner_label(label: str, x=0.95, y=0.9, ax=None, alpha=0.05):
                 default: (0.95, 0.9)
         label : string
     '''
-
-    import matplotlib.pyplot as plt
 
     if ax is None:
         ax = plt.gca()
@@ -94,7 +94,6 @@ class moor:
     def __init__(self, lon, lat, name, kind, datadir):
 
         import collections
-        import xarray as xr
 
         self.name = name
         self.kind = kind
@@ -158,8 +157,6 @@ class moor:
 
     def CombineTurb(self):
         ''' Combines all χpod χ, KT, Jq into a single DataArray each '''
-        import xarray as xr
-        import numpy as np
 
         χ = []
         KT = []
@@ -277,9 +274,6 @@ class moor:
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
-        import seawater as sw
-        import numpy as np
-        import xarray as xr
         from scipy.io import loadmat
         import dcpy.util
 
@@ -359,7 +353,6 @@ class moor:
 
         import airsea as air
         import matplotlib.dates as dt
-        import xarray as xr
         from dcpy.util import mdatenum2dt64
 
         if WindType == 'pmel':
@@ -390,7 +383,6 @@ class moor:
 
     def ReadNcep(self):
         ''' Read NCEP precip rate '''
-        import xarray as xr
 
         P = (xr.open_mfdataset('../ncep/prate*', autoclose=True)
              .sel(lon=self.lon, lat=self.lat, method='nearest').load())
@@ -403,9 +395,6 @@ class moor:
 
     def ReadTropflux(self, loc):
         ''' Read tropflux data. Save in moor.tropflux'''
-
-        import xarray as xr
-        import seawater as sw
 
         swr = (xr.open_mfdataset(loc + '/swr_*.nc', autoclose=True)
                .sel(latitude=self.lat, longitude=self.lon, method='nearest')
@@ -476,8 +465,6 @@ class moor:
     def ReadVel(self, fname, FileType: str='ebob'):
         ''' Read velocity data '''
 
-        import xarray as xr
-
         if FileType == 'pmel':
             import numpy as np
 
@@ -520,9 +507,6 @@ class moor:
                                        best, depth=depth)
 
     def SetColorCycle(self, ax):
-
-        import matplotlib.pyplot as plt
-        import numpy as np
 
         z = np.array(list(self.zχpod.isel(time=1).values()))
         ccycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -588,8 +572,6 @@ class moor:
 
     def DepthPlot(self, varname, est: str='best', filter_len=86400):
 
-        import numpy as np
-        import matplotlib.pyplot as plt
         import matplotlib.cm as cm
 
         s0 = 4  # min size of circles
@@ -674,10 +656,8 @@ class moor:
                 tt.set_color(poscolor)
 
     def avgplt(self, ax, t, x, flen, filt, axis=-1, decimate=True, **kwargs):
-        import xarray as xr
         from dcpy.util import MovingAverage
         from dcpy.ts import BandPassButter
-        import numpy as np
 
         x = x.copy()
 
@@ -785,9 +765,6 @@ class moor:
     def PlotCTD(self, name, ax=None, filt=None, filter_len=None,
                 kind='timeseries', lw=1, region={}, **kwargs):
 
-        import matplotlib as mpl
-        import matplotlib.pyplot as plt
-        import numpy as np
         import dcpy.ts
         import cmocean as cmo
         from dcpy.plots import offset_line_plot
@@ -902,7 +879,6 @@ class moor:
                   met='local', fluxvar='netflux', tau='local', event=None):
         ''' Summary plot for all χpods '''
 
-        import matplotlib.pyplot as plt
         from dcpy.util import dt64_to_datenum
         import dcpy.plots
         from dcpy.plots import offset_line_plot
@@ -1107,7 +1083,6 @@ class moor:
                     vargs = dict(robust=True, yincrease=False, levels=50,
                                  add_colorbar=False, cmap='RdBu_r', center=0)
 
-                    import xarray as xr
                     udict = xr.plot.utils._determine_cmap_params(uplt.values,
                                                                  robust=True)
                     vdict = xr.plot.utils._determine_cmap_params(vplt.values,
@@ -1613,10 +1588,6 @@ class moor:
 
     def Budget(self):
 
-        import numpy as np
-        import scipy as sp
-        import xarray as xr
-        import matplotlib.pyplot as plt
         import dcpy.ts
         # from statsmodels.nonparametric.smoothers_lowess import lowess
         # import dcpy.plots
