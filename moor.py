@@ -205,7 +205,6 @@ class moor:
                 coords={'z': (['depth', 'time'], z[-1].values),
                         'time': tcommon}, name='KT'))
 
-
             Jq.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.Jq[pod.best][mask],
@@ -238,12 +237,13 @@ class moor:
             a = [x.sel(depth=zz, drop=False) for zz in np.unique(x['depth'])]
             # concat depth groups in time
             # b = [ for xx in a]
+
             def merge2(aa):
 
                 if aa.ndim > 1:
                     return xr.merge([aa.isel(depth=zz)
-                                for zz in
-                                np.arange(len(np.atleast_1d(aa.depth)))])
+                                    for zz in
+                                    np.arange(len(np.atleast_1d(aa.depth)))])
                 else:
                     return aa.to_dataset()
 
@@ -271,7 +271,6 @@ class moor:
 
         else:
             self.zχpod = xr.merge(z).zχpod
-
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
@@ -347,13 +346,12 @@ class moor:
                                    'ρ': (['z', 'time'], ρ)},
                                   coords={'depth': (['z', 'time'], pres),
                                           'depth2': ('z2', z2),
-                                          'time': ('time', time[0,:])})
+                                          'time': ('time', time[0, :])})
             self.ctd['depth'] = self.ctd.depth.fillna(0)
 
     def ReadMet(self, fname: str=None, WindType='', FluxType=''):
 
         import airsea as air
-        import matplotlib.dates as dt
         from dcpy.util import mdatenum2dt64
 
         if WindType == 'pmel':
@@ -467,8 +465,6 @@ class moor:
         ''' Read velocity data '''
 
         if FileType == 'pmel':
-            import numpy as np
-
             self.vel = xr.open_dataset(fname, autoclose=True)
 
             self.vel.rename({'U_320': 'u',
@@ -1525,8 +1521,8 @@ class moor:
             ax4 = plt.subplot(324)
             ax5 = plt.subplot(326, sharex=ax4)
 
-        title = self.name + ' | ' \
-                + self.GetFilterLenLabel(filt, filter_len)
+        title = (self.name + ' | '
+                 + self.GetFilterLenLabel(filt, filter_len))
         ax0.set_title(title)
 
         for metidx, metvar in enumerate(metvars):
@@ -1660,24 +1656,24 @@ class moor:
                                kwargs={'axis': -1})
         intIh['depth'] = intIh.depth[:-1]
 
-        resample_args = {'time': '3H'}
+        resample_args = {'time': '4H'}
         Jqt_1D = ((dQdt - intIh - Jq0).sel(depth=self.Jq.depth)
                   .resample(**resample_args).mean(dim='time'))
         Jqt = self.Jq.resample(**resample_args).mean(dim='time')
 
-        def plot(j, ax):
-            [j.sel(time='2014-02-01', depth=z).plot(ax=axx, lw=0.5)
-             for (axx, z) in zip(ax, j.depth)]
+        # def plot(jq, ax):
+        #     [jq.sel(time='2014-02-01', depth=z).plot(ax=axx, lw=0.5)
+        #      for (axx, z) in zip(ax, jq.depth)]
 
-        _, ax = plt.subplots(3, 1)
-        plot(Jqt, ax)
-        plot(Jqt_1D, ax)
+        # f, ax = plt.subplots(3, 1)
+        # plot(Jqt, ax)
+        # plot(Jqt_1D, ax)
 
         # ax1 = plt.subplot(311)
         # plt.plot(MovingAverage(tT, 144), MovingAverage(T, 144))
         # ax1.xaxis_date()
-        # plt.ylabel('T (1 day avg)')
 
+        # plt.ylabel('T (1 day avg)')
         # plt.subplot(312, sharex=ax1)
         # a = lowess(dTdt, tavg, frac=0.025)
         # plt.plot(a[:, 0], a[:, 1] * 86400)
