@@ -494,6 +494,13 @@ class moor:
                                    'v': (['depth', 'time'], adcp['vv']/100)},
                                   coords={'depth': z, 'time': time})
 
+            dz = self.vel.u.depth.diff(dim='depth')
+            uz = self.vel.u.diff(dim='depth')/dz
+            vz = self.vel.v.diff(dim='depth')/dz
+            shear = np.hypot(uz, vz)
+            shear['depth'] = (shear.depth/1.0) - dz/2  # relocate to bin edges
+            self.vel['shear'] = shear.rename({'depth': 'depth_shear'})
+
     def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat', dir=None):
 
@@ -891,6 +898,9 @@ class moor:
         ax = dict()
         ax['met'] = plt.subplot(5, 2, 1)
         ax['N2'] = plt.subplot(5, 2, 3, sharex=ax['met'])
+        if self.kind == 'ebob':
+            ax['shear'] = plt.subplot(5, 2, 5, sharex=ax['met'])
+
         if quiv or self.vel:
             ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'])
             if self.kind == 'ebob':
@@ -1107,6 +1117,15 @@ class moor:
                     ax['u'].set_ylim(ax['T'].get_ylim())
                     ax['v'].set_ylim(ax['T'].get_ylim())
 
+        if 'shear' in ax:
+            shhdl = self.vel.shear.plot.contourf(x='time', ax=ax['shear'],
+                                                 add_colorbar=False,
+                                                 yincrease=False,
+                                                 robust=True)
+            ax['shear'].set_ylabel('depth')
+            ax['shear'].set_ylim(ax['T'].get_ylim())
+            self.PlotχpodDepth(ax=ax['shear'], color='k')
+            _corner_label('|$(u_z, v_z)$|', x=0.15, y=0.15, ax=ax['shear'])
 
         ax['met'].set_xlim([self.χ.sel(**region).time.min().values,
                             self.χ.sel(**region).time.max().values])
@@ -1132,6 +1151,9 @@ class moor:
 
         if 'Uplot' in ax and 'Vplot' in ax and self.kind == 'ebob':
             hcbar['uv'] = _colorbar(ax['Uplot'], [ax['u'], ax['v']])
+
+        if 'shear' in ax:
+            hcbar['shear'] = _colorbar(shhdl, ax=ax['shear'])
 
         # ax['cbar'].set_ylabel(colorlabel)
 
