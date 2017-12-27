@@ -7,6 +7,7 @@ import pandas as pd
 import seawater as sw
 from .accessors import MonsoonAccessor
 
+
 def _decode_time(t0, t1):
     '''
     Utility function to decode time ranges.
@@ -30,7 +31,7 @@ def _corner_label(label: str, x=0.95, y=0.9, ax=None, alpha=0.05):
 
     ax.text(x, y, label,
             color='white',
-            horizontalalignment='center',
+            horizontalalignment='right',
             verticalalignment='center',
             transform=ax.transAxes,
             bbox=dict(facecolor='dimgray', edgecolor=None))
