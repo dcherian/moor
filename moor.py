@@ -870,8 +870,8 @@ class moor:
         if ax is None:
             ax = plt.gca()
 
-        ax.plot(self.zχpod.time,
-                self.zχpod.pipe(xfilter, kind='mean', flen=86400)
+        ax.plot(self.χ.time,
+                self.χ.z.pipe(xfilter, kind='mean', flen=86400)
                 .transpose(), color=color, **kwargs)
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
