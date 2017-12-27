@@ -890,7 +890,6 @@ class moor:
         # initialize axes
         ax = dict()
         ax['met'] = plt.subplot(5, 2, 1)
-        ax['T'] = plt.subplot(5, 2, 2, sharex=ax['met'])
         ax['N2'] = plt.subplot(5, 2, 3, sharex=ax['met'])
         if quiv or self.vel:
             ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'])
@@ -902,10 +901,7 @@ class moor:
         else:
             ax['χ'] = plt.subplot(5, 2, 7, sharex=ax['met'])
 
-        # ax['T'] = plt.subplot2grid((4, 2), (2, 0),
-        #                            rowspan=2, sharex=ax['met'])
-        # ax['T'].rowNum = 3
-
+        ax['T'] = plt.subplot(5, 2, 2, sharex=ax['met'])
         ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'])
         ax['Tz'] = plt.subplot(5, 2, 6, sharex=ax['met'])
         ax['Kt'] = plt.subplot(5, 2, 8, sharex=ax['met'])
@@ -1012,6 +1008,8 @@ class moor:
                              x='time', y='depth', remove_mean=False,
                              offset=0, ax=ax['χ'], **plotargs)
             ax['χ'].set_yscale('log')
+            ax['χ'].set_title('')
+            ax['χ'].set_ylabel('$χ$')
 
         offset_line_plot((self.KT.copy()
                           .pipe(xfilter, **filtargs)
@@ -1019,6 +1017,8 @@ class moor:
                          x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['Kt'], **plotargs)
         ax['Kt'].set_yscale('log')
+        ax['Kt'].set_title('')
+        _corner_label('$K_T$', ax=ax['Kt'])
 
         Jqt = (self.Jq.copy()
                .pipe(xfilter, **filtargs)
@@ -1026,6 +1026,11 @@ class moor:
         offset_line_plot(Jqt, x='time', y='depth', remove_mean=False,
                          offset=0, ax=ax['Jq'], **plotargs)
         ax['Jq'].set_ylim(dcpy.plots.robust_lim(np.ravel(Jqt)))
+        ax['Jq'].set_title('')
+        ax['Jq'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
+
+        _corner_label('$J_q^t$', ax=ax['Jq'])
+        # ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
 
         # -------- T, S
         ctdargs = dict(filt=filt, filter_len=filter_len, kind=TSkind,
@@ -1046,10 +1051,7 @@ class moor:
         ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
         ax['Tz'].grid(True, axis='y', linestyle='--', linewidth=0.5)
 
-        if 'χ' in ax:
-            ax['χ'].set_title('')
-            ax['χ'].set_ylabel('$χ$')
-
+        # ------------ velocity
         if 'v' in ax:
             uplt = (self.vel.u.copy().squeeze()
                     .pipe(xfilter, **filtargs)
@@ -1105,14 +1107,7 @@ class moor:
                     ax['u'].set_ylim(ax['T'].get_ylim())
                     ax['v'].set_ylim(ax['T'].get_ylim())
 
-        ax['Kt'].set_title('')
-        _corner_label('$K_T$', ax=ax['Kt'])
 
-        ax['Jq'].set_title('')
-        ax['Jq'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
-
-        _corner_label('$J_q^t$', ax=ax['Jq'])
-        # ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
         ax['met'].set_xlim([self.χ.sel(**region).time.min().values,
                             self.χ.sel(**region).time.max().values])
         plt.gcf().autofmt_xdate()
