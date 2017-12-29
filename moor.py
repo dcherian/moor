@@ -831,7 +831,7 @@ class moor:
                 kwargs['x'] = 'time'
                 kwargs['y'] = 'depth'
 
-        if self.ctd.depth.ndim > 1 and name is 'T' and kind is 'timeseries':
+        if self.kind == 'ebob' and name is 'T' and kind is 'timeseries':
             # too many depths to timeseries!
             kind = 'pcolor'
 
@@ -876,16 +876,23 @@ class moor:
             if 'robust' not in kwargs:
                 kwargs['robust'] = True
 
+            if 'yincrease' not in kwargs:
+                kwargs['yincrease'] = False
+
             hdl = []
-            hdl.append(var.plot.contourf(ax=ax, levels=25,
-                                         cmap=cmap, zorder=-1,
-                                         **kwargs))
-            hdl.append(var.plot.contour(ax=ax, levels=20,
-                                        colors='k',
-                                        linewidths=0.25,
-                                        zorder=-1, **kwargs))
-            ax.set_ylabel('depth')
-            ax.invert_yaxis()
+            if self.kind == 'ebob' and name == 'S':
+                t = np.broadcast_to(var.time, var.depth.shape)
+                hdl.append(ax.scatter(t, var.depth, c=var))
+                ax.invert_yaxis()
+            else:
+                hdl.append(var.plot.contourf(ax=ax, levels=25,
+                                             cmap=cmap, zorder=-1,
+                                             **kwargs))
+                hdl.append(var.plot.contour(ax=ax, levels=20,
+                                            colors='k',
+                                            linewidths=0.25,
+                                            zorder=-1, **kwargs))
+                ax.set_ylabel('depth')
 
         if kind is 'contour':
             hdl = var.plot.contour(ax=ax, levels=20, colors='gray',
