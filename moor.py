@@ -451,7 +451,13 @@ class moor:
 
         self.tropflux = xr.merge([self.tropflux, swr, lwr, tau, curl, net])
 
-    def AddEvents(self, pods, name, t0, t1):
+    def AddEvents(self, name, t0, t1, pods=None):
+
+        if pods is None:
+            pods = list(self.χpod.keys())
+
+        if type(pods) is not list:
+            pods = [pods]
 
         for pp in pods:
             self.χpod[pp].events[name] = _decode_time(t0, t1)
