@@ -936,21 +936,29 @@ class moor:
         ax = dict()
         ax['met'] = plt.subplot(5, 2, 1)
         ax['N2'] = plt.subplot(5, 2, 3, sharex=ax['met'])
-        if self.kind == 'ebob':
-            ax['shear'] = plt.subplot(5, 2, 5, sharex=ax['met'])
+
+        ax['T'] = plt.subplot(5, 2, 2, sharex=ax['met'])
+        if TSkind is not 'timeseries':
+            ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'], sharey=ax['T'])
+        else:
+            ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'], sharey=ax['T'])
 
         if quiv or self.vel:
-            ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'])
+            if TSkind is not 'timeseries':
+                ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'], sharey=ax['T'])
+            else:
+                ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'])
+
             if self.kind == 'ebob':
-                ax['v'] = plt.subplot(5, 2, 9, sharex=ax['met'])
+                ax['v'] = plt.subplot(5, 2, 9, sharex=ax['met'], sharey=ax['u'])
+                ax['shear'] = plt.subplot(5, 2, 5, sharex=ax['met'], sharey=ax['u'])
+
             else:
                 ax['v'] = ax['u']
                 ax['χ'] = plt.subplot(5, 2, 9, sharex=ax['met'])
         else:
             ax['χ'] = plt.subplot(5, 2, 7, sharex=ax['met'])
 
-        ax['T'] = plt.subplot(5, 2, 2, sharex=ax['met'])
-        ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'])
         ax['Tz'] = plt.subplot(5, 2, 6, sharex=ax['met'])
         ax['Kt'] = plt.subplot(5, 2, 8, sharex=ax['met'])
         ax['Jq'] = plt.subplot(5, 2, 10, sharex=ax['met'])
@@ -1066,7 +1074,7 @@ class moor:
                          offset=0, ax=ax['Kt'], **plotargs)
         ax['Kt'].set_yscale('log')
         ax['Kt'].set_title('')
-        _corner_label('$K_T$', ax=ax['Kt'])
+        ax['Kt'].set_ylabel('$K_T$')
 
         Jqt = (self.Jq.copy()
                .pipe(xfilter, **filtargs)
@@ -1076,8 +1084,7 @@ class moor:
         ax['Jq'].set_ylim(dcpy.plots.robust_lim(np.ravel(Jqt)))
         ax['Jq'].set_title('')
         ax['Jq'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
-
-        _corner_label('$J_q^t$', ax=ax['Jq'])
+        ax['Jq'].set_ylabel('$J_q^t$')
         # ax['Jq'].grid(True, axis='y', linestyle='--', linewidth=0.5)
 
         # -------- T, S
@@ -1094,7 +1101,7 @@ class moor:
         if filt != 'bandpass':
             ax['N2'].set_ylim([0, limy[1]])
 
-        _corner_label('$\partial T/ \partial z$', ax=ax['Tz'])
+        ax['Tz'].set_ylabel('$\partial T/ \partial z$')
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
         ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
         ax['Tz'].grid(True, axis='y', linestyle='--', linewidth=0.5)
@@ -1156,10 +1163,10 @@ class moor:
                     ax['v'].set_ylim(ax['T'].get_ylim())
 
         if 'shear' in ax:
-            shhdl = self.vel.shear.plot.contourf(x='time', ax=ax['shear'],
-                                                 add_colorbar=False,
-                                                 yincrease=False,
-                                                 robust=True)
+            shhdl = (self.vel.shear.sel(**region)
+                     .plot.contourf(x='time', ax=ax['shear'],
+                                    add_colorbar=False, yincrease=False,
+                                    robust=True))
             ax['shear'].set_ylabel('depth')
             ax['shear'].set_ylim(ax['T'].get_ylim())
             self.PlotχpodDepth(ax=ax['shear'], color='k')
@@ -1184,7 +1191,9 @@ class moor:
         hcbar = dict()
         if isinstance(ax['Tplot'][0], mpl.contour.QuadContourSet):
             hcbar['T'] = _colorbar(ax['Tplot'][0])
-        if isinstance(ax['Splot'][0], mpl.contour.QuadContourSet):
+
+        if (isinstance(ax['Splot'][0], mpl.contour.QuadContourSet)
+                or isinstance(ax['Splot'][0], mpl.collections.PathCollection)):
             hcbar['S'] = _colorbar(ax['Splot'][0])
 
         if 'Uplot' in ax and 'Vplot' in ax and self.kind == 'ebob':
