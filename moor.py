@@ -165,7 +165,6 @@ class moor:
         Tz = []
         N2 = []
         z = []
-        ρ = []
 
         t = []
         for idx, unit in enumerate(self.χpod):
@@ -192,51 +191,50 @@ class moor:
 
             ρ1 = sw.pden(pod.ctd1.S, pod.ctd1.T, pod.ctd1.z)
             ρ2 = sw.pden(pod.ctd2.S, pod.ctd2.T, pod.ctd2.z)
-            ρ.append(xr.DataArray(np.interp(tmatlab, pod.ctd1.time, (ρ1+ρ2)/2,
-                                            **interpargs)[np.newaxis, :],
-                                  dims=['depth', 'time'],
-                                  coords={'z': (['depth', 'time'], z[-1].values),
-                                          'time': tcommon}, name='ρ'))
+            ρ = np.interp(tmatlab, pod.ctd1.time, (ρ1+ρ2)/2,
+                          **interpargs)[np.newaxis, :]
+            T = np.interp(tmatlab, pod.ctd1.time, (pod.ctd1.T+pod.ctd2.T)/2,
+                          **interpargs)[np.newaxis, :]
+            S = np.interp(tmatlab, pod.ctd1.time, (pod.ctd1.S+pod.ctd2.S)/2,
+                          **interpargs)[np.newaxis, :]
+
+            coords = {'z': (['depth', 'time'], z[-1].values),
+                      'time': tcommon,
+                      'ρ': (['depth', 'time'], ρ),
+                      'S': (['depth', 'time'], S),
+                      'T': (['depth', 'time'], T),
+                      'unit': (['depth'], [pod.name[2:5]])}
+            dims = ['depth', 'time']
 
             χ.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.chi[pod.best]['chi'][mask],
                           **interpargs)[np.newaxis, :],
-                dims=['depth', 'time'],
-                coords={'z': (['depth', 'time'], z[-1].values),
-                        'time': tcommon}, name='χ'))
+                dims=dims, coords=coords, name='χ'))
 
             KT.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.KT[pod.best][mask],
                           **interpargs)[np.newaxis, :],
-                dims=['depth', 'time'],
-                coords={'z': (['depth', 'time'], z[-1].values),
-                        'time': tcommon}, name='KT'))
+                dims=dims, coords=coords, name='KT'))
 
             Jq.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.Jq[pod.best][mask],
                           **interpargs)[np.newaxis, :],
-                dims=['depth', 'time'],
-                coords={'z': (['depth', 'time'], z[-1].values),
-                        'time': tcommon}, name='Jq'))
+                dims=dims, coords=coords, name='Jq'))
 
             Tz.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.chi[pod.best]['dTdz'][mask],
                           **interpargs)[np.newaxis, :],
-                dims=['depth', 'time'],
-                coords={'z': (['depth', 'time'], z[-1].values),
-                        'time': tcommon}, name='Tz'))
+                dims=dims, coords=coords, name='Tz'))
 
             N2.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.chi[pod.best]['N2'][mask],
                           **interpargs)[np.newaxis, :],
-                dims=['depth', 'time'],
-                coords={'z': (['depth', 'time'], z[-1].values),
-                        'time': tcommon}, name='N2'))
+                dims=dims, coords=coords, name='N2'))
 
             # check if there are big gaps (> 1 day)
             # must replace these with NaNs
@@ -253,7 +251,7 @@ class moor:
                 else:
                     i1 = find_approx(tmatlab, time[inds[0][0]+2])
 
-                for var in [χ, KT, Jq, Tz, N2, ρ]:
+                for var in [χ, KT, Jq, Tz, N2]:
                     var[-1].values[:, i0:i1] = np.nan
 
         def merge(x0):
@@ -282,7 +280,6 @@ class moor:
         self.Jq = merge(Jq).Jq
         self.Tz = merge(Tz).Tz
         self.N2 = merge(N2).N2
-        self.ρ = merge(ρ).ρ
 
         if self.kind == 'ebob':
             z0 = np.interp(tcommon.astype('float32'),
