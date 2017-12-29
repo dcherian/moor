@@ -238,6 +238,24 @@ class moor:
                 coords={'z': (['depth', 'time'], z[-1].values),
                         'time': tcommon}, name='N2'))
 
+            # check if there are big gaps (> 1 day)
+            # must replace these with NaNs
+            time = pod.time[mask]
+            dtime = np.diff(pod.time[mask])
+            inds = np.where(np.round(dtime) > 0)
+            if len(inds[0]) > 0:
+                import warnings
+                warnings.warn('Found large gap. NaNing out...')
+                from dcpy.util import find_approx
+                i0 = find_approx(tmatlab, time[inds[0][0]])
+                if len(inds[0]) > 1:
+                    i1 = find_approx(tmatlab, time[inds[0][1]+2])
+                else:
+                    i1 = find_approx(tmatlab, time[inds[0][0]+2])
+
+                for var in [χ, KT, Jq, Tz, N2, ρ]:
+                    var[-1].values[:, i0:i1] = np.nan
+
         def merge(x0):
             x = xr.concat(map(lambda xx: xx.to_dataset(), x0),
                           dim='depth')[x0[0].name]
