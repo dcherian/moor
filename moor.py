@@ -165,6 +165,7 @@ class moor:
         Tz = []
         N2 = []
         z = []
+        ρ = []
 
         t = []
         for idx, unit in enumerate(self.χpod):
@@ -188,6 +189,14 @@ class moor:
                           **interpargs)[np.newaxis, :],
                 dims=['depth', 'time'],
                 coords=[[pod.depth], tcommon], name='zχpod'))
+
+            ρ1 = sw.pden(pod.ctd1.S, pod.ctd1.T, pod.ctd1.z)
+            ρ2 = sw.pden(pod.ctd2.S, pod.ctd2.T, pod.ctd2.z)
+            ρ.append(xr.DataArray(np.interp(tmatlab, pod.ctd1.time, (ρ1+ρ2)/2,
+                                            **interpargs)[np.newaxis, :],
+                                  dims=['depth', 'time'],
+                                  coords={'z': (['depth', 'time'], z[-1].values),
+                                          'time': tcommon}, name='ρ'))
 
             χ.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
@@ -255,6 +264,7 @@ class moor:
         self.Jq = merge(Jq).Jq
         self.Tz = merge(Tz).Tz
         self.N2 = merge(N2).N2
+        self.ρ = merge(ρ).ρ
 
         if self.kind == 'ebob':
             z0 = np.interp(tcommon.astype('float32'),
