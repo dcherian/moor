@@ -802,7 +802,6 @@ class moor:
 
         import dcpy.ts
         import cmocean as cmo
-        from dcpy.plots import offset_line_plot
 
         if ax is None:
             ax = plt.gca()
@@ -847,9 +846,7 @@ class moor:
                 else:
                     ydim = 'depth'
 
-            hdl = offset_line_plot(var, x='time', y=ydim, ax=ax,
-                                   remove_mean=False, offset=0, legend=False,
-                                   lw=0.5, robust=False)
+            hdl = var.plot.line(x='time', hue=ydim, ax=ax, add_legend=False, lw=0.5)
 
             ncol = N if N < 5 else 5
             ax.legend([str(aa) + 'm'
@@ -923,7 +920,6 @@ class moor:
 
         from dcpy.util import dt64_to_datenum
         import dcpy.plots
-        from dcpy.plots import offset_line_plot
         from dcpy.ts import xfilter
 
         plt.figure(figsize=[11.0, 7.5])
@@ -962,7 +958,7 @@ class moor:
 
         filtargs = {'kind': filt, 'decimate': True,
                     'flen': filter_len, 'dim': 'time'}
-        plotargs = {'linewidth': lw, 'legend': False}
+        lineargs = {'x': 'time', 'hue': 'depth', 'linewidth': lw, 'legend': False}
 
         if filter_len is None:
             filt = None
@@ -1041,43 +1037,38 @@ class moor:
             ax['Jq0'].set_ylim(
                 np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
 
-        offset_line_plot((self.N2.copy()
-                          .pipe(xfilter, **filtargs)
-                          .sel(**region))/1e-4,
-                         x='time', y='depth', remove_mean=False,
-                         offset=0, ax=ax['N2'], **plotargs)
+        (self.N2.copy()
+         .pipe(xfilter, **filtargs)
+         .sel(**region)/1e-4
+         .plot.line(ax=ax['N2'], **lineargs))
 
-        offset_line_plot((self.Tz.copy()
-                          .pipe(xfilter, **filtargs)
-                          .sel(**region)),
-                         x='time', y='depth', remove_mean=False,
-                         offset=0, ax=ax['Tz'], **plotargs)
+        (self.Tz.copy()
+         .pipe(xfilter, **filtargs)
+         .sel(**region)
+         .plot.line(ax=ax['Tz'], **lineargs))
 
         # ---------- χpods
         if 'χ' in ax:
-            offset_line_plot((self.χ.copy()
-                              .pipe(xfilter, **filtargs)
-                              .sel(**region)),
-                             x='time', y='depth', remove_mean=False,
-                             offset=0, ax=ax['χ'], **plotargs)
+            (self.χ.copy()
+             .pipe(xfilter, **filtargs)
+             .sel(**region)
+             .plot.line(ax=ax['χ'], **lineargs))
             ax['χ'].set_yscale('log')
             ax['χ'].set_title('')
             ax['χ'].set_ylabel('$χ$')
 
-        offset_line_plot((self.KT.copy()
-                          .pipe(xfilter, **filtargs)
-                          .sel(**region)),
-                         x='time', y='depth', remove_mean=False,
-                         offset=0, ax=ax['Kt'], **plotargs)
+        (self.KT.copy()
+         .pipe(xfilter, **filtargs)
+         .sel(**region)
+         .plot.line(ax=ax['Kt'], **lineargs))
         ax['Kt'].set_yscale('log')
         ax['Kt'].set_title('')
         ax['Kt'].set_ylabel('$K_T$')
 
-        Jqt = (self.Jq.copy()
-               .pipe(xfilter, **filtargs)
-               .sel(**region))
-        offset_line_plot(Jqt, x='time', y='depth', remove_mean=False,
-                         offset=0, ax=ax['Jq'], **plotargs)
+        (self.Jq.copy()
+         .pipe(xfilter, **filtargs)
+         .sel(**region)
+         .plot.line(ax=ax['Jq'], **lineargs))
         ax['Jq'].set_ylim(dcpy.plots.robust_lim(np.ravel(Jqt)))
         ax['Jq'].set_title('')
         ax['Jq'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
