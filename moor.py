@@ -202,8 +202,11 @@ class moor:
                       'time': tcommon,
                       'ρ': (['depth', 'time'], ρ),
                       'S': (['depth', 'time'], S),
-                      'T': (['depth', 'time'], T),
-                      'unit': (['depth'], [pod.name[2:5]])}
+                      'T': (['depth', 'time'], T)}
+
+            # if self.kind == 'ebob':
+            #     coords['unit'] = (['depth'], [pod.name[2:5]])
+
             dims = ['depth', 'time']
 
             χ.append(xr.DataArray(
