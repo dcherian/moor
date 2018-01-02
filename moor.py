@@ -200,6 +200,8 @@ class moor:
 
             coords = {'z': (['depth', 'time'], z[-1].values),
                       'time': tcommon,
+                      'lat': [self.lat],
+                      'lon': [self.lon],
                       'ρ': (['depth', 'time'], ρ),
                       'S': (['depth', 'time'], S),
                       'T': (['depth', 'time'], T)}
@@ -207,36 +209,36 @@ class moor:
             # if self.kind == 'ebob':
             #     coords['unit'] = (['depth'], [pod.name[2:5]])
 
-            dims = ['depth', 'time']
+            dims = ['depth', 'time', 'lat', 'lon']
 
             χ.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.chi[pod.best]['chi'][mask],
-                          **interpargs)[np.newaxis, :],
+                          **interpargs)[np.newaxis, :, np.newaxis, np.newaxis],
                 dims=dims, coords=coords, name='χ'))
 
             KT.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.KT[pod.best][mask],
-                          **interpargs)[np.newaxis, :],
+                          **interpargs)[np.newaxis, :, np.newaxis, np.newaxis],
                 dims=dims, coords=coords, name='KT'))
 
             Jq.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.Jq[pod.best][mask],
-                          **interpargs)[np.newaxis, :],
+                          **interpargs)[np.newaxis, :, np.newaxis, np.newaxis],
                 dims=dims, coords=coords, name='Jq'))
 
             Tz.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.chi[pod.best]['dTdz'][mask],
-                          **interpargs)[np.newaxis, :],
+                          **interpargs)[np.newaxis, :, np.newaxis, np.newaxis],
                 dims=dims, coords=coords, name='Tz'))
 
             N2.append(xr.DataArray(
                 np.interp(tmatlab, pod.time[mask],
                           pod.chi[pod.best]['N2'][mask],
-                          **interpargs)[np.newaxis, :],
+                          **interpargs)[np.newaxis, :, np.newaxis, np.newaxis],
                 dims=dims, coords=coords, name='N2'))
 
             # check if there are big gaps (> 1 day)
@@ -267,8 +269,7 @@ class moor:
             # b = [ for xx in a]
 
             def merge2(aa):
-
-                if aa.ndim > 1:
+                if aa.ndim > 3:
                     return xr.merge([aa.isel(depth=zz)
                                     for zz in
                                     np.arange(len(np.atleast_1d(aa.depth)))])
