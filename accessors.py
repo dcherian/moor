@@ -7,10 +7,10 @@ class MonsoonAccessor(object):
 
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
-        self._seasons = {'NE': [1, 2, 3],
-                         'NESW': [4, 5],
+        self._seasons = {'NE': [12, 1, 2],
+                         'NESW': [3, 4, 5],
                          'SW': [6, 7, 8, 9],
-                         'SWNE': [10, 11, 12]}
+                         'SWNE': [10, 11]}
 
         names = np.asarray(list(self._seasons.keys()))
 
