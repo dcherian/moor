@@ -379,6 +379,11 @@ class moor:
                                           'time': ('time', time[0, :])})
             self.ctd['depth'] = self.ctd.depth.fillna(0)
 
+            if fname == 'NRL3':
+                # instrument is bad. All salinities are in 20s.
+                # Simple offset correction doesn't help
+                self.ctd.S.isel(z=3).values.fill(np.nan)
+
     def ReadMet(self, fname: str=None, WindType='', FluxType=''):
 
         import airsea as air
