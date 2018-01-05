@@ -919,7 +919,7 @@ class moor:
                 .transpose(), color=color, **kwargs)
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
-                  quiv=True, TSkind='timeseries', region={},
+                  quiv=True, TSkind='pcolor', region={},
                   met='local', fluxvar='netflux', tau='local', event=None):
         ''' Summary plot for all χpods '''
 
@@ -963,7 +963,7 @@ class moor:
 
         filtargs = {'kind': filt, 'decimate': True,
                     'flen': filter_len, 'dim': 'time'}
-        lineargs = {'x': 'time', 'hue': 'depth', 'linewidth': lw, 'legend': False}
+        lineargs = {'x': 'time', 'hue': 'depth', 'linewidth': lw, 'add_legend': False}
 
         if filter_len is None:
             filt = None
@@ -1042,9 +1042,9 @@ class moor:
             ax['Jq0'].set_ylim(
                 np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
 
-        (self.N2.copy()
-         .pipe(xfilter, **filtargs)
-         .sel(**region)/1e-4
+        ((self.N2.copy()
+          .pipe(xfilter, **filtargs)
+          .sel(**region)/1e-4)
          .plot.line(ax=ax['N2'], **lineargs))
 
         (self.Tz.copy()
@@ -1070,10 +1070,10 @@ class moor:
         ax['Kt'].set_title('')
         ax['Kt'].set_ylabel('$K_T$')
 
-        (self.Jq.copy()
-         .pipe(xfilter, **filtargs)
-         .sel(**region)
-         .plot.line(ax=ax['Jq'], **lineargs))
+        Jqt = (self.Jq.copy()
+               .pipe(xfilter, **filtargs)
+               .sel(**region))
+        Jqt.plot.line(ax=ax['Jq'], **lineargs)
         ax['Jq'].set_ylim(dcpy.plots.robust_lim(np.ravel(Jqt)))
         ax['Jq'].set_title('')
         ax['Jq'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
@@ -1088,12 +1088,14 @@ class moor:
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
+        ax['N2'].set_title('')
         ax['N2'].legend([str(zz)+' m' for zz in self.N2.depth.values])
         ax['N2'].set_ylabel('$N²$ ($10^{-4}$)')
         limy = ax['N2'].get_ylim()
         if filt != 'bandpass':
             ax['N2'].set_ylim([0, limy[1]])
 
+        ax['Tz'].set_title('')
         ax['Tz'].set_ylabel('$\partial T/ \partial z$')
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
         ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
@@ -1188,6 +1190,8 @@ class moor:
         if (isinstance(ax['Splot'][0], mpl.contour.QuadContourSet)
                 or isinstance(ax['Splot'][0], mpl.collections.PathCollection)):
             hcbar['S'] = _colorbar(ax['Splot'][0])
+            if ax['S'].get_ylim()[0] > 300:
+                ax['S'].set_ylim([150, 0])
 
         if 'Uplot' in ax and 'Vplot' in ax and self.kind == 'ebob':
             hcbar['uv'] = _colorbar(ax['Uplot'], [ax['u'], ax['v']])
