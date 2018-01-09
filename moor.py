@@ -415,6 +415,12 @@ class moor:
 
             self.met = xr.merge([self.met, Jq0, swr])
 
+        elif FluxType == 'pmel':
+            # merged using StitchRamaFlux.py
+            self.flux = xr.open_dataset('../rama/rama_flux/'
+                                        + 'rama-' + str(self.lat)
+                                        + 'n-fluxes.nc')
+
     def ReadNcep(self):
         ''' Read NCEP precip rate '''
 
