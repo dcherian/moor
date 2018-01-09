@@ -476,18 +476,18 @@ class moor:
 
         # canonical values for 12N
         seasons = dict()
-        seasons['2014'] = {
+        seasons[2014] = {
             'NE': ('2013-Dec-01', '2014-Feb-14'),
-            'NE→SW':  ('2014-Feb-15', '2014-May-05'),
+            'NESW':  ('2014-Feb-15', '2014-May-05'),
             'SW': ('2014-May-06', '2014-Sep-24'),
-            'SW→NE': ('2014-Sep-25', '2014-Dec-12')
+            'SWNE': ('2014-Sep-25', '2014-Dec-12')
         }
 
-        seasons['2015'] = {
+        seasons[2015] = {
             'NE': ('2014-Dec-12', '2015-Mar-01'),
-            'NE→SW': ('2015-Mar-01', '2015-May-15'),
+            'NESW': ('2015-Mar-01', '2015-May-15'),
             'SW': ('2015-May-16', '2015-Oct-14'),
-            'SW→NE': ('2015-Oct-15', '2015-Dec-01')
+            'SWNE': ('2015-Oct-15', '2015-Dec-01')
         }
 
         self.season = seasons
@@ -783,9 +783,9 @@ class moor:
         if season:
             seasonColor = {
                 'NE': 'beige',
-                'NE→SW': 'lemonchiffon',
+                'NESW': 'lemonchiffon',
                 'SW': 'wheat',
-                'SW→NE': 'honeydew'
+                'SWNE': 'honeydew'
             }
 
             for pp in self.season:
