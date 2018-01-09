@@ -952,7 +952,7 @@ class moor:
         return region
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
-                  quiv=True, TSkind='pcolor', region={},
+                  quiv=False, TSkind='pcolor', region={},
                   met='local', fluxvar='netflux', tau='local', event=None):
         ''' Summary plot for all χpods '''
 
@@ -976,10 +976,11 @@ class moor:
         else:
             ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'], sharey=ax['T'])
 
-        if quiv or self.vel:
-            if TSkind is not 'timeseries':
+        if self.vel:
+            if TSkind is not 'timeseries' and self.kind == 'ebob':
                 ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'], sharey=ax['T'])
-            else:
+
+            if TSkind is 'timeseries' or self.kind != 'ebob':
                 ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'])
 
             if self.kind == 'ebob':
@@ -1018,20 +1019,21 @@ class moor:
         plt.suptitle(titlestr, y=1.03)
 
         # ------------ τ
-        ax['met'].set_clip_on(False)
         if 'τ' not in self.met:
             tau = 'tropflux'
 
+        tauargs = {'color': 'k', 'linewidth': lw, 'zorder': 1,
+                   'ax': ax['met']}
         if tau == 'tropflux':
-            self.avgplt(ax['met'],
-                        dt64_to_datenum(self.tropflux.tau.time.values),
-                        self.tropflux.tau.values,
-                        filter_len, filt, color='k',
-                        linewidth=lw, zorder=1)
+            (self.tropflux.tau
+             .pipe(xfilter, **filtargs)
+             .sel(**region)
+             .plot(**tauargs))
         else:
-            self.avgplt(ax['met'], self.met.τ.time, self.met.τ,
-                        filter_len, filt, color='k',
-                        linewidth=lw, zorder=1)
+            (self.met.τ
+             .pipe(xfilter, **filtargs)
+             .sel(**region)
+             .plot(**tauargs))
 
         if filt == 'bandpass':
             ax['met'].set_ylim([-0.1, 0.1])
@@ -1054,21 +1056,18 @@ class moor:
             met = 'tropflux'
 
         if met == 'tropflux':
-            datenum = dt64_to_datenum(self.tropflux.time.values)
-            time, Jq = self.avgplt(None, datenum,
-                                   self.tropflux[fluxvar].values,
-                                   filter_len, filt)
-            self.PlotFlux(ax['Jq0'], time, Jq)
-
+            Jq0 = self.tropflux.netflux
         elif 'Jq0' in self.met:
-            datenum = dt64_to_datenum(self.met.Jtime.values)
-            time, Jq = self.avgplt(None, datenum,
-                                   self.met.Jq0.values,
-                                   filter_len, filt)
+            Jq0 = self.met.Jq0
 
+        try:
+            Jq0 = xfilter(Jq0, **filtargs)
+        except ValueError:
+            # filter length is not long enough, i.e. data is too coarse
+            pass
+
+        self.PlotFlux(ax['Jq0'], Jq0.sel(**region).time.values, Jq0.sel(**region))
         ax['Jq0'].set_ylabel(fluxvar+' (W/m²)', labelpad=0)
-        self.PlotFlux(ax['Jq0'], time, Jq)
-
         ax['Jq0'].spines['right'].set_visible(True)
         ax['Jq0'].spines['left'].set_visible(False)
         ax['Jq0'].xaxis_date()
@@ -1159,6 +1158,7 @@ class moor:
                 if self.kind == 'rama':
                     ax['Uplot'] = uplt.plot(ax=ax['u'], lw=0.5)
                     ax['Vplot'] = vplt.plot(ax=ax['v'], lw=0.5)
+                    ax['spdplot'] = np.hypot(uplt, vplt).plot(lw=0.5, color='k')
                     zint = uplt.depth.values.astype('int32')
                     ax['u'].legend(('$u_{'+str(zint)+'}$',
                                     '$v_{'+str(zint)+'}$'), ncol=2)
