@@ -886,7 +886,7 @@ class moor:
             hdl = []
             if self.kind == 'ebob' and name == 'S':
                 t = np.broadcast_to(var.time, var.depth.shape)
-                hdl.append(ax.scatter(t, var.depth, c=var))
+                hdl.append(ax.scatter(t, var.depth, s=5, c=var))
                 ax.invert_yaxis()
             else:
                 hdl.append(var.plot.contourf(ax=ax, levels=25,
