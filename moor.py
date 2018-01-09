@@ -923,6 +923,34 @@ class moor:
                 self.χ.z.pipe(xfilter, kind='mean', flen=86400)
                 .transpose(), color=color, **kwargs)
 
+    def select_region(self, region):
+
+        if isinstance(region, list) and len(region) == 1:
+            region = region[0]
+
+        if not isinstance(region, dict):
+            name = region
+            if isinstance(name, str):
+                if name in self.events:
+                    t0, t1 = self.events[name]
+
+                if name in self.deploy:
+                    t0, t1 = self.deploy[name]
+
+                if name.upper() in ['SW', 'SWNE', 'NE', 'NESW']:
+                    raise ValueError('region must include year'
+                                     ' along with season')
+
+            if isinstance(name, list):
+                if name[0] in self.season:
+                    t0, t1 = self.season[name[0]][name[1].upper()]
+                else:
+                    raise ValueError(str(name[0])+' not in '+self.name+'.season')
+
+            region = {'time': slice(t0, t1)}
+
+        return region
+
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
                   quiv=True, TSkind='pcolor', region={},
                   met='local', fluxvar='netflux', tau='local', event=None):
@@ -934,6 +962,8 @@ class moor:
 
         plt.figure(figsize=[11.0, 7.5])
         lw = 0.5
+
+        region = self.select_region(region)
 
         # initialize axes
         ax = dict()
