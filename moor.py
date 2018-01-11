@@ -981,7 +981,7 @@ class moor:
         if TSkind is not 'timeseries':
             ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'], sharey=ax['T'])
         else:
-            ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'], sharey=ax['T'])
+            ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'])
 
         if self.vel:
             if TSkind is not 'timeseries' and self.kind == 'ebob':
@@ -1068,7 +1068,7 @@ class moor:
             Jq0 = self.met.Jq0
 
         try:
-            Jq0 = xfilter(Jq0, **filtargs)
+            Jq0 = xfilter(Jq0.rename({'Jtime': 'time'}), **filtargs)
         except ValueError:
             # filter length is not long enough, i.e. data is too coarse
             pass
@@ -1165,7 +1165,9 @@ class moor:
                 if self.kind == 'rama':
                     ax['Uplot'] = uplt.plot(ax=ax['u'], lw=0.5)
                     ax['Vplot'] = vplt.plot(ax=ax['v'], lw=0.5)
-                    ax['spdplot'] = np.hypot(uplt, vplt).plot(lw=0.5, color='k')
+                    ax['spdplot'] = (np.hypot(uplt, vplt)
+                                     .plot(ax=ax['v'], lw=0.5, color='gray',
+                                           zorder=-10))
                     zint = uplt.depth.values.astype('int32')
                     ax['u'].legend(('$u_{'+str(zint)+'}$',
                                     '$v_{'+str(zint)+'}$'), ncol=2)
