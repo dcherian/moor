@@ -1689,16 +1689,28 @@ class moor:
         else:
             return [ax0, ax1, ax2, ax3, ax4, ax5]
 
-    def Budget(self):
+    def Budget(self, z=15):
 
         import dcpy.ts
+        import dcpy.plots
+
         # from statsmodels.nonparametric.smoothers_lowess import lowess
         # import dcpy.plots
 
         ρ = 1025
-        cp = 4200
+        cp = 4000
 
-        T = dcpy.ts.xfilter(self.ctd['T'], kind='hann', flen=2*3600.0)
+        resample_args = {'time': '1H'}
+
+        # T = dcpy.ts.xfilter(self.ctd['T'], kind='hann', flen=3*3600.0)
+        T = self.ctd['T'].resample(**resample_args).mean(dim='time')
+        rho = self.ctd.ρ.resample(**resample_args).mean(dim='time')
+
+        # mixed layer depth
+        mld = rho.depth[(np.abs(rho - rho.isel(depth=1)) >
+                         0.01).argmax(axis=0)].drop('depth')
+
+        # interpolate temp to 1m grid, then calculate heat content
         f = sp.interpolate.RectBivariateSpline(T.time.astype('float32'),
                                                T.depth, T.values.T,
                                                kx=1, ky=1)
@@ -1706,49 +1718,84 @@ class moor:
         Ti = xr.DataArray(f(T.time.astype('float32'), idepths),
                           dims=['time', 'depth'],
                           coords=[T.time, idepths])
-
         Q = ρ * cp * xr.apply_ufunc(sp.integrate.cumtrapz,
                                     Ti, Ti.depth,
                                     kwargs={'axis': -1})
         Q['depth'] = Q.depth[:-1]
 
-        # Qest = T.sel(depth=10) * 10 * ρ * cp
-        # Qest.plot()
-        # Q.sel(depth=10).plot(ax=plt.gca())
 
-        # rate of change of heat content
-        dt = (Q.time.diff(dim='time')/np.timedelta64(1, 's')).astype('float32')
-        # dQdt = xr.apply_ufunc(np.gradient, Q[1:,:], dt.values, kwargs={'axis': 0})
-        dQdt = Q.diff(dim='time')/dt
+        def interp_b_to_a(a, b):
+            return np.interp(a.time.astype(np.float32),
+                        b.time.astype(np.float32),
+                        b.squeeze(),
+                        left=np.nan, right=np.nan)
 
-        # dTest = (dQdt/ρ/cp/10).sel(depth=10)
-        # dTobs = (Ti/600).sel(depth=5).diff(dim='time')
-
-        # budget is dQ/dt = Jq0 + Jqt
+        # budget is dQ/dt = Jq0 - Ih + Jqt
         # where both Jqs are positive when they heat the surface
         # i.e. Jqt > 0 → heat is moving upward
-        Jq0 = xr.DataArray(np.interp(Q.time.astype(np.float32),
-                                     self.met.Jtime.astype(np.float32)*1e9,
-                                     self.met.Jq0),
+        Jq0 = xr.DataArray(interp_b_to_a(Q, self.flux.Jq0),
                            dims=['time'], coords=[Q.time])
 
-        swr = xr.DataArray(np.interp(Q.time.astype(np.float32),
-                                     self.met.Jtime.astype(np.float32)*1e9,
-                                     self.met.swr),
+        swr = xr.DataArray(interp_b_to_a(Q, self.flux.swr),
                            dims=['time'], coords=[Q.time])
 
-        # penetrative heating
-        Ih = 0.45 * swr * np.exp(-0.04*Ti.depth)
+        # penetrative heating that leaves mixed layer
+        Ih = 0.45 * swr * np.exp(-0.04*mld)
 
-        intIh = xr.apply_ufunc(sp.integrate.cumtrapz,
-                               Ih, Ih.depth,
-                               kwargs={'axis': -1})
-        intIh['depth'] = intIh.depth[:-1]
+        Jqt = self.Jq
+        Jqt.values[Jqt.values == 0] = np.nan
+        Jqt = Jqt.resample(**resample_args).mean(dim='time')
 
-        resample_args = {'time': '4H'}
-        Jqt_1D = ((dQdt - intIh - Jq0).sel(depth=self.Jq.depth)
-                  .resample(**resample_args).mean(dim='time'))
-        Jqt = self.Jq.resample(**resample_args).mean(dim='time')
+        sfcflx = (Jq0 - Ih).resample(**resample_args).mean(dim='time')
+        dJdz = ((sfcflx + Jqt)/Jqt.depth).where(Jqt.time == Jq0.time)
+        dJdz.name = 'dJdz'
+
+        # Qt = (dQdt.resample(**resample_args)
+        #       .mean(dim='time')
+        #       .sel(depth=Jqt.depth)
+        #       .where(dQdt.time == Jq0.time))
+        # Qt.name = 'Qt'
+
+        def average(x):
+            return x.resample(time='W').mean(dim='time')
+        def ddt(x):
+
+            dt = x.time.diff(dim='time')/np.timedelta64(1, 's')
+            return x.diff(dim='time')/dt
+
+        dQdt = Q.pipe(average).pipe(ddt)
+
+
+        f, ax = plt.subplots(2, 1, sharex=True)
+        plt.axes(ax[0])
+        (Jqt.sel(depth=z).where(mld <= z)
+         .pipe(average)
+         .plot(x='time', label='Jqt'))
+        (sfcflx
+         .pipe(average).where(mld <= z)
+         .plot(x='time', label='ML heating'))
+        (dQdt.sel(depth=z).where(mld <= z)
+         .plot.line(x='time', color='k', label='dQ/dt'))
+        ((sfcflx.pipe(average)
+          + Jqt.sel(depth=z).pipe(average))
+         .plot.line('k--', x='time', label='ML heating+Jqt'))
+
+        # ((sfcflx + Jqt.sel(depth=z)).pipe(average)
+        #  .plot.line('lightgray', lw=2, x='time', label='ML heating+Jqt'))
+        ax[0].legend()
+        xlim = ax[0].get_xlim()
+        dcpy.plots.liney(0)
+
+        (np.hypot(self.vel.u,
+                  self.vel.v)
+         .resample(time='W').mean(dim='time')
+         .plot(ax=ax[1]))
+        ax[0].set_xlim(xlim)
+        ax[0].set_ylim([-150, 150])
+
+        return ax
+
+        # return xr.merge([dJdz, Qt, Jqt])
 
         # def plot(jq, ax):
         #     [jq.sel(time='2014-02-01', depth=z).plot(ax=axx, lw=0.5)
