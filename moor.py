@@ -201,6 +201,7 @@ class moor:
 
             coords = {'z': (['depth', 'time'], z[-1].values),
                       'time': tcommon,
+                      'depth': [pod.depth],
                       'lat': self.lat,
                       'lon': self.lon,
                       'ρ': (['depth', 'time'], ρ),
@@ -261,8 +262,8 @@ class moor:
                     var[-1].values[:, i0:i1] = np.nan
 
         def merge(x0):
-            x = xr.concat(map(lambda xx: xx.to_dataset(), x0),
-                          dim='depth')[x0[0].name]
+
+            x = xr.merge(map(lambda xx: xx.to_dataset(), x0))[x0[0].name]
             x['depth'] = x.z.mean(dim='time')
             # grouped by depth
             a = [x.sel(depth=zz, drop=False) for zz in np.unique(x['depth'])]
