@@ -815,7 +815,7 @@ class moor:
                 ax.set_ylim(ylim)
 
     def PlotCTD(self, name, ax=None, filt=None, filter_len=None,
-                kind='timeseries', lw=1, region={}, **kwargs):
+                add_mld=True, kind='timeseries', lw=1, region={}, **kwargs):
 
         import dcpy.ts
         import cmocean as cmo
@@ -827,6 +827,8 @@ class moor:
             cmap = mpl.cm.YlOrBr
         else:
             cmap = cmo.cm.haline_r
+
+        region = self.select_region(region)
 
         # filter before subsetting
         var = dcpy.ts.xfilter(self.ctd[name], dim='time',
@@ -912,6 +914,12 @@ class moor:
             ax.set_ylabel('depth')
 
         if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
+            if add_mld:
+                rho = self.ctd.ρ.resample(time='H').mean(dim='time')
+                mld = rho.depth[(np.abs(rho - rho.isel(depth=1)) >
+                                 0.005).argmax(axis=0)].drop('depth')
+                mld.plot(ax=ax, lw=1, color='darkgray')
+
             _corner_label(label, ax=ax)
             if self.kind == 'ebob':
                 self.PlotχpodDepth(ax=ax, color='k')
