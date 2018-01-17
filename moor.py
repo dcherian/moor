@@ -968,6 +968,7 @@ class moor:
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
                   quiv=False, TSkind='pcolor', region={},
+                  Tlim=[None,None], Slim=[None, None],
                   met='local', fluxvar='netflux', tau='local', event=None):
         ''' Summary plot for all χpods '''
 
@@ -1132,8 +1133,10 @@ class moor:
         # -------- T, S
         ctdargs = dict(filt=filt, filter_len=filter_len, kind=TSkind,
                     lw=0.5, region=region, add_colorbar=False)
-        ax['Splot'] = self.PlotCTD('S', ax['S'], **ctdargs)
-        ax['Tplot'] = self.PlotCTD('T', ax['T'], **ctdargs)
+        ax['Splot'] = self.PlotCTD('S', ax['S'], vmin=Slim[0], vmax=Slim[1],
+                                   **ctdargs)
+        ax['Tplot'] = self.PlotCTD('T', ax['T'], vmin=Tlim[0], vmax=Tlim[1],
+                                   **ctdargs)
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
