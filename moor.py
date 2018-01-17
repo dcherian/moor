@@ -122,6 +122,7 @@ class moor:
         self.χ = xr.Dataset()
         self.KT = xr.Dataset()
         self.Jq = xr.Dataset()
+        self.pitot = xr.Dataset()
 
         # combine Tz, N² for χpod depths
         self.Tz = xr.Dataset()
@@ -165,6 +166,8 @@ class moor:
         Tz = []
         N2 = []
         z = []
+        pitot_shear = []
+        pitot_spd = []
 
         t = []
         for idx, unit in enumerate(self.χpod):
@@ -243,6 +246,21 @@ class moor:
                           **interpargs)[np.newaxis, :],
                 dims=dims, coords=coords, name='N2'))
 
+            if pod.pitot is not None:
+                pitot_shear.append(xr.DataArray(
+                    np.interp(tcommon.astype('float32'),
+                              pod.pitot.time.values.astype('float32'),
+                              pod.pitot.shear,
+                              **interpargs)[np.newaxis, :],
+                    dims=dims, coords=coords, name='shear'))
+
+                pitot_spd.append(xr.DataArray(
+                    np.interp(tcommon.astype('float32'),
+                              pod.pitot.time.values.astype('float32'),
+                              pod.pitot.spd,
+                              **interpargs)[np.newaxis, :],
+                    dims=dims, coords=coords, name='spd'))
+
             # check if there are big gaps (> 1 day)
             # must replace these with NaNs
             time = pod.time[mask]
@@ -286,6 +304,10 @@ class moor:
         self.Jq = merge(Jq).Jq
         self.Tz = merge(Tz).Tz
         self.N2 = merge(N2).N2
+        if pitot_shear != []:
+            self.pitot['shear'] = merge(pitot_shear).shear
+        if pitot_spd != []:
+            self.pitot['spd'] = merge(pitot_spd).spd
 
         if self.kind == 'ebob':
             z0 = np.interp(tcommon.astype('float32'),
@@ -1002,10 +1024,11 @@ class moor:
             if self.kind == 'ebob':
                 ax['v'] = plt.subplot(5, 2, 9, sharex=ax['met'], sharey=ax['u'])
                 ax['shear'] = plt.subplot(5, 2, 5, sharex=ax['met'], sharey=ax['u'])
-
             else:
                 ax['v'] = ax['u']
                 ax['χ'] = plt.subplot(5, 2, 9, sharex=ax['met'])
+                ax['shear'] = plt.subplot(5, 2, 5, sharex=ax['met'])
+
         else:
             ax['χ'] = plt.subplot(5, 2, 7, sharex=ax['met'])
 
@@ -1212,7 +1235,7 @@ class moor:
                     ax['u'].set_ylim(ax['T'].get_ylim())
                     ax['v'].set_ylim(ax['T'].get_ylim())
 
-        if 'shear' in ax:
+        if self.kind == 'ebob':
             shhdl = (self.vel.shear.sel(**region)
                      .plot.contourf(x='time', ax=ax['shear'],
                                     add_colorbar=False, yincrease=False,
@@ -1221,12 +1244,21 @@ class moor:
             ax['shear'].set_ylim(ax['T'].get_ylim())
             self.PlotχpodDepth(ax=ax['shear'], color='k')
             _corner_label('|$(u_z, v_z)$|', x=0.15, y=0.15, ax=ax['shear'])
+        elif self.kind == 'rama':
+            if self.pitot:
+                shhdl = (self.pitot.shear
+                         .pipe(xfilter, **filtargs)
+                         .sel(**region)
+                         .plot.line(x='time', ax=ax['shear'], lw=0.5, add_legend=False))
+                ax['shear'].set_ylabel('Shear (1/s)')
+                ax['shear'].set_title('')
+                ax['shear'].axhline(0, ls='-', lw=0.5, color='gray')
 
         ax['met'].set_xlim([self.χ.sel(**region).time.min().values,
                             self.χ.sel(**region).time.max().values])
         plt.gcf().autofmt_xdate()
 
-        for name in ['N2', 'T', 'S', 'v', 'χ', 'Kt', 'Jq', 'Tz']:
+        for name in ['N2', 'T', 'S', 'v', 'χ', 'Kt', 'Jq', 'Tz', 'shear']:
             if name in ax:
                 self.MarkSeasonsAndEvents(ax[name])
                 if filt == 'bandpass':
@@ -1251,7 +1283,7 @@ class moor:
         if 'Uplot' in ax and 'Vplot' in ax and self.kind == 'ebob':
             hcbar['uv'] = _colorbar(ax['Uplot'], [ax['u'], ax['v']])
 
-        if 'shear' in ax:
+        if 'shear' in ax and self.kind == 'ebob':
             hcbar['shear'] = _colorbar(shhdl, ax=ax['shear'])
 
         # ax['cbar'].set_ylabel(colorlabel)
