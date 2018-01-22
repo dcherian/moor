@@ -923,10 +923,28 @@ class moor:
                 hdl.append(var.plot.contourf(ax=ax, levels=25,
                                              cmap=cmap, zorder=-1,
                                              **kwargs))
-                hdl.append(var.plot.contour(ax=ax, levels=20,
+                if filt is 'bandpass':
+                    levels = 20
+                    thick_contours = None
+                else:
+                    if name == 'T':
+                        levels = np.arange(25, 30, 1)
+                        thick_contours = [28]
+                    elif name == 'S':
+                        levels = np.arange(31, 36, 1)
+                        thick_contours = [32]
+
+                hdl.append(var.plot.contour(ax=ax, levels=levels,
                                             colors='k',
                                             linewidths=0.25,
                                             zorder=-1, **kwargs))
+
+                if thick_contours:
+                    hdl.append(var.plot.contour(ax=ax, levels=thick_contours,
+                                                colors='k',
+                                                linewidths=1,
+                                                zorder=-1, **kwargs))
+
                 ax.set_ylabel('depth')
 
         if kind is 'contour':
