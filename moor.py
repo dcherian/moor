@@ -945,6 +945,9 @@ class moor:
                                                 linewidths=1,
                                                 zorder=-1, **kwargs))
 
+                if self.kind == 'rama':
+                    ax.set_yticks(self.ctd.depth)
+
                 ax.set_ylabel('depth')
 
         if kind is 'contour':
