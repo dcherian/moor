@@ -202,6 +202,13 @@ class moor:
             S = np.interp(tmatlab, pod.ctd1.time, (pod.ctd1.S+pod.ctd2.S)/2,
                           **interpargs)[np.newaxis, :]
 
+            mld = np.interp(tcommon.astype('float32'),
+                            self.mld.time.astype('datetime64[ns]').astype('float32'),
+                            self.mld, **interpargs)
+            ild = np.interp(tcommon.astype('float32'),
+                            self.ild.time.astype('datetime64[ns]').astype('float32'),
+                            self.ild, **interpargs)
+
             coords = {'z': (['depth', 'time'], z[-1].values),
                       'time': tcommon,
                       'depth': [pod.depth],
@@ -209,7 +216,9 @@ class moor:
                       'lon': self.lon,
                       'ρ': (['depth', 'time'], ρ),
                       'S': (['depth', 'time'], S),
-                      'T': (['depth', 'time'], T)}
+                      'T': (['depth', 'time'], T),
+                      'mld': (['time'], mld),
+                      'ild': (['time'], ild)}
 
             # if self.kind == 'ebob':
             #     coords['unit'] = (['depth'], [pod.name[2:5]])
@@ -406,6 +415,47 @@ class moor:
                 # instrument is bad. All salinities are in 20s.
                 # Simple offset correction doesn't help
                 self.ctd.S.isel(z=3).values.fill(np.nan)
+
+    def calc_mld_ild_bld(self):
+        def interp_to_1m(data):
+            if np.any(np.isnan(data.values.T[:,0])):
+                data = data.bfill(dim='depth')
+
+            f = sp.interpolate.RectBivariateSpline(data.time.astype('float32'),
+                                                   data.depth,
+                                                   data.values.T,
+                                                   kx=1, ky=1, s=None)
+
+            idepths = np.arange(data.depth.min(), data.depth.max()+1, 1)
+            datai = xr.DataArray(f(data.time.astype('float32'), idepths),
+                                 dims=['time', 'depth'],
+                                 coords=[data.time, idepths])
+            return datai
+
+        def find_mld(data, criterion):
+            try:
+                return data.depth[(np.abs(data - data.isel(depth=1)) >
+                              criterion).argmax(axis=1)].drop('depth')
+            except AttributeError:
+                return data.depth2[(np.abs(data - data.isel(z2=1)) >
+                               criterion).argmax(axis=0)].drop('depth2')
+
+        if self.kind == 'rama':
+            temp = interp_to_1m(self.ctd['T'])
+        else:
+            temp = self.ctd['T'].bfill(dim='z2')
+
+        self.ild = find_mld(temp, 0.2)
+        if self.kind == 'rama':
+            rho = interp_to_1m(self.ctd.ρ)
+            self.mld = find_mld(rho, 0.05)
+            salt = interp_to_1m(self.ctd.S)
+            self.sld = find_mld(salt, 0.02)
+            self.bld = np.abs(self.mld-self.ild)
+        else:
+            self.mld = xr.zeros_like(self.ild)
+            self.sld = xr.zeros_like(self.ild)
+            self.bld = xr.zeros_like(self.ild)
 
     def ReadMet(self, fname: str=None, WindType='', FluxType=''):
 
@@ -958,10 +1008,16 @@ class moor:
 
         if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
             if add_mld:
-                rho = self.ctd.ρ.resample(time='H').mean(dim='time')
-                mld = rho.depth[(np.abs(rho - rho.isel(depth=1)) >
-                                 0.005).argmax(axis=0)].drop('depth')
+                # ild = dcpy.ts.xfilter(self.ild, dim='time',
+                #                       kind=filt, flen=filter_len, decimate=True)
+                # ild = ild.sel(**region)
+                # ild.plot(ax=ax, lw=1, color='lightgray')
+
+                mld = dcpy.ts.xfilter(self.mld, dim='time',
+                                      kind=filt, flen=filter_len, decimate=True)
+                mld = mld.sel(**region)
                 mld.plot(ax=ax, lw=1, color='darkgray')
+                # # self.mld.plot(ax=ax, lw=1, color='darkgray')
 
             _corner_label(label, ax=ax)
             if self.kind == 'ebob':
@@ -1824,8 +1880,8 @@ class moor:
 
         def average(x):
             return x.resample(time='W').mean(dim='time')
-        def ddt(x):
 
+        def ddt(x):
             dt = x.time.diff(dim='time')/np.timedelta64(1, 's')
             return x.diff(dim='time')/dt
 
