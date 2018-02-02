@@ -256,19 +256,20 @@ class moor:
                 dims=dims, coords=coords, name='N2'))
 
             if pod.pitot is not None:
-                pitot_shear.append(xr.DataArray(
-                    np.interp(tcommon.astype('float32'),
-                              pod.pitot.time.values.astype('float32'),
-                              pod.pitot.shear,
-                              **interpargs)[np.newaxis, :],
-                    dims=dims, coords=coords, name='shear'))
-
                 pitot_spd.append(xr.DataArray(
                     np.interp(tcommon.astype('float32'),
                               pod.pitot.time.values.astype('float32'),
                               pod.pitot.spd,
                               **interpargs)[np.newaxis, :],
                     dims=dims, coords=coords, name='spd'))
+
+                if 'shear' in pod.pitot:
+                    pitot_shear.append(xr.DataArray(
+                        np.interp(tcommon.astype('float32'),
+                                  pod.pitot.time.values.astype('float32'),
+                                  pod.pitot.shear,
+                                  **interpargs)[np.newaxis, :],
+                        dims=dims, coords=coords, name='shear'))
 
             # check if there are big gaps (> 1 day)
             # must replace these with NaNs
