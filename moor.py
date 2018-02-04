@@ -608,8 +608,8 @@ class moor:
 
             z = adcp['depth_levels'].squeeze()
             time = dcpy.util.mdatenum2dt64(adcp['date_time']-366).squeeze()
-            self.vel = xr.Dataset({'u': (['depth', 'time'], adcp['uu']/100),
-                                   'v': (['depth', 'time'], adcp['vv']/100)},
+            self.vel = xr.Dataset({'u': (['depth', 'time'], adcp['u']/100),
+                                   'v': (['depth', 'time'], adcp['v']/100)},
                                   coords={'depth': z, 'time': time})
 
             dz = self.vel.u.depth.diff(dim='depth')
