@@ -445,18 +445,19 @@ class moor:
             temp = interp_to_1m(self.ctd['T'])
         else:
             temp = self.ctd['T'].bfill(dim='z2')
-
         self.ild = find_mld(temp, 0.2)
+
         if self.kind == 'rama':
             rho = interp_to_1m(self.ctd.ρ)
-            self.mld = find_mld(rho, 0.05)
+            self.mld = find_mld(rho, 0.03)
             salt = interp_to_1m(self.ctd.S)
             self.sld = find_mld(salt, 0.02)
             self.bld = np.abs(self.mld-self.ild)
         else:
-            self.mld = xr.zeros_like(self.ild)
-            self.sld = xr.zeros_like(self.ild)
-            self.bld = xr.zeros_like(self.ild)
+            self.mld = xr.zeros_like(self.ild)*np.nan
+            self.ild = xr.zeros_like(self.ild)*np.nan
+            self.sld = xr.zeros_like(self.ild)*np.nan
+            self.bld = xr.zeros_like(self.ild)*np.nan
 
     def ReadMet(self, fname: str=None, WindType='', FluxType=''):
 
@@ -984,6 +985,9 @@ class moor:
                     elif name == 'S':
                         levels = np.arange(31, 36, 1)
                         thick_contours = [32]
+                    elif name == 'ρ':
+                        levels = 10
+                        thick_contours = None
 
                 hdl.append(var.plot.contour(ax=ax, levels=levels,
                                             colors='k',
