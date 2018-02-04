@@ -5,7 +5,6 @@ import scipy as sp
 import xarray as xr
 import pandas as pd
 import seawater as sw
-from .accessors import MonsoonAccessor
 
 
 def _decode_time(t0, t1):
