@@ -139,6 +139,11 @@ class moor:
                      + dt.num2date(pod.time[-2]).strftime('%Y-%b-%d'))
             podstr += ' | ' + times + '\n'
 
+        if self.kind == 'ebob':
+            zz = np.percentile(self.zχpod, [10, 50, 90], axis=1).T
+            podstr += '\nzχpod: \t' + np.array2string(zz, precision=1,
+                                                      prefix='        ') + '\n'
+
         specstr = ''
         for ss in self.events:
             specstr += ('\t' + ss + ' | '
