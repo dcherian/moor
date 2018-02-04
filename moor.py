@@ -1145,10 +1145,15 @@ class moor:
         tauargs = {'color': 'k', 'linewidth': lw, 'zorder': 1,
                    'ax': ax['met']}
         if tau == 'tropflux':
-            (self.tropflux.tau
-             .pipe(xfilter, **filtargs)
-             .sel(**region)
-             .plot(**tauargs))
+            try:
+                (self.tropflux.tau
+                 .pipe(xfilter, **filtargs)
+                 .sel(**region)
+                 .plot(**tauargs))
+            except ValueError:
+                (self.tropflux.tau
+                 .sel(**region)
+                 .plot(**tauargs))
         else:
             (self.met.τ
              .pipe(xfilter, **filtargs)
