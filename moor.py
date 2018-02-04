@@ -1320,7 +1320,7 @@ class moor:
             shhdl = (self.vel.shear.sel(**region)
                      .plot.contourf(x='time', ax=ax['shear'],
                                     add_colorbar=False, yincrease=False,
-                                    robust=True))
+                                    robust=True, cmap=mpl.cm.Reds))
             ax['shear'].set_ylabel('depth')
             ax['shear'].set_ylim(ax['T'].get_ylim())
             self.PlotχpodDepth(ax=ax['shear'], color='k')
