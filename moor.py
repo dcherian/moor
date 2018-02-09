@@ -865,6 +865,8 @@ class moor:
     def MarkSeasonsAndEvents(self, ax=None, season=True, events=True):
         import matplotlib.dates as dt
 
+        xlim = ax.get_xlim()
+
         if ax is None:
             ax = plt.gca()
         if season:
@@ -893,6 +895,8 @@ class moor:
                                 facecolor='palevioletred', alpha=0.35,
                                 zorder=-5)
                 ax.set_ylim(ylim)
+
+        ax.set_xlim(xlim)
 
     def PlotCTD(self, name, ax=None, filt=None, filter_len=None,
                 add_mld=True, kind='timeseries', lw=1, region={}, **kwargs):
