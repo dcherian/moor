@@ -1485,6 +1485,66 @@ class moor:
 
         return ax
 
+    def PlotVel(self, ax=None, region={}, filt=None, filter_len=None):
+
+        from dcpy.ts import xfilter
+
+        region = self.select_region(region)
+        filtargs = {'kind': filt, 'decimate': True,
+                    'flen': filter_len, 'dim': 'time'}
+        # lineargs = {'x': 'time', 'hue': 'depth', 'linewidth': lw, 'add_legend': False}
+
+        uplt = (self.vel.u.copy().squeeze()
+                .pipe(xfilter, **filtargs)
+                .sel(**region))
+        vplt = (self.vel.v.copy().squeeze()
+                .pipe(xfilter, **filtargs)
+                .sel(**region))
+
+        if ax is None:
+            f, axx = plt.subplots(2, 1, sharex=True, sharey=True)
+            ax = dict(u=axx[0], v=axx[1])
+
+        if self.kind == 'rama':
+            ax['Uplot'] = uplt.plot(ax=ax['u'], lw=0.5)
+            ax['Vplot'] = vplt.plot(ax=ax['v'], lw=0.5)
+            ax['spdplot'] = (np.hypot(uplt, vplt)
+                             .plot(ax=ax['v'], lw=0.5, color='gray',
+                                   zorder=-10))
+            zint = uplt.depth.values.astype('int32')
+            ax['u'].legend(('$u_{'+str(zint)+'}$',
+                            '$v_{'+str(zint)+'}$'), ncol=2)
+            ax['u'].axhline(0, color='gray', lw=0.5)
+            ax['v'].set_ylabel('(m/s)')
+            ax['v'].set_title('')
+
+        if self.kind == 'ebob':
+            vargs = dict(robust=True, yincrease=False, levels=50,
+                      add_colorbar=False, cmap='RdBu_r', center=0)
+
+            udict = xr.plot.utils._determine_cmap_params(uplt.values,
+                                                         robust=True)
+            vdict = xr.plot.utils._determine_cmap_params(vplt.values,
+                                                         robust=True)
+            mn = np.min([udict['vmin'], vdict['vmin']])
+            mx = np.max([udict['vmax'], vdict['vmax']])
+
+            vargs['vmin'] = -1*np.max(np.abs([mn, mx]))
+            vargs['vmax'] = np.max(np.abs([mn, mx]))
+
+            ax['Uplot'] = uplt.plot.contourf(ax=ax['u'], **vargs)
+            ax['Vplot'] = vplt.plot.contourf(ax=ax['v'], **vargs)
+
+            labelargs = dict(x=0.05, y=0.15, alpha=0.05)
+            _corner_label('u', **labelargs, ax=ax['u'])
+            _corner_label('v', **labelargs, ax=ax['v'])
+            self.PlotχpodDepth(ax=ax['u'], color='k')
+            self.PlotχpodDepth(ax=ax['v'], color='k')
+
+            hcbar = _colorbar(ax['Uplot'], [ax['u'], ax['v']])
+
+        return ax, hcbar
+
     def PlotSpectrum(self, varname, est='best', filter_len=None,
                      nsmooth=5, SubsetLength=None, ticks=None,
                      ax=None, **kwargs):
