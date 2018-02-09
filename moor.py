@@ -1080,6 +1080,104 @@ class moor:
 
         return region
 
+    def met_turb_summary(self, filt='mean', filter_len=86400, region={},
+                         met='tropflux', naxes=2):
+
+        from dcpy.ts import xfilter
+
+        f, axx = plt.subplots(naxes, 1, sharex=True)
+        ax = {'met': axx[0], 'Kt': axx[1]}
+        if naxes > 2:
+            ax['rest'] = axx[2:]
+
+        region = self.select_region(region)
+
+        filtargs = {'kind': filt, 'decimate': True,
+                    'flen': filter_len, 'dim': 'time'}
+        lineargs = {'x': 'time', 'hue': 'depth',
+                    'linewidth': 0.5, 'add_legend': False}
+        tauargs = {'color': 'k', 'linewidth': lineargs['linewidth'],
+                   'zorder': 1, 'ax': ax['met']}
+
+        # ------------ τ
+        tau = 'tropflux'
+
+        if 'time' in region:
+            metregion = {'time': region['time']}
+        else:
+            metregion = {}
+
+        if tau == 'tropflux':
+            try:
+                (self.tropflux.tau
+                 .pipe(xfilter, **filtargs)
+                 .sel(**metregion)
+                 .plot(**tauargs))
+            except ValueError:
+                (self.tropflux.tau
+                 .sel(**metregion)
+                 .plot(**tauargs))
+        else:
+            (self.met.τ
+             .pipe(xfilter, **filtargs)
+             .sel(**metregion)
+             .plot(**tauargs))
+
+        if filt == 'bandpass':
+            ax['met'].set_ylim([-0.1, 0.1])
+        else:
+            ax['met'].set_ylim([0, 0.3])
+
+        ax['met'].set_ylabel('$τ$ (N/m²)')
+
+        # ------------ flux
+        ax['Jq0'] = ax['met'].twinx()
+        ax['Jq0'].set_zorder(-1)
+
+        if 'Jq0' not in self.met:
+            # no mooring flux
+            met = 'tropflux'
+
+        if met == 'tropflux':
+            Jq0 = self.tropflux.netflux
+        elif 'Jq0' in self.met:
+            Jq0 = self.met.Jq0
+
+        try:
+            Jq0 = xfilter(Jq0.rename({'Jtime': 'time'}), **filtargs)
+        except ValueError:
+            # filter length is not long enough, i.e. data is too coarse
+            pass
+
+        self.PlotFlux(ax['Jq0'], Jq0.sel(**metregion).time.values,
+                      Jq0.sel(**metregion))
+        ax['Jq0'].set_ylabel('netflux (W/m²)', labelpad=0)
+        ax['Jq0'].spines['right'].set_visible(True)
+        ax['Jq0'].spines['left'].set_visible(False)
+        ax['Jq0'].xaxis_date()
+
+        if filt == 'bandpass':
+            ax['Jq0'].set_ylim(
+                np.array([-1, 1]) * np.max(np.abs(ax['Jq0'].get_ylim())))
+
+        hkt = (self.KT.copy()
+               .pipe(xfilter, **filtargs)
+               .sel(**region)
+               .plot.line(ax=ax['Kt'], **lineargs))
+
+
+        ax['Kt'].set_yscale('log')
+        ax['Kt'].set_title('')
+        ax['Kt'].set_ylabel('$K_T$')
+        ax['met'].set_title('')
+        ax['Jq0'].set_title('')
+        ax['Kt'].set_ylim([1e-7, 1e-1])
+
+        self.MarkSeasonsAndEvents(ax['Jq0'], events=False)
+        self.MarkSeasonsAndEvents(ax['Kt'], events=False)
+
+        return ax, hkt
+
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
                   quiv=False, TSkind='pcolor', region={},
                   Tlim=[None,None], Slim=[None, None], add_mld=False,
