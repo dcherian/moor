@@ -57,7 +57,7 @@ def _colorbar2(mappable):
     return fig.colorbar(mappable, cax=cax)
 
 
-def _colorbar(hdl, ax=None):
+def _colorbar(hdl, ax=None, format='%.2f'):
 
     if ax is None:
         try:
@@ -83,7 +83,9 @@ def _colorbar(hdl, ax=None):
 
     axcbar = plt.axes([(box.x0 + box.width)*1.02,
                        box.y0, 0.01, box.height])
-    hcbar = plt.colorbar(hdl, axcbar)
+    hcbar = plt.colorbar(hdl, axcbar,
+                         format=mpl.ticker.FormatStrFormatter(format),
+                         ticks=mpl.ticker.MaxNLocator('auto'))
 
     return hcbar
 
