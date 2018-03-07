@@ -1170,7 +1170,7 @@ class moor:
 
         ax['Kt'].set_yscale('log')
         ax['Kt'].set_title('')
-        ax['Kt'].set_ylabel('$K_T$')
+        ax['Kt'].set_ylabel('$K_T$ (m²/s)')
         ax['met'].set_title('')
         ax['Jq0'].set_title('')
         ax['Kt'].set_ylim([1e-7, 1e-1])
