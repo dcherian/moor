@@ -178,7 +178,7 @@ class moor:
         t = []
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
-            t.append(pod.time)
+            t.append(pod.chi[pod.best]['time'])
 
         tall = (np.array([[np.nanmin(tt), np.nanmax(tt)] for tt in t]))
         tmatlab = np.arange(np.floor(np.nanmin(tall)),
@@ -190,11 +190,13 @@ class moor:
 
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
-            mask = np.logical_not(np.isnan(pod.time))
+
+            timevec = pod.chi[pod.best]['time']
+            mask = np.logical_not(np.isnan(timevec))
 
             z.append(xr.DataArray(
-                np.interp(tmatlab, pod.time[mask],
-                          pod.depth * np.ones_like(pod.time[mask]),
+                np.interp(tmatlab, timevec[mask],
+                          pod.depth * np.ones_like(timevec[mask]),
                           **interpargs)[np.newaxis, :],
                 dims=['depth', 'time'],
                 coords=[[pod.depth], tcommon], name='zχpod'))
@@ -232,31 +234,31 @@ class moor:
             dims = ['depth', 'time']
 
             χ.append(xr.DataArray(
-                np.interp(tmatlab, pod.time[mask],
+                np.interp(tmatlab, timevec[mask],
                           pod.chi[pod.best]['chi'][mask],
                           **interpargs)[np.newaxis, :],
                 dims=dims, coords=coords, name='χ'))
 
             KT.append(xr.DataArray(
-                np.interp(tmatlab, pod.time[mask],
+                np.interp(tmatlab, timevec[mask],
                           pod.KT[pod.best][mask],
                           **interpargs)[np.newaxis, :],
                 dims=dims, coords=coords, name='KT'))
 
             Jq.append(xr.DataArray(
-                np.interp(tmatlab, pod.time[mask],
+                np.interp(tmatlab, timevec[mask],
                           pod.Jq[pod.best][mask],
                           **interpargs)[np.newaxis, :],
                 dims=dims, coords=coords, name='Jq'))
 
             Tz.append(xr.DataArray(
-                np.interp(tmatlab, pod.time[mask],
+                np.interp(tmatlab, timevec[mask],
                           pod.chi[pod.best]['dTdz'][mask],
                           **interpargs)[np.newaxis, :],
                 dims=dims, coords=coords, name='Tz'))
 
             N2.append(xr.DataArray(
-                np.interp(tmatlab, pod.time[mask],
+                np.interp(tmatlab, timevec[mask],
                           pod.chi[pod.best]['N2'][mask],
                           **interpargs)[np.newaxis, :],
                 dims=dims, coords=coords, name='N2'))
@@ -279,8 +281,8 @@ class moor:
 
             # check if there are big gaps (> 1 day)
             # must replace these with NaNs
-            time = pod.time[mask]
-            dtime = np.diff(pod.time[mask])
+            time = timevec[mask]
+            dtime = np.diff(timevec[mask])
             inds = np.where(np.round(dtime) > 0)
             if len(inds[0]) > 0:
                 import warnings
