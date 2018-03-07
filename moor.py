@@ -1482,12 +1482,12 @@ class moor:
         plt.tight_layout(w_pad=5, h_pad=-0.5)
 
         hcbar = dict()
-        if isinstance(ax['Tplot'][0], mpl.contour.QuadContourSet):
-            hcbar['T'] = _colorbar(ax['Tplot'][0])
+        if isinstance(ax['Tplot'], mpl.contour.QuadContourSet):
+            hcbar['T'] = _colorbar(ax['Tplot'])
 
-        if (isinstance(ax['Splot'][0], mpl.contour.QuadContourSet)
-                or isinstance(ax['Splot'][0], mpl.collections.PathCollection)):
-            hcbar['S'] = _colorbar(ax['Splot'][0])
+        if (isinstance(ax['Splot'], mpl.contour.QuadContourSet)
+                or isinstance(ax['Splot'], mpl.collections.PathCollection)):
+            hcbar['S'] = _colorbar(ax['Splot'])
             if ax['S'].get_ylim()[0] > 300:
                 ax['S'].set_ylim([150, 0])
 
