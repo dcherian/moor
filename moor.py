@@ -1633,7 +1633,7 @@ class moor:
                 raise ValueError('Jqt is all NaN. Did you filter too much?')
 
             # calculate and plot cross-correlations
-            plt.axes(ax.ravel()[idx])
+            plt.sca(ax.ravel()[idx])
             plt.xcorr(τi[~np.isnan(Jqt)],
                       Jqt[~np.isnan(Jqt)], maxlags=None)
             plt.title(pod.name)
@@ -2083,7 +2083,7 @@ class moor:
 
 
         f, ax = plt.subplots(2, 1, sharex=True)
-        plt.axes(ax[0])
+        plt.sca(ax[0])
         (Jqt.sel(depth=z).where(mld <= z)
          .pipe(average)
          .plot(x='time', label='Jqt'))
