@@ -2018,20 +2018,29 @@ class moor:
 
         resample_args = {'time': '1H'}
 
+        def average(x):
+            return x.resample(time='3H').mean(dim='time')
+
+        def ddt(x):
+            dt = x.time.diff(dim='time')/np.timedelta64(1, 's')
+            return x.diff(dim='time')/dt
+
         # T = dcpy.ts.xfilter(self.ctd['T'], kind='hann', flen=3*3600.0)
         T = self.ctd['T'].resample(**resample_args).mean(dim='time')
         rho = self.ctd.ρ.resample(**resample_args).mean(dim='time')
 
         # mixed layer depth
         mld = rho.depth[(np.abs(rho - rho.isel(depth=1)) >
-                         0.01).argmax(axis=0)].drop('depth')
+                         0.01/2).argmax(axis=0)].drop('depth')
 
         # interpolate temp to 1m grid, then calculate heat content
-        f = sp.interpolate.RectBivariateSpline(T.time.astype('float32'),
+        timevec = T.time.values.astype('float32')
+        T = T.interpolate_na('time')
+        f = sp.interpolate.RectBivariateSpline(timevec,
                                                T.depth, T.values.T,
                                                kx=1, ky=1)
         idepths = np.arange(1, 100, 1)
-        Ti = xr.DataArray(f(T.time.astype('float32'), idepths),
+        Ti = xr.DataArray(f(timevec, idepths),
                           dims=['time', 'depth'],
                           coords=[T.time, idepths])
         Q = ρ * cp * xr.apply_ufunc(sp.integrate.cumtrapz,
@@ -2039,6 +2048,9 @@ class moor:
                                     kwargs={'axis': -1})
         Q['depth'] = Q.depth[:-1]
 
+        Qmld = Q.sel(time=mld.time, depth=mld, method='nearest')
+
+        Tmld = Qmld/ρ/cp/mld
 
         def interp_b_to_a(a, b):
             return np.interp(a.time.astype(np.float32),
@@ -2059,7 +2071,6 @@ class moor:
         Ih = 0.45 * swr * np.exp(-0.04*mld)
 
         Jqt = self.Jq
-        Jqt.values[Jqt.values == 0] = np.nan
         Jqt = Jqt.resample(**resample_args).mean(dim='time')
 
         sfcflx = (Jq0 - Ih).resample(**resample_args).mean(dim='time')
@@ -2072,42 +2083,33 @@ class moor:
         #       .where(dQdt.time == Jq0.time))
         # Qt.name = 'Qt'
 
-        def average(x):
-            return x.resample(time='W').mean(dim='time')
-
-        def ddt(x):
-            dt = x.time.diff(dim='time')/np.timedelta64(1, 's')
-            return x.diff(dim='time')/dt
-
         dQdt = Q.pipe(average).pipe(ddt)
+        dTdt = ddt(Tmld)
 
-
-        f, ax = plt.subplots(2, 1, sharex=True)
-        plt.sca(ax[0])
-        (Jqt.sel(depth=z).where(mld <= z)
+        # f, ax = plt.subplots(2, 1, sharex=True)
+        ax = []
+        ax.append(plt.gca())
+        ((dTdt*ρ*cp*mld)
+         .plot.line(x='time', color='k', label='d$T_{mld}$/dt', ax=ax[0]))
+        ((sfcflx)
          .pipe(average)
-         .plot(x='time', label='Jqt'))
-        (sfcflx
-         .pipe(average).where(mld <= z)
-         .plot(x='time', label='ML heating'))
-        (dQdt.sel(depth=z).where(mld <= z)
-         .plot.line(x='time', color='k', label='dQ/dt'))
-        ((sfcflx.pipe(average)
-          + Jqt.sel(depth=z).pipe(average))
-         .plot.line('k--', x='time', label='ML heating+Jqt'))
-
-        # ((sfcflx + Jqt.sel(depth=z)).pipe(average)
-        #  .plot.line('lightgray', lw=2, x='time', label='ML heating+Jqt'))
-        ax[0].legend()
-        xlim = ax[0].get_xlim()
+         .plot(x='time', label='ML heating', ax=ax[0]))
+        (Jqt
+         .plot.line(x='time', ax=ax[0]))
         dcpy.plots.liney(0)
+        ax[0].set_xlim('2013-12-01', '2014-12-31')
+        ax[0].legend()
+        plt.gca().set_xlim('2013-12-01', '2014-11-30')
 
-        (np.hypot(self.vel.u,
-                  self.vel.v)
-         .resample(time='W').mean(dim='time')
-         .plot(ax=ax[1]))
-        ax[0].set_xlim(xlim)
-        ax[0].set_ylim([-150, 150])
+        # ((dQdt.sel(depth=z)-sfcflx)
+        #  .pipe(average)
+        #  .plot(x='time', label='Net heating', ax=ax[1]))
+
+        # (np.hypot(self.vel.u,
+        #           self.vel.v)
+        #  .resample(time='W').mean(dim='time')
+        #  .plot(ax=ax[1]))
+        # ax[0].set_ylim([-150, 150])
 
         return ax
 
