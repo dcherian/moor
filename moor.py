@@ -163,6 +163,30 @@ class moor:
     def __str__(self):
         return self.name + ' mooring'
 
+    def monin_obukhov(self):
+
+        g = 9.81
+        ρ0 = 1025
+        cp = 4200
+        α = 1.7e-4
+        k = 0.41
+
+        # Thorpe (4.1)
+        B = g * α * self.met.Jq0 / ρ0 / cp
+
+        ustar = np.sqrt(self.met.τ/ρ0)
+
+        Bi = np.interp(ustar.time.values.astype('float32'),
+                       B.Jtime.values.astype('datetime64[ns]').astype('float32'),
+                       B, left=np.nan, right=np.nan)
+
+        Lmo = -ustar**3/k/Bi
+        Lmo.name = 'Lmo'
+
+        Lmo[abs(Lmo) > 1000] = np.nan
+
+        return Lmo
+
     def CombineTurb(self):
         ''' Combines all χpod χ, KT, Jq into a single DataArray each '''
 
