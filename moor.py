@@ -2029,7 +2029,7 @@ class moor:
         else:
             return [ax0, ax1, ax2, ax3, ax4, ax5]
 
-    def Budget(self, z=15):
+    def Budget(self, do_mld=False):
 
         import dcpy.ts
         import dcpy.plots
@@ -2049,13 +2049,21 @@ class moor:
             dt = x.time.diff(dim='time')/np.timedelta64(1, 's')
             return x.diff(dim='time')/dt
 
+        def interp_b_to_a(a, b):
+            return np.interp(a.time.astype(np.float32),
+                        b.time.astype(np.float32),
+                        b.squeeze(),
+                        left=np.nan, right=np.nan)
+
         # T = dcpy.ts.xfilter(self.ctd['T'], kind='hann', flen=3*3600.0)
         T = self.ctd['T'].resample(**resample_args).mean(dim='time')
-        rho = self.ctd.ρ.resample(**resample_args).mean(dim='time')
 
-        # mixed layer depth
-        mld = rho.depth[(np.abs(rho - rho.isel(depth=1)) >
-                         0.01/2).argmax(axis=0)].drop('depth')
+        if do_mld:
+            rho = self.ctd.ρ.resample(**resample_args).mean(dim='time')
+
+            # mixed layer depth
+            mld = rho.depth[(np.abs(rho - rho.isel(depth=1)) >
+                             0.01/2).argmax(axis=0)].drop('depth')
 
         # interpolate temp to 1m grid, then calculate heat content
         timevec = T.time.values.astype('float32')
@@ -2072,15 +2080,10 @@ class moor:
                                     kwargs={'axis': -1})
         Q['depth'] = Q.depth[:-1]
 
-        Qmld = Q.sel(time=mld.time, depth=mld, method='nearest')
-
-        Tmld = Qmld/ρ/cp/mld
-
-        def interp_b_to_a(a, b):
-            return np.interp(a.time.astype(np.float32),
-                        b.time.astype(np.float32),
-                        b.squeeze(),
-                        left=np.nan, right=np.nan)
+        if do_mld:
+            Qmld = Q.sel(time=mld.time, depth=mld, method='nearest')
+            Tmld = Qmld/ρ/cp/mld
+            dTdt = ddt(Tmld)
 
         # budget is dQ/dt = Jq0 - Ih + Jqt
         # where both Jqs are positive when they heat the surface
@@ -2091,8 +2094,8 @@ class moor:
         swr = xr.DataArray(interp_b_to_a(Q, self.flux.swr),
                            dims=['time'], coords=[Q.time])
 
-        # penetrative heating that leaves mixed layer
-        Ih = 0.45 * swr * np.exp(-0.04*mld)
+        # penetrative heating
+        Ih = 0.45 * swr * np.exp(-(1/15)*Q.depth)
 
         Jqt = self.Jq
         Jqt = Jqt.resample(**resample_args).mean(dim='time')
@@ -2108,22 +2111,22 @@ class moor:
         # Qt.name = 'Qt'
 
         dQdt = Q.pipe(average).pipe(ddt)
-        dTdt = ddt(Tmld)
 
-        # f, ax = plt.subplots(2, 1, sharex=True)
-        ax = []
-        ax.append(plt.gca())
-        ((dTdt*ρ*cp*mld)
-         .plot.line(x='time', color='k', label='d$T_{mld}$/dt', ax=ax[0]))
-        ((sfcflx)
-         .pipe(average)
-         .plot(x='time', label='ML heating', ax=ax[0]))
-        (Jqt
-         .plot.line(x='time', ax=ax[0]))
-        dcpy.plots.liney(0)
-        ax[0].set_xlim('2013-12-01', '2014-12-31')
+        f, ax = plt.subplots(len(Jqt.depth[:-1]), 1, sharex=True)
+        for iz, z in enumerate(Jqt.depth[:-1]):
+            ((dQdt).sel(depth=z)
+             .plot.line(x='time', color='k', label='dQ/dt', ax=ax[iz]))
+            ((sfcflx).sel(depth=z)
+             .pipe(average)
+             .plot(x='time', label='absorbed heating', ax=ax[iz]))
+            (Jqt.sel(depth=z)
+             .plot.line(x='time', ax=ax[iz]))
+            dcpy.plots.liney(0, ax=ax[iz])
+            ax[iz].set_xlim('2013-12-01', '2014-12-31')
+            ax[iz].set_ylim([-1000, 1000])
+
         ax[0].legend()
-        plt.gca().set_xlim('2013-12-01', '2014-11-30')
+        ax[0].set_xlim('2013-12-01', '2014-11-30')
 
         # ((dQdt.sel(depth=z)-sfcflx)
         #  .pipe(average)
