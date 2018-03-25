@@ -1,5 +1,6 @@
-import xarray as xr
 import numpy as np
+
+import xarray as xr
 
 
 @xr.register_dataarray_accessor('monsoon')

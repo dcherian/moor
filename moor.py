@@ -1,12 +1,17 @@
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy as sp
-import xarray as xr
 import pandas as pd
+import scipy as sp
 import seawater as sw
 
+import dcpy.plots
+import dcpy.ts
+import dcpy.util
+import xarray as xr
+
 from .helpers import *
+
 
 class moor:
     ''' Class for a *single* mooring that has χpods '''
@@ -288,7 +293,6 @@ class moor:
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
         from scipy.io import loadmat
-        import dcpy.util
 
         if FileType == 'ramaprelim':
             mat = loadmat(fname, squeeze_me=True, struct_as_record=False)
@@ -797,8 +801,6 @@ class moor:
 
     def Quiver(self, t=None, u=None, v=None, ax=None, flen=None,
                filt=None, color='k'):
-        import matplotlib.pyplot as plt
-        import numpy as np
 
         if ax is None:
             ax = plt.gca()
@@ -859,7 +861,6 @@ class moor:
     def PlotCTD(self, name, ax=None, filt=None, filter_len=None,
                 add_mld=True, kind='timeseries', lw=1, region={}, **kwargs):
 
-        import dcpy.ts
         import cmocean as cmo
 
         if ax is None:
@@ -1143,7 +1144,6 @@ class moor:
         ''' Summary plot for all χpods '''
 
         from dcpy.util import dt64_to_datenum
-        import dcpy.plots
         from dcpy.ts import xfilter
 
         plt.figure(figsize=[11.0, 7.5])
@@ -1520,8 +1520,6 @@ class moor:
     def LagCorr(self, metvar='tau', met='local',
                 freqs=None, filter_len=None, season='SW'):
 
-        import matplotlib.pyplot as plt
-        import numpy as np
         from dcpy.util import dt64_to_datenum
         import dcpy.plots
 
@@ -1596,8 +1594,6 @@ class moor:
     def PlotAllSpectra(self, filter_len=None, nsmooth=5,
                        SubsetLength=None, ticks=None, **kwargs):
 
-        import matplotlib.pyplot as plt
-
         plt.figure(figsize=(6.5, 8.5))
 
         ax1 = plt.subplot(411)
@@ -1646,10 +1642,6 @@ class moor:
             varmin : threshold, when exceeded $varname is marked.
             filter_len : averaging for $varname
         '''
-
-        import seawater as sw
-        import matplotlib.pyplot as plt
-        import numpy as np
 
         size = 5
 
@@ -1760,8 +1752,6 @@ class moor:
             bbox=dict(facecolor='gray', alpha=0.15, edgecolor='none'))
 
     def PlotCoherence(self, ax, v1, v2, nsmooth=5, multitaper=True):
-        import dcpy.ts
-        import dcpy.plots
 
         if multitaper:
             f, Cxy, phase, siglevel = \
@@ -1792,7 +1782,6 @@ class moor:
     def ExtractTimeRange(self, t1, v1, t2, v2, ndayavg=None, season=None):
         ''' v1 is sampled to time range of v2 '''
 
-        import numpy as np
         from dcpy.util import MovingAverage
         from dcpy.util import find_approx
 
@@ -1826,7 +1815,6 @@ class moor:
         return t1, v1, v2i
 
     def GetFilterLenLabel(self, filt=None, filter_len=None):
-        import numpy as np
 
         if filt is None:
             txt = 'unfiltered'
@@ -1846,9 +1834,6 @@ class moor:
     def PlotMetCoherence(self, metvars=['Jq', 'wind'], ndayavg=1, nsmooth=4,
                          fbands=None, season=None, multitaper=False,
                          filt=None, filter_len=None):
-
-        import matplotlib.pyplot as plt
-        import dcpy.ts
 
         if len(metvars) == 1:
             plt.figure(figsize=(10, 5.5))
@@ -1948,12 +1933,6 @@ class moor:
             return [ax0, ax1, ax2, ax3, ax4, ax5]
 
     def Budget(self, do_mld=False):
-
-        import dcpy.ts
-        import dcpy.plots
-
-        # from statsmodels.nonparametric.smoothers_lowess import lowess
-        # import dcpy.plots
 
         ρ = 1025
         cp = 4000
