@@ -117,6 +117,7 @@ class moor:
         self.met = xr.Dataset()  # TAO met
         self.tropflux = xr.Dataset()  # tropflux
         self.vel = xr.Dataset()
+        self.sst = xr.Dataset()
 
         # chipods
         self.χpod = collections.OrderedDict()
@@ -508,6 +509,36 @@ class moor:
             self.ild = xr.zeros_like(self.ild)*np.nan
             self.sld = xr.zeros_like(self.ild)*np.nan
             self.bld = xr.zeros_like(self.ild)*np.nan
+
+    def ReadSST(self, name='mur'):
+
+        if name == 'mur':
+            sst = xr.open_mfdataset('../datasets/mur/201*', autoclose=True)
+            sst = sst.analysed_sst
+        else:
+            raise ValueError('SST dataset ' + name + ' is not supported yet!')
+
+        # read ±1° for gradients
+        sst = sst.sel(lon=slice(self.lon-1, self.lon+1),
+                      lat=slice(self.lat-1, self.lat+1))
+
+        zongrad = xr.DataArray(np.gradient(sst,
+                                           sst.lon.diff(dim='lon').mean().values*1e5,
+                                           axis=1),
+                               dims=sst.dims, coords=sst.coords,
+                               name='Zonal ∇T')
+
+        mergrad = xr.DataArray(np.gradient(sst,
+                                           sst.lat.diff(dim='lat').mean().values*1e5,
+                                           axis=2),
+                               dims=sst.dims, coords=sst.coords,
+                               name='Meridional ∇T')
+
+        self.sst['Tx'] = zongrad.sel(lon=self.lon, lat=self.lat, method='nearest')
+        self.sst['Ty'] = mergrad.sel(lon=self.lon, lat=self.lat, method='nearest')
+        self.sst['T'] = sst.sel(lon=self.lon, lat=self.lat, method='nearest')
+
+        self.sst['time'] = self.sst.time.dt.floor('D')
 
     def ReadMet(self, fname: str=None, WindType='', FluxType=''):
 
