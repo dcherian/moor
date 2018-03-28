@@ -124,6 +124,7 @@ class moor:
 
         # combined turb data
         self.χ = xr.Dataset()
+        self.ε = xr.Dataset()
         self.KT = xr.Dataset()
         self.Jq = xr.Dataset()
         self.pitot = xr.Dataset()
@@ -175,25 +176,26 @@ class moor:
         k = 0.41
 
         # Thorpe (4.1)
-        B = g * α * self.met.Jq0 / ρ0 / cp
+        B = g * α * self.flux.Jq0 / ρ0 / cp
 
         ustar = np.sqrt(self.met.τ/ρ0)
 
         Bi = np.interp(ustar.time.values.astype('float32'),
-                       B.Jtime.values.astype('datetime64[ns]').astype('float32'),
+                       B.time.values.astype('datetime64[ns]').astype('float32'),
                        B, left=np.nan, right=np.nan)
 
         Lmo = -ustar**3/k/Bi
         Lmo.name = 'Lmo'
 
-        Lmo[abs(Lmo) > 1000] = np.nan
+        Lmo[abs(Lmo) > 200] = np.nan
 
         return Lmo
 
     def CombineTurb(self):
-        ''' Combines all χpod χ, KT, Jq into a single DataArray each '''
+        ''' Combines all χpod χ, ε, KT, Jq etc. into a single DataArray each '''
 
         χ = []
+        ε = []
         KT = []
         Jq = []
         Tz = []
@@ -265,6 +267,19 @@ class moor:
                           pod.chi[pod.best]['chi'][mask],
                           **interpargs)[np.newaxis, :],
                 dims=dims, coords=coords, name='χ'))
+
+            if 'w' in pod.best:
+                ε.append(xr.DataArray(
+                    np.interp(tmatlab, timevec[mask],
+                              pod.chi[pod.best]['eps_Kt'][mask],
+                              **interpargs)[np.newaxis, :],
+                    dims=dims, coords=coords, name='ε'))
+            else:
+                ε.append(xr.DataArray(
+                    np.interp(tmatlab, timevec[mask],
+                              pod.chi[pod.best]['eps'][mask],
+                              **interpargs)[np.newaxis, :],
+                    dims=dims, coords=coords, name='ε'))
 
             KT.append(xr.DataArray(
                 np.interp(tmatlab, timevec[mask],
@@ -345,6 +360,7 @@ class moor:
             return xr.concat(b, dim='depth')
 
         self.χ = merge(χ).χ
+        self.ε = merge(ε).ε
         self.KT = merge(KT).KT
         self.Jq = merge(Jq).Jq
         self.Tz = merge(Tz).Tz
