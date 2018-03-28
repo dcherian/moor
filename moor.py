@@ -2028,6 +2028,73 @@ class moor:
         else:
             return [ax0, ax1, ax2, ax3, ax4, ax5]
 
+    def eps_jb0(self):
+
+        ρ0 = 1025
+        cp = 4200
+        g = 9.81
+        α = 1.7e-4
+
+        jb0 = - g*α/ρ0/cp * self.flux.Jq0
+        Lmo = self.monin_obukhov()
+
+        depths = [15, 30]
+
+        f, ax = plt.subplots(4, 1, sharex=True)
+        self.PlotFlux(ax[0], self.flux.Jq0.time.values, self.flux.Jq0.values)
+        self.Jq.sel(depth=15).plot(ax=ax[0])
+        # self.flux.Jq0.plot(ax=ax[0], color='k')
+        dcpy.plots.liney(0, ax=ax[0])
+
+        (jb0.where(self.flux.Jq0 < 0)
+         .plot.line(x='time', color='k', add_legend=False, ax=ax[1], label='$J_b^0$'))
+        # ax[1].legend()
+        hdl = ((self.ε.where(self.ε > 0).sel(depth=depths))
+               .plot.line(x='time', ax=ax[1]))
+
+        for iu, unit in enumerate(self.χpod):
+            pod = self.χpod[unit]
+            if 'w' in pod.best:
+                eps2 = pod.chi[pod.best[:-1]]['eps']
+                eps2[eps2 == 0] = np.nan
+                ax[1].plot(pod.time, eps2, color=hdl[iu].get_color(), ls='--')
+
+        ax[1].grid(True)
+        ax[1].set_yscale('log')
+        ax[1].set_xlim('2013-12-01', '2014-12-31')
+
+        (-self.ε.mld).plot(ax=ax[2], color='dimgray')
+        (-Lmo.where(Lmo > 0)).plot(ax=ax[2], color='lightgray')
+        ax[2].legend(['MLD', 'Monin-Obukhov'])
+        ax[2].set_ylim([-50, 0])
+
+        for iz, zz in enumerate(depths):
+            dcpy.plots.liney(-1*zz, ax=ax[2], color=hdl[iz].get_color(), zorder=10)
+
+
+        axN2 = ax[3]
+        self.N2.plot.line(x='time', ax=axN2)
+        axN2.set_title('')
+        axN2.set_yscale('log')
+
+        plt.tight_layout()
+
+        # # interpolate jb0 to ε times
+        # jb0new = np.interp(self.ε.time.astype('float32'),
+        #                    self.flux.time.astype('float32'),
+        #                    jb0, left=np.nan, right=np.nan)
+
+        # Lmonew =  np.interp(self.ε.time.astype('float32'),
+        #                     self.flux.time.astype('float32'),
+        #                     jb0, left=np.nan, right=np.nan)
+
+        # mask = np.logical_and(np.logical_and(jb0new > 0,
+        #                                      self.ε.mld <=40),
+        #                       Lmonew <=40)
+        # plt.figure()
+        # # plt.loglog(jb0new[mask], self.ε.sel(depth=15)[mask], '.')
+        # plt.loglog(jb0new[mask], self.ε.sel(depth=30)[mask], '.')
+
     def Budget(self, do_mld=False):
 
         ρ = 1025
@@ -2096,12 +2163,6 @@ class moor:
         sfcflx = (Jq0 - Ih).resample(**resample_args).mean(dim='time')
         dJdz = ((sfcflx + Jqt)/Jqt.depth).where(Jqt.time == Jq0.time)
         dJdz.name = 'dJdz'
-
-        # Qt = (dQdt.resample(**resample_args)
-        #       .mean(dim='time')
-        #       .sel(depth=Jqt.depth)
-        #       .where(dQdt.time == Jq0.time))
-        # Qt.name = 'Qt'
 
         dQdt = Q.pipe(average).pipe(ddt)
 
