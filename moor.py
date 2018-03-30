@@ -521,24 +521,31 @@ class moor:
 
         # read ±1° for gradients
         sst = sst.sel(lon=slice(self.lon-1, self.lon+1),
-                      lat=slice(self.lat-1, self.lat+1))
+                      lat=slice(self.lat-1, self.lat+1)).load()-273.15
 
+        self.sst['T'] = sst.sel(lon=self.lon, lat=self.lat, method='nearest')
+
+        sst.values = sp.ndimage.uniform_filter(sst.values, 10)
         zongrad = xr.DataArray(np.gradient(sst,
-                                           sst.lon.diff(dim='lon').mean().values*1e5,
+                                           sst.lon.diff(dim='lon').mean().values,
                                            axis=1),
                                dims=sst.dims, coords=sst.coords,
                                name='Zonal ∇T')
 
         mergrad = xr.DataArray(np.gradient(sst,
-                                           sst.lat.diff(dim='lat').mean().values*1e5,
+                                           sst.lat.diff(dim='lat').mean().values,
                                            axis=2),
                                dims=sst.dims, coords=sst.coords,
                                name='Meridional ∇T')
 
-        self.sst['Tx'] = zongrad.sel(lon=self.lon, lat=self.lat, method='nearest')
-        self.sst['Ty'] = mergrad.sel(lon=self.lon, lat=self.lat, method='nearest')
-        self.sst['T'] = sst.sel(lon=self.lon, lat=self.lat, method='nearest')
+        zongrad /= 1e5
+        mergrad /= 1e5
 
+        self.sst = xr.Dataset()
+        self.sst['Tx'] = zongrad.sel(lon=self.lon, lat=self.lat,
+                                     method='nearest')
+        self.sst['Ty'] = mergrad.sel(lon=self.lon, lat=self.lat,
+                                     method='nearest')
         self.sst['time'] = self.sst.time.dt.floor('D')
 
     def ReadMet(self, fname: str=None, WindType='', FluxType=''):
