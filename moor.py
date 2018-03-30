@@ -366,6 +366,7 @@ class moor:
         self.Jq = merge(Jq).Jq
         self.Tz = merge(Tz).Tz
         self.N2 = merge(N2).N2
+
         if pitot_shear != []:
             self.pitot['shear'] = merge(pitot_shear).shear
         if pitot_spd != []:
@@ -381,7 +382,7 @@ class moor:
             self.zχpod = (np.array([[5, 10]]).T
                           + np.array([z0, z1]))
 
-            for a in [self.χ, self.KT, self.Jq, self.Tz, self.N2]:
+            for a in [self.χ, self.ε, self.KT, self.Jq, self.Tz, self.N2]:
                 a['z'].values = self.zχpod
 
         else:
