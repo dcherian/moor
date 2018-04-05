@@ -383,7 +383,10 @@ class moor:
                           + np.array([z0, z1]))
 
             for a in [self.χ, self.ε, self.KT, self.Jq, self.Tz, self.N2]:
-                a['z'].values = self.zχpod
+                if self.name == 'NRL2':
+                    a['z'].values = self.zχpod[1, :]
+                else:
+                    a['z'].values = self.zχpod
 
         else:
             self.zχpod = xr.merge(z).zχpod
