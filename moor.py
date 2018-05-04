@@ -895,12 +895,12 @@ class moor:
                         color=poscolor, linewidth=1,
                         alpha=alpha, **kwargs)
 
-        for tt in ax.get_yaxis().get_ticklabels():
-            if tt.get_position()[1] < 0:
-                tt.set_color(negcolor)
+        # for tt in ax.get_yaxis().get_ticklabels():
+        #     if tt.get_position()[1] < 0:
+        #         tt.set_color(negcolor)
 
-            if tt.get_position()[1] > 0:
-                tt.set_color(poscolor)
+        #     if tt.get_position()[1] > 0:
+        #         tt.set_color(poscolor)
 
     def avgplt(self, ax, t, x, flen, filt, axis=-1, decimate=True, **kwargs):
         from dcpy.util import MovingAverage
