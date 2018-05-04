@@ -2239,13 +2239,18 @@ class moor:
 
         dQdt = Q.pipe(average).pipe(ddt)
 
+        velmean = self.vel.resample(time='D').mean(dim='time').squeeze()
+
         f, ax = plt.subplots(len(Jqt.depth[:-1]), 1, sharex=True)
         for iz, z in enumerate(Jqt.depth[:-1]):
+            Qadv = (self.sst.Tx * velmean.u + self.sst.Ty * velmean.v) * z * ρ * cp
+
             ((dQdt).sel(depth=z)
              .plot.line(x='time', color='k', label='dQ/dt', ax=ax[iz]))
             ((sfcflx).sel(depth=z)
              .pipe(average)
              .plot(x='time', label='absorbed heating', ax=ax[iz]))
+            (Qadv.plot.line(x='time', ax=[iz], label='advection'))
             (Jqt.sel(depth=z)
              .plot.line(x='time', ax=ax[iz]))
             dcpy.plots.liney(0, ax=ax[iz])
