@@ -1422,7 +1422,7 @@ class moor:
             Jq0 = self.flux.Jq0
 
         try:
-            Jq0 = xfilter(Jq0.rename({'Jtime': 'time'}), **filtargs)
+            Jq0 = xfilter(Jq0, **filtargs)
         except ValueError:
             # filter length is not long enough, i.e. data is too coarse
             pass
@@ -1567,7 +1567,7 @@ class moor:
             self.PlotχpodDepth(ax=ax['shear'], color='k')
             _corner_label('|$(u_z, v_z)$|', x=0.15, y=0.15, ax=ax['shear'])
         elif self.kind == 'rama':
-            if self.pitot:
+            if self.pitot and 'shear' in self.pitot:
                 shhdl = (self.pitot.shear
                          .pipe(xfilter, **filtargs)
                          .sel(**region)
@@ -2314,19 +2314,21 @@ class moor:
         else:
             TSkind = 'pcolor'
 
-        if self.name == 'RAMA12':
+        name = self.name.replace(' ', '-')
+
+        if name == 'RAMA-12N':
             self.Plotχpods(region={'time': '2014'})
             if savefig:
                 plt.savefig('images/summary-'
-                            + self.name + '-2014.png', bbox_inches='tight')
+                            + name + '-2014.png', bbox_inches='tight')
 
             self.Plotχpods(region={'time': '2015'})
             if savefig:
                 plt.savefig('images/summary-'
-                            + self.name + '-2015.png', bbox_inches='tight')
+                            + name + '-2015.png', bbox_inches='tight')
 
         else:
             self.Plotχpods(TSkind=TSkind)
             if savefig:
                 plt.savefig('images/summary-'
-                            + self.name + '.png', bbox_inches='tight')
+                            + name + '.png', bbox_inches='tight')
