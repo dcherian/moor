@@ -10,6 +10,7 @@ import dcpy.ts
 import dcpy.util
 import xarray as xr
 
+
 def _decode_time(t0, t1):
     '''
     Utility function to decode time ranges.
@@ -115,6 +116,7 @@ class moor:
 
         self.ctd = xr.Dataset()  # TAO CTD
         self.met = xr.Dataset()  # TAO met
+        self.flux = xr.Dataset()
         self.tropflux = xr.Dataset()  # tropflux
         self.vel = xr.Dataset()
         self.sst = xr.Dataset()
