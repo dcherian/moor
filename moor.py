@@ -1005,7 +1005,7 @@ class moor:
                 ylim = ax.get_ylim()
                 xx = dt.date2num(self.events[ss])
                 ax.fill_between(xx, ylim[1], ylim[0],
-                                facecolor='palevioletred', alpha=0.35,
+                                facecolor='#dddddd', alpha=0.35,
                                 zorder=-5)
                 ax.set_ylim(ylim)
 
@@ -1277,7 +1277,6 @@ class moor:
                .sel(**region)
                .plot.line(ax=ax['Kt'], **lineargs))
 
-
         ax['Kt'].set_yscale('log')
         ax['Kt'].set_title('')
         ax['Kt'].set_ylabel('$K_T$ (m²/s)')
@@ -1306,36 +1305,39 @@ class moor:
 
         # initialize axes
         ax = dict()
-        ax['met'] = plt.subplot(5, 2, 1)
-        ax['N2'] = plt.subplot(5, 2, 3, sharex=ax['met'])
+        ax['met'] = plt.subplot(6, 2, 1)
+        ax['N2'] = plt.subplot(6, 2, 3, sharex=ax['met'])
 
-        ax['T'] = plt.subplot(5, 2, 2, sharex=ax['met'])
+        ax['T'] = plt.subplot(6, 2, 2, sharex=ax['met'])
         if TSkind is not 'timeseries':
-            ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'], sharey=ax['T'])
+            ax['S'] = plt.subplot(6, 2, 4, sharex=ax['met'], sharey=ax['T'])
         else:
-            ax['S'] = plt.subplot(5, 2, 4, sharex=ax['met'])
+            ax['S'] = plt.subplot(6, 2, 4, sharex=ax['met'])
 
         if self.vel:
             if TSkind is not 'timeseries' and self.kind == 'ebob':
-                ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'], sharey=ax['T'])
+                ax['u'] = plt.subplot(6, 2, 7, sharex=ax['met'], sharey=ax['T'])
 
             if TSkind is 'timeseries' or self.kind != 'ebob':
-                ax['u'] = plt.subplot(5, 2, 7, sharex=ax['met'])
+                ax['u'] = plt.subplot(6, 2, 7, sharex=ax['met'])
 
             if self.kind == 'ebob':
-                ax['v'] = plt.subplot(5, 2, 9, sharex=ax['met'], sharey=ax['u'])
-                ax['shear'] = plt.subplot(5, 2, 5, sharex=ax['met'], sharey=ax['u'])
+                ax['v'] = plt.subplot(6, 2, 9, sharex=ax['met'], sharey=ax['u'])
+                ax['shear'] = plt.subplot(6, 2, 5, sharex=ax['met'], sharey=ax['u'])
             else:
                 ax['v'] = ax['u']
-                ax['χ'] = plt.subplot(5, 2, 9, sharex=ax['met'])
-                ax['shear'] = plt.subplot(5, 2, 5, sharex=ax['met'])
+                ax['χ'] = plt.subplot(6, 2, 9, sharex=ax['met'])
+                ax['shear'] = plt.subplot(6, 2, 5, sharex=ax['met'])
 
         else:
-            ax['χ'] = plt.subplot(5, 2, 7, sharex=ax['met'])
+            ax['χ'] = plt.subplot(6, 2, 7, sharex=ax['met'])
 
-        ax['Tz'] = plt.subplot(5, 2, 6, sharex=ax['met'])
-        ax['Kt'] = plt.subplot(5, 2, 8, sharex=ax['met'])
-        ax['Jq'] = plt.subplot(5, 2, 10, sharex=ax['met'])
+        if self.ssh is not []:
+            ax['ssh'] = plt.subplot(6, 2, 11, sharex=ax['met'])
+
+        ax['Tz'] = plt.subplot(6, 2, 8, sharex=ax['met'])
+        ax['Kt'] = plt.subplot(6, 2, 10, sharex=ax['met'])
+        ax['Jq'] = plt.subplot(6, 2, 12, sharex=ax['met'])
 
         filtargs = {'kind': filt, 'decimate': True,
                     'flen': filter_len, 'dim': 'time'}
@@ -1392,18 +1394,32 @@ class moor:
                         flen=filter_len, filt=filt, color='slateblue',
                         linewidth=lw, zorder=-1)
 
+        # ------------ EKE
+        if self.ssh is not []:
+            (self.ssh.EKE
+             .pipe(xfilter, **filtargs)
+             .sel(**region)
+             .plot(ax=ax['ssh']))
+            (self.ssh.sla
+             .pipe(xfilter, **filtargs)
+             .sel(**region)
+             .plot(ax=ax['ssh']))
+            ax['ssh'].set_title('')
+            ax['ssh'].legend(['EKE', 'SSHA'])
+            ax['ssh'].axhline(0, zorder=-10, color='gray', ls='--')
+
         # ------------ flux
         ax['Jq0'] = ax['met'].twinx()
         ax['Jq0'].set_zorder(-1)
 
-        if 'Jq0' not in self.met:
-            # no mooring flux
+        if 'Jq0' not in self.flux:
+            # no mooring flux, fall back to tropflux
             met = 'tropflux'
 
         if met == 'tropflux':
             Jq0 = self.tropflux.netflux
-        elif 'Jq0' in self.met:
-            Jq0 = self.met.Jq0
+        elif 'Jq0' in self.flux:
+            Jq0 = self.flux.Jq0
 
         try:
             Jq0 = xfilter(Jq0.rename({'Jtime': 'time'}), **filtargs)
@@ -1477,7 +1493,7 @@ class moor:
             ax['N2'].set_ylim([0, limy[1]])
 
         ax['Tz'].set_title('')
-        ax['Tz'].set_ylabel('$\partial T/ \partial z$')
+        ax['Tz'].set_ylabel('$\\partial T/ \\partial z$')
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
         ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
         ax['Tz'].grid(True, axis='y', linestyle='--', linewidth=0.5)
@@ -1564,7 +1580,7 @@ class moor:
                             self.χ.sel(**region).time.max().values])
         plt.gcf().autofmt_xdate()
 
-        for name in ['N2', 'T', 'S', 'v', 'χ', 'Kt', 'Jq', 'Tz', 'shear']:
+        for name in ['N2', 'T', 'S', 'v', 'χ', 'Kt', 'Jq', 'Tz', 'shear', 'ssh']:
             if name in ax:
                 self.MarkSeasonsAndEvents(ax[name])
                 if filt == 'bandpass':
