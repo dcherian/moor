@@ -2301,3 +2301,27 @@ class moor:
         # dcpy.plots.symyaxis()
 
         # plt.gcf().autofmt_xdate()
+
+    def Summarize(self, savefig=False):
+
+        if self.kind == 'ebob':
+            TSkind = 'timeseries'
+        else:
+            TSkind = 'pcolor'
+
+        if self.name == 'RAMA12':
+            self.Plotχpods(region={'time': '2014'})
+            if savefig:
+                plt.savefig('images/summary-'
+                            + self.name + '-2014.png', bbox_inches='tight')
+
+            self.Plotχpods(region={'time': '2015'})
+            if savefig:
+                plt.savefig('images/summary-'
+                            + self.name + '-2015.png', bbox_inches='tight')
+
+        else:
+            self.Plotχpods(TSkind=TSkind)
+            if savefig:
+                plt.savefig('images/summary-'
+                            + self.name + '.png', bbox_inches='tight')
