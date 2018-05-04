@@ -393,6 +393,18 @@ class moor:
         else:
             self.zχpod = xr.merge(z).zχpod
 
+    def ReadEKE(self):
+        ssha = xr.open_dataset('../datasets/ssh/' +
+                               'dataset-duacs-rep-global-merged' +
+                               '-allsat-phy-l4-v3_1522711420825.nc',
+                               autoclose=True)
+
+        ssha['EKE'] = np.hypot(ssha.ugosa, ssha.vgosa)
+
+        self.EKE = ssha['EKE'].sel(latitude=self.lat,
+                                   longitude=self.lon,
+                                   method='nearest')
+
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
         from scipy.io import loadmat
