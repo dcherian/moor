@@ -2324,7 +2324,7 @@ class moor:
 
         # plt.gcf().autofmt_xdate()
 
-    def Summarize(self, savefig=False):
+    def Summarize(self, savefig=False, **kwargs):
 
         if self.kind == 'ebob':
             TSkind = 'timeseries'
@@ -2334,18 +2334,18 @@ class moor:
         name = self.name.replace(' ', '-')
 
         if name == 'RAMA-12N':
-            self.Plotχpods(region={'time': '2014'})
+            self.Plotχpods(region={'time': '2014'}, **kwargs)
             if savefig:
                 plt.savefig('images/summary-'
                             + name + '-2014.png', bbox_inches='tight')
 
-            self.Plotχpods(region={'time': '2015'})
+            self.Plotχpods(region={'time': '2015'}, **kwargs)
             if savefig:
                 plt.savefig('images/summary-'
                             + name + '-2015.png', bbox_inches='tight')
 
         else:
-            self.Plotχpods(TSkind=TSkind)
+            self.Plotχpods(TSkind=TSkind, **kwargs)
             if savefig:
                 plt.savefig('images/summary-'
                             + name + '.png', bbox_inches='tight')
