@@ -120,6 +120,7 @@ class moor:
         self.tropflux = xr.Dataset()  # tropflux
         self.vel = xr.Dataset()
         self.sst = xr.Dataset()
+        self.niw = xr.Dataset()
         self.ssh = []
 
         # chipods
@@ -405,6 +406,12 @@ class moor:
         self.ssh = ssha.sel(latitude=self.lat,
                             longitude=self.lon,
                             method='nearest').load()
+
+    def ReadNIW(self):
+        dirname = '../datasets/ewa/'
+
+        self.niw = (xr.open_dataset(dirname+self.name+'.nc', autoclose=True)
+                    .load())
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
@@ -1335,6 +1342,7 @@ class moor:
         if self.ssh is not []:
             ax['ssh'] = plt.subplot(6, 2, 11, sharex=ax['met'])
 
+        ax['niw'] = plt.subplot(6, 2, 6, sharex=ax['met'], sharey=ax['T'])
         ax['Tz'] = plt.subplot(6, 2, 8, sharex=ax['met'])
         ax['Kt'] = plt.subplot(6, 2, 10, sharex=ax['met'])
         ax['Jq'] = plt.subplot(6, 2, 12, sharex=ax['met'])
@@ -1482,6 +1490,15 @@ class moor:
                                    **ctdargs)
         ax['Tplot'] = self.PlotCTD('T', ax['T'], vmin=Tlim[0], vmax=Tlim[1],
                                    **ctdargs)
+
+        # -------- NIW
+        hdl = self.niw.KE.plot(ax=ax['niw'], robust=True, add_colorbar=False,
+                               cmap=mpl.cm.Reds)
+        self.PlotχpodDepth(ax=ax['niw'], color='k')
+        _corner_label('NIW KE', ax=ax['niw'], y=0.1)
+        ax['niw'].set_ylim([150, 0])
+
+        # _colorbar(hdl)
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
