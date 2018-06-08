@@ -3,12 +3,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy as sp
+import xarray as xr
 import seawater as sw
 
 import dcpy.plots
 import dcpy.ts
 import dcpy.util
-import xarray as xr
+import dcpy.oceans
+
+import sciviscolor as svc
 
 
 def _decode_time(t0, t1):
@@ -1708,6 +1711,50 @@ class moor:
             hcbar = _colorbar(ax['Uplot'], [ax['u'], ax['v']])
 
         return ax, hcbar
+
+    def plot_spectrogram(self):
+
+        vel = (self.vel.sel(depth=slice(0,120))
+               .mean(dim='depth')
+               .drop(['shear', 'depth_shear']))
+        KE = 1/2 * (vel.u**2 + vel.v**2)
+
+        kwargs = dict(dim='time', window=15*86400/30/60, shift=5*86400/30/60)
+        plot_kwargs = dict(cmap=svc.cm.blue_orange_div, add_colorbar=True)
+
+        spec = dcpy.ts.Spectrogram(KE, **kwargs,dt=1/24)
+        spec.freq.attrs['units'] = 'cpd'
+        spec.name = 'PSD(KE)'
+
+        tf = dcpy.ts.TidalAliases(1/24)
+        f0 = dcpy.oceans.coriolis(self.lat)
+
+        f, ax = plt.subplots(2, 1, sharex=True)
+        # self.KT.isel(depth=0).plot.line(x='time', ax=ax[0])
+        # ylim = ax[0].get_ylim()
+        # ax[0].set_yscale('log')
+        # ax[0].set_ylim(ylim)
+
+        np.log10(spec).plot(x='time', ax=ax[0], **plot_kwargs)
+        dcpy.plots.liney([tf['M2'], tf['M2']*2, 1/(f0*86400)],
+                         ax=ax[0], zorder=10, color='black')
+        plt.title('Spectrogram of depth-average KE from NRL3')
+
+        chi = np.log10(self.KT.isel(depth=0)
+                       .resample(time='H')
+                       .mean(dim='time')
+                       .interpolate_na(dim='time', method='linear')
+                       .dropna(dim='time'))
+
+        chi[~np.isfinite(chi)] = 1e-12
+
+        specchi = dcpy.ts.Spectrogram(chi, **kwargs, dt=1/24)
+        specchi.name = 'PSD(KT)'
+        specchi.freq.attrs['units'] = 'cpd'
+
+        np.log10(specchi).plot(x='time', ax=ax[1], **plot_kwargs, robust=True)
+
+        [aa.set_xlabel('') for aa in ax[:-1]]
 
     def PlotSpectrum(self, varname, est='best', filter_len=None,
                      nsmooth=5, SubsetLength=None, ticks=None,
