@@ -1296,6 +1296,25 @@ class moor:
 
         return ax, hkt
 
+    def plot_niw_turb(self, region={}):
+
+        region = self.select_region(region)
+
+        f, ax = plt.subplots(3, 1, sharex=True)
+
+        niw = self.niw.interp(depth=np.floor(self.zχpod.mean(dim='time').values))
+
+        niw.KE.sel(**region).plot.line(x='time', hue='depth', ax=ax[0])
+        (self.KT.sel(**region)
+         .resample(time='6H').mean(dim='time')
+         .plot.line(x='time', hue='depth', ax=ax[1]))
+        (self.Jq.sel(**region)
+         .resample(time='6H').mean(dim='time')
+         .plot.line(x='time', hue='depth', ax=ax[2]))
+
+        ax[1].set_yscale('log')
+        [self.MarkSeasonsAndEvents(aa) for aa in ax]
+
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
                   quiv=False, TSkind='pcolor', region={},
                   Tlim=[None,None], Slim=[None, None], add_mld=False,
@@ -1305,7 +1324,7 @@ class moor:
         from dcpy.util import dt64_to_datenum
         from dcpy.ts import xfilter
 
-        plt.figure(figsize=[11.0, 7.5])
+        plt.figure(figsize=[11.0, 6])
         lw = 0.5
 
         region = self.select_region(region)
@@ -1492,11 +1511,12 @@ class moor:
                                    **ctdargs)
 
         # -------- NIW
-        hdl = self.niw.KE.plot(ax=ax['niw'], robust=True, add_colorbar=False,
-                               cmap=mpl.cm.Reds)
-        self.PlotχpodDepth(ax=ax['niw'], color='k')
-        _corner_label('NIW KE', ax=ax['niw'], y=0.1)
-        ax['niw'].set_ylim([150, 0])
+        if 'KE' in self.niw:
+            hdl = self.niw.KE.plot(ax=ax['niw'], robust=True, add_colorbar=False,
+                                   cmap=mpl.cm.Reds)
+            self.PlotχpodDepth(ax=ax['niw'], color='k')
+            _corner_label('NIW KE', ax=ax['niw'], y=0.1)
+            ax['niw'].set_ylim([150, 0])
 
         # _colorbar(hdl)
 
