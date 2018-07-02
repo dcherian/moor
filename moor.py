@@ -398,6 +398,12 @@ class moor:
         else:
             self.zχpod = xr.merge(z).zχpod
 
+        # convert zχpod to DataArray
+        da = xr.DataArray(self.zχpod, dims=['num', 'time'],
+                          coords={'num': np.arange(self.zχpod.shape[0])+1,
+                                  'time': self.χ.time}).transpose()
+        self.zχpod = da
+
     def ReadSSH(self):
         ssha = xr.open_dataset('../datasets/ssh/' +
                                'dataset-duacs-rep-global-merged' +
