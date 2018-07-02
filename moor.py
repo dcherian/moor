@@ -660,7 +660,12 @@ class moor:
                 .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                 .to_dataset(name='curl'))
 
-        self.tropflux = xr.merge([self.tropflux, swr, lwr, tau, curl, net])
+        self.tropflux = xr.merge([self.tropflux, swr, lwr, net,
+                                  tau, curl,
+                                  taux.sel(latitude=self.lat, longitude=self.lon,
+                                           method='nearest').load(),
+                                  tauy.sel(latitude=self.lat, longitude=self.lon,
+                                           method='nearest').load()])
 
     def AddEvents(self, name, t0, t1, pods=None):
 
