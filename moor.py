@@ -491,10 +491,10 @@ class moor:
 
             self.ctd = xr.Dataset({'S': (['z', 'time'], salt),
                                    'T_S': (['z', 'time'], temp),
-                                   'T': (['z2', 'time'], temp2),
+                                   'T': (['depth2', 'time'], temp2),
                                    'ρ': (['z', 'time'], ρ)},
                                   coords={'depth': (['z', 'time'], pres),
-                                          'depth2': ('z2', z2),
+                                          'depth2': ('depth2', z2),
                                           'time': ('time', time[0, :])})
             self.ctd['depth'] = self.ctd.depth.fillna(0)
 
@@ -503,9 +503,11 @@ class moor:
                 # Simple offset correction doesn't help
                 self.ctd.S.isel(z=3).values.fill(np.nan)
 
+#    def calc_wind_flux(self):
+
     def calc_mld_ild_bld(self):
         def interp_to_1m(data):
-            if np.any(np.isnan(data.values.T[:,0])):
+            if np.any(np.isnan(data.values.T[:, 0])):
                 data = data.bfill(dim='depth')
 
             f = sp.interpolate.RectBivariateSpline(data.time.astype('float32'),
@@ -522,15 +524,15 @@ class moor:
         def find_mld(data, criterion):
             try:
                 return data.depth[(np.abs(data - data.isel(depth=1)) >
-                              criterion).argmax(axis=1)].drop('depth')
+                                   criterion).argmax(axis=1)].drop('depth')
             except AttributeError:
-                return data.depth2[(np.abs(data - data.isel(z2=1)) >
-                               criterion).argmax(axis=0)].drop('depth2')
+                return data.depth2[(np.abs(data - data.isel(depth2=1)) >
+                                    criterion).argmax(axis=0)].drop('depth2')
 
         if self.kind == 'rama':
             temp = interp_to_1m(self.ctd['T'])
         else:
-            temp = self.ctd['T'].bfill(dim='z2')
+            temp = self.ctd['T'].bfill(dim='depth2')
         self.ild = find_mld(temp, 0.2)
 
         if self.kind == 'rama':
@@ -1074,8 +1076,8 @@ class moor:
             ax.set_prop_cycle(cycler('color', colors))
 
             # more ebob hackery
-            if 'z2' in var.dims:
-                ydim = 'z2'
+            if 'depth2' in var.dims:
+                ydim = 'depth2'
             else:
                 if 'z' in var.dims:
                     ydim = 'z'
