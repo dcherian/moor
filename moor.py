@@ -1732,17 +1732,17 @@ class moor:
 
     def plot_spectrogram(self):
 
-        vel = (self.vel.sel(depth=slice(0,120))
+        vel = (self.vel.sel(depth=slice(0, 120))
                .mean(dim='depth')
                .drop(['shear', 'depth_shear']))
         KE = 1/2 * (vel.u**2 + vel.v**2)
 
-        kwargs = dict(dim='time', window=15*86400/30/60, shift=5*86400/30/60)
+        kwargs = dict(dim='time', window=30*24, shift=7*24)
         plot_kwargs = dict(cmap=svc.cm.blue_orange_div, add_colorbar=True)
 
-        spec = dcpy.ts.Spectrogram(KE, **kwargs,dt=1/24)
+        spec = dcpy.ts.Spectrogram(KE, **kwargs, dt=1/24)
         spec.freq.attrs['units'] = 'cpd'
-        spec.name = 'PSD(KE)'
+        spec.name = 'PSD(depth avg KE)'
 
         tf = dcpy.ts.TidalAliases(1/24)
         f0 = dcpy.oceans.coriolis(self.lat)
@@ -1754,9 +1754,10 @@ class moor:
         # ax[0].set_ylim(ylim)
 
         np.log10(spec).plot(x='time', ax=ax[0], **plot_kwargs)
-        dcpy.plots.liney([tf['M2'], tf['M2']*2, 1/(f0*86400)],
+        dcpy.plots.liney([tf['M2'], tf['M2']*2, 1/(2*np.pi/(f0*86400))],
                          ax=ax[0], zorder=10, color='black')
-        plt.title('Spectrogram of depth-average KE from NRL3')
+
+        ax[0].set_yscale('log')
 
         chi = np.log10(self.KT.isel(depth=0)
                        .resample(time='H')
@@ -1765,14 +1766,24 @@ class moor:
                        .dropna(dim='time'))
 
         chi[~np.isfinite(chi)] = 1e-12
-
         specchi = dcpy.ts.Spectrogram(chi, **kwargs, dt=1/24)
-        specchi.name = 'PSD(KT)'
+        specchi.name = 'PSD(log$_{10}$ KT)'
         specchi.freq.attrs['units'] = 'cpd'
+        np.log10(specchi).plot(x='time', ax=ax[1], **plot_kwargs,
+                               robust=True)
 
-        np.log10(specchi).plot(x='time', ax=ax[1], **plot_kwargs, robust=True)
+        # spec = dcpy.ts.Spectrogram(self.ctd['T'].sel(depth2=100), **kwargs,
+        #                            dt=10/24/60)
+        # spec.freq.attrs['units'] = 'cpd'
+        # spec.name = 'PSD(T)'
+        # np.log10(spec).plot(x='time', ax=ax[1, 0], **plot_kwargs)
 
         [aa.set_xlabel('') for aa in ax[:-1]]
+
+        ax[0].set_xlim(['01-Jan-2014', '31-Dec-2014'])
+
+        f.suptitle(self.name, y=0.95)
+        f.set_size_inches((5, 6))
 
     def PlotSpectrum(self, varname, est='best', filter_len=None,
                      nsmooth=5, SubsetLength=None, ticks=None,
