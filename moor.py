@@ -111,6 +111,11 @@ class moor:
         # location
         self.lon = lon
         self.lat = lat
+        self.inertial = xr.DataArray(1/
+                                     (2*np.pi/
+                                      (dcpy.oceans.coriolis(self.lat)*86400)))
+        self.inertial.attrs['units'] = 'cpd'
+        self.inertial.attrs['long_name'] = 'Inertial frequency'
 
         self.AddSeason()
         self.events = dict()
