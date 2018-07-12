@@ -758,16 +758,29 @@ class moor:
 
             z = adcp['depth_levels'].squeeze()
             time = dcpy.util.mdatenum2dt64(adcp['date_time']-366).squeeze()
-            self.vel = xr.Dataset({'u': (['depth', 'time'], adcp['uu']/100),
-                                   'v': (['depth', 'time'], adcp['vv']/100)},
+            self.vel = xr.Dataset({'u': (['depth', 'time'], adcp['u']/100),
+                                   'v': (['depth', 'time'], adcp['v']/100)},
                                   coords={'depth': z, 'time': time})
 
+            if self.name == 'NRL2':
+                # last few depth levels are nonsense it looks like.
+                self.vel = self.vel.isel(depth=slice(None, -6))
+
             dz = self.vel.u.depth.diff(dim='depth')
+
             uz = self.vel.u.diff(dim='depth')/dz
             vz = self.vel.v.diff(dim='depth')/dz
             shear = np.hypot(uz, vz)
+
             shear['depth'] = (shear.depth/1.0) - dz/2  # relocate to bin edges
+            uz['depth'] = shear.depth
+            vz['depth'] = shear.depth
+
             self.vel['shear'] = shear.rename({'depth': 'depth_shear'})
+            self.vel['uz'] = uz.rename({'depth': 'depth_shear'})
+            self.vel['vz'] = vz.rename({'depth': 'depth_shear'})
+
+        self.vel['w'] = self.vel.u + 1j * self.vel.v
 
     def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat', dir=None):
