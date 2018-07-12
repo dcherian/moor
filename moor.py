@@ -1750,8 +1750,10 @@ class moor:
                .drop(['shear', 'depth_shear']))
         KE = 1/2 * (vel.u**2 + vel.v**2)
 
-        kwargs = dict(dim='time', window=30*24, shift=7*24)
-        plot_kwargs = dict(cmap=svc.cm.blue_orange_div, add_colorbar=True)
+        kwargs = dict(dim='time', window=30*24, shift=2*24,
+                      multitaper=True)
+        plot_kwargs = dict(levels=15, cmap=svc.cm.blue_orange_div,
+                           add_colorbar=True, yscale='log')
 
         spec = dcpy.ts.Spectrogram(KE, **kwargs, dt=1/24)
         spec.freq.attrs['units'] = 'cpd'
@@ -1760,29 +1762,27 @@ class moor:
         tf = dcpy.ts.TidalAliases(1/24)
         f0 = dcpy.oceans.coriolis(self.lat)
 
-        f, ax = plt.subplots(2, 1, sharex=True)
+        f, ax = plt.subplots(2, 1, sharex=True, constrained_layout=True)
         # self.KT.isel(depth=0).plot.line(x='time', ax=ax[0])
         # ylim = ax[0].get_ylim()
         # ax[0].set_yscale('log')
         # ax[0].set_ylim(ylim)
 
-        np.log10(spec).plot(x='time', ax=ax[0], **plot_kwargs)
+        np.log10(spec).plot.contourf(x='time', ax=ax[0], **plot_kwargs)
         dcpy.plots.liney([tf['M2'], tf['M2']*2, 1/(2*np.pi/(f0*86400))],
                          ax=ax[0], zorder=10, color='black')
 
-        ax[0].set_yscale('log')
-
-        chi = np.log10(self.KT.isel(depth=0)
+        turb = np.log10(self.KT.isel(depth=0)
                        .resample(time='H')
                        .mean(dim='time')
                        .interpolate_na(dim='time', method='linear')
                        .dropna(dim='time'))
 
-        chi[~np.isfinite(chi)] = 1e-12
-        specchi = dcpy.ts.Spectrogram(chi, **kwargs, dt=1/24)
-        specchi.name = 'PSD(log$_{10}$ KT)'
-        specchi.freq.attrs['units'] = 'cpd'
-        np.log10(specchi).plot(x='time', ax=ax[1], **plot_kwargs,
+        turb[~np.isfinite(turb)] = 1e-12
+        specturb = dcpy.ts.Spectrogram(turb, **kwargs, dt=1/24)
+        specturb.name = 'PSD(log$_{10}$ ' + turb.name + ')'
+        specturb.freq.attrs['units'] = 'cpd'
+        np.log10(specturb).plot(x='time', ax=ax[1], **plot_kwargs,
                                robust=True)
 
         # spec = dcpy.ts.Spectrogram(self.ctd['T'].sel(depth2=100), **kwargs,
@@ -1795,7 +1795,7 @@ class moor:
 
         ax[0].set_xlim(['01-Jan-2014', '31-Dec-2014'])
 
-        f.suptitle(self.name, y=0.95)
+        f.suptitle(self.name)
         f.set_size_inches((5, 6))
 
     def PlotSpectrum(self, varname, est='best', filter_len=None,
