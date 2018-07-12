@@ -2574,3 +2574,160 @@ class moor:
 
         for aa in axes.flat:
             self.MarkSeasonsAndEvents(aa)
+
+    def plot_turb_spectrogram(self):
+
+        tides = dcpy.ts.TidalAliases(1/24)
+        nfft = 30 * 24  # in hours
+        shift = 2 * 24  # in hours
+
+        # get a range of depths that the χpods cover
+        # calcualte mean KE over that depth & then wavelet transform
+        meanz = self.zχpod.mean(dim='time')
+        stdz = self.zχpod.std(dim='time')
+
+        if self.kind == 'ebob':
+            depth_range = slice((meanz.min()-2*stdz.max()).values,
+                                (meanz.max()+2*stdz.max()).values)
+        elif self.kind == 'rama':
+            depth_range = self.vel.u.depth
+
+        depth_range = slice(100, 120, None)
+
+        if self.kind == 'ebob':
+            shear = dcpy.ts.Spectrogram((self.vel.uz + 1j * self.vel.vz)
+                                        .sel(depth_shear=depth_range)
+                                        .mean(dim='depth_shear')
+                                        .interpolate_na(dim='time'),
+                                        dim='time',
+                                        nfft=nfft, shift=shift,
+                                        multitaper=True, dt=1/24)
+            shear.freq.attrs['units'] = 'cpd'
+
+        # tau = dcpy.ts.Spectrogram(
+        #     self.tropflux.tau.sel(time=slice('2013', '2015')).squeeze(),
+        #     dim='time', nfft=30, shift=2, multitaper=True, dt=1)
+        # tau.freq.attrs['units'] = 'cpd'
+
+        # tau = dcpy.ts.Spectrogram(
+        #     self.(time=slice('2013', '2015')).squeeze(),
+        #     dim='time',
+        #     nfft=60, shift=2, multitaper=True, dt=1)
+        # tau.freq.attrs['units'] = 'cpd'
+
+        label = (str(np.floor(depth_range.start)) + '-'
+                 + str(np.floor(depth_range.stop))
+                 + 'm')
+
+        ax = dict()
+        f, axes = plt.subplots(3, 2, sharex=True, constrained_layout=True)
+        f.set_size_inches((12, 6))
+
+        # ax['ts1'] = axes[0, 0]
+        # ax['ts2'] = axes[0, 1]
+
+        ax['cw'] = axes[0, 0]
+        ax['ts1'] = axes[0, 1]
+
+        ax['ccw'] = axes[1, 0]
+        ax['T'] = axes[1, 1]
+
+        ax['eps'] = axes[2, 0]
+        ax['KT'] = axes[2, 1]
+
+        def add_colorbar(f, ax, hdl):
+            # if not hasattr(ax, '__iter__'):
+            #     ax = [ax]
+
+            hcbar = f.colorbar(hdl, ax=ax)
+            hcbar.formatter.set_powerlimits((0, 0))
+            hcbar.update_ticks()
+
+        def plot_spec(ax, spec, name, levels=20):
+            var = (spec*spec.freq)
+            # var = np.log10(spec)
+            hdl = var.plot.contourf(levels=levels, yscale='log',
+                                    x='time', robust=True, ax=ax,
+                                    cmap=mpl.cm.RdPu, add_colorbar=False)
+
+            var.plot.contour(
+                levels=np.linspace(hdl.levels[-1], var.max(), 6)[1:],
+                yscale='log', x='time', ax=ax, colors='w',
+                linewidths=0.5, add_colorbar=False)
+
+            dcpy.plots.liney([tides['M2'], 2*tides['M2'],
+                              3*tides['M2'], self.inertial, 1],
+                             label=['$M_2$', '$2M_2$', '$3M_2$', '$f_0$', 'd'],
+                             lw=1, color='w', ax=ax, zorder=10)
+
+            # (np.sqrt(N2)*86400).plot.line(x='time', color='k', ax=ax,
+            #                               add_legend=False)
+
+            ax.text(0.05, 0.05, label + ' ' + name,
+                    color='k',
+                    horizontalalignment='left',
+                    transform=ax.transAxes)
+
+            return hdl
+
+        if self.kind == 'ebob':
+            hdlcw = plot_spec(ax['cw'], shear.cw, 'CW shear')
+            plot_spec(ax['ccw'], shear.ccw, 'CCW shear', levels=hdlcw.levels)
+            add_colorbar(f, ax['cw'], hdlcw)
+
+            Tmean = (self.ctd['T'].sel(depth2=depth_range)
+                     .interpolate_na(dim='time')
+                     .dropna(dim='depth2', how='any'))
+
+            # T = dcpy.ts.Spectrogram(Tmean.mean(dim='depth2'),
+            #                         dim='time', multitaper=True,
+            #                         dt=1/144, nfft=nfft*6, shift=shift*6)
+
+            N2 = dcpy.ts.Spectrogram(self.N2.mean(dim='depth')
+                                     .dropna(dim='time'),
+                                     dim='time', multitaper=True,
+                                     dt=1/144, nfft=nfft*6, shift=shift*6)
+
+            hdlT = plot_spec(ax['T'], N2, '$N^2$')
+            add_colorbar(f, ax['T'], hdlT)
+
+            zpod = self.zχpod.where(self.zχpod > 10)
+            (self.ctd['T']
+             .sel(depth2=slice(np.nanmin(zpod)-10,
+                               np.nanmax(zpod)+10))
+             .plot.contourf(levels=20, x='time', ax=ax['ts1'],
+                            cmap=mpl.cm.RdYlBu_r, yincrease=False,
+                            robust=True))
+
+            dcpy.plots.liney([depth_range.start, depth_range.stop],
+                             ax=ax['ts1'], zorder=10)
+
+            self.ctd.depth[-2, :].plot(ax=ax['ts1'], color='k', lw=0.5)
+            self.PlotχpodDepth(ax=ax['ts1'], lw=0.5)
+            # nz = len(Tmean.depth2)
+            # (Tmean.isel(depth2=(np.linspace(1, nz-1, 3).astype('int32')))
+            #  .plot.line(x='time', ax=ax['ts1'], lw=0.5))
+
+        elif self.kind == 'rama':
+            a = 1
+
+        # self.tropflux.tau.plot(x='time', ax=ax['ts1'])
+        # plot_spec(ax['stress'], tau)
+
+        lineargs = dict(x='time', yscale='log', lw=0.5)
+
+        (self.ε.resample(time='6H').mean(dim='time')
+         .plot.line(ax=ax['eps'], **lineargs))
+
+        (self.KT.resample(time='6H').mean(dim='time')
+         .plot.line(ax=ax['KT'], **lineargs))
+
+        [aa.set_xlabel('') for aa in axes[:-1, :].flat]
+        # ax[-1].set_xlim([self.KT.time.min().values,
+        #                  self.KT.time.max().values])
+        f.suptitle(self.name)
+
+        for aa in axes.flat:
+            self.MarkSeasonsAndEvents(aa)
+
+        return ax
