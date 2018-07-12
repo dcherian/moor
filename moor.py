@@ -2445,3 +2445,119 @@ class moor:
             if savefig:
                 plt.savefig('images/summary-'
                             + name + '.png', bbox_inches='tight')
+
+    def plot_turb_wavelet(self):
+
+        from dcpy.ts import wavelet
+
+        tides = dcpy.ts.TidalAliases(1/24)
+
+        def common(axes):
+            for ax in axes.flat:
+                ax.set_yscale('log')
+                ax.invert_yaxis()
+                ax.axhline(1/tides['M2'], color='k')
+                ax.axhline(1/self.inertial, color='k')
+
+
+        # get a range of depths that the χpods cover
+        # calcualte mean KE over that depth & then wavelet transform
+        meanz = self.zχpod.mean(dim='time')
+        stdz = self.zχpod.std(dim='time')
+
+        if self.kind == 'ebob':
+            depth_range = slice((meanz.min()-2*stdz.max()).values,
+                                (meanz.max()+2*stdz.max()).values)
+        elif self.kind == 'rama':
+            depth_range = self.vel.u.depth
+
+        ke = wavelet((self.vel.u**2 + self.vel.v**2)
+                     .sel(depth=depth_range)
+                     .mean(dim='depth')
+                     .squeeze()
+                     .dropna(dim='time'),
+                     dt=(self.vel.u.time.diff(dim='time').values[0]
+                         / np.timedelta64(1, 'D')))
+        ke.period.attrs['units'] = 'days'
+        ke.power.attrs['long_name'] = 'KE power'
+
+        if self.kind == 'ebob':
+            shear = wavelet((self.vel.shear)
+                            .sel(depth_shear=depth_range)
+                            .mean(dim='depth_shear'),
+                            dt=1/24)
+            shear.period.attrs['units'] = 'days'
+            shear.power.attrs['long_name'] = 'shear power'
+
+        # T = wavelet((self.ctd.T_S[2, :]), dt=1/6/24)
+        # T.period.attrs['units'] = 'days'
+        # T.power.attrs['long_name'] = 'Temp. Power'
+
+        flux = wavelet(self.tropflux.swr.sel(time=slice('2012', '2016')),
+                       dt=1)
+        flux.period.attrs['units'] = 'days'
+        flux.power.attrs['long_name'] = 'Shortwave power'
+
+        tau = wavelet(self.tropflux.tau.sel(time=slice('2013', '2015')),
+                      dt=1)
+        tau.period.attrs['units'] = 'days'
+        tau.power.attrs['long_name'] = 'τ power'
+
+        kwargs = dict(levels=15, robust=True,
+                      center=False, cmap=svc.cm.blue_orange_div)
+
+        ax = dict()
+        f, axes = plt.subplots(3, 2, sharex=True, constrained_layout=True)
+        f.set_size_inches((12, 6))
+
+        ax['flux'] = axes[0, 0]
+        ax['stress'] = axes[0, 1]
+
+        ax['shear'] = axes[1, 0]
+        ax['KE'] = axes[1, 1]
+
+        ax['eps'] = axes[2, 0]
+        ax['KT'] = axes[2, 1]
+
+        (np.log10(ke.power)
+         .plot.contourf(**kwargs, ax=ax['KE'],
+                        cbar_kwargs=dict(label=('log$_{10}$' +
+                                                ke.power.attrs['long_name']))))
+
+        if self.kind == 'ebob':
+            (np.log10(shear.power)
+             .plot.contourf(**kwargs, ax=ax['shear'],
+                            cbar_kwargs=dict(
+                                label=('log$_{10}$ ' +
+                                       shear.power.attrs['long_name']))))
+        elif self.kind == 'rama':
+            (np.log10(ke.power)
+             .plot.contourf(**kwargs, ax=ax['shear'],
+                            cbar_kwargs=dict(label=('log$_{10}$' +
+                                                    ke.power.attrs['long_name']))))
+
+        (np.log10(flux.power)
+         .plot.contourf(**kwargs, ax=ax['flux'],
+                        cbar_kwargs=dict(label=('log$_{10}$ ' +
+                                                flux.power.attrs['long_name']))))
+        (np.log10(tau.power)
+         .plot.contourf(**kwargs, ax=ax['stress'],
+                        cbar_kwargs=dict(label=('log$_{10}$ ' +
+                                                tau.power.attrs['long_name']))))
+
+        lineargs = dict(x='time', yscale='log', lw=0.5)
+        (self.ε.resample(time='D').mean(dim='time')
+         .plot.line(ax=ax['eps'], **lineargs))
+
+        (self.KT.resample(time='D').mean(dim='time')
+         .plot.line(ax=ax['KT'], **lineargs))
+
+        [aa.set_xlabel('') for aa in axes[:-1,:].flat]
+        # ax[-1].set_xlim([self.KT.time.min().values,
+        #                  self.KT.time.max().values])
+        f.suptitle(self.name)
+
+        common(axes[:-1, :])
+
+        for aa in axes.flat:
+            self.MarkSeasonsAndEvents(aa)
