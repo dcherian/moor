@@ -5,13 +5,20 @@ import pandas as pd
 import scipy as sp
 import xarray as xr
 import seawater as sw
+import airsea
 
 import dcpy.plots
 import dcpy.ts
 import dcpy.util
 import dcpy.oceans
+from dcpy.util import mdatenum2dt64
 
 import sciviscolor as svc
+
+
+def _get_dt_in_days(time):
+    return (time.diff(dim='time').median().values
+            / np.timedelta64(1, 'D'))
 
 
 def _decode_time(t0, t1):
@@ -591,7 +598,6 @@ class moor:
 
     def ReadMet(self, fname: str=None, WindType='', FluxType=''):
 
-        import airsea as air
         from dcpy.util import mdatenum2dt64
 
         if WindType == 'pmel':
@@ -601,7 +607,7 @@ class moor:
             met = xr.open_dataset(fname, autoclose=True)
             spd = met.WS_401.squeeze()
             z0 = abs(met['depu'][0])
-            τ = air.windstress.stress(spd, z0, drag='smith')
+            τ = airsea.windstress.stress(spd, z0, drag='smith')
 
             self.met = xr.merge([self.met,
                                  xr.DataArray(τ, coords=[met.time.values],
@@ -731,6 +737,36 @@ class moor:
 
         self.deployments.append(name)
         self.deploy[name] = _decode_time(t0, t1)
+
+    def calc_near_inertial_input(self):
+        loc = '/home/deepak/datasets/ncep/'
+
+        uwind = (xr.open_mfdataset(loc + 'uwnd*', autoclose=True)
+                 .sel(lon=self.lon, lat=self.lat, method='nearest')
+                 .uwnd
+                 .load())
+
+        vwind = (xr.open_mfdataset(loc + 'vwnd*.nc', autoclose=True)
+                 .sel(lon=self.lon, lat=self.lat, method='nearest')
+                 .vwnd
+                 .load())
+
+        # complex demodulate to get near-inertial currents
+        dm = dcpy.ts.complex_demodulate(
+            self.vel.w.isel(depth=0).squeeze(),
+            central_period=1/self.inertial,
+            cycles_per='D', hw=3, debug=False
+        )
+
+        tau = (xr.DataArray(
+            airsea.windstress.stress(np.hypot(uwind, vwind))
+            * np.exp(1j * np.angle(uwind + 1j*vwind)),
+            dims=uwind.dims, coords=uwind.coords)
+               .interp(time=dm.time))
+
+        niwflux = tau.real * dm.cw.real + tau.imag * dm.cw.imag
+
+        return niwflux
 
     def ReadVel(self, fname, FileType: str='ebob'):
         ''' Read velocity data '''
