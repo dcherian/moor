@@ -1052,13 +1052,15 @@ class moor:
 
         return hquiv
 
-    def MarkSeasonsAndEvents(self, ax=None, season=True, events=True):
+    def MarkSeasonsAndEvents(self, ax=None, season=True, events=True, zorder=-10):
         import matplotlib.dates as dt
-
-        xlim = ax.get_xlim()
 
         if ax is None:
             ax = plt.gca()
+
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+
         if season:
             seasonColor = {
                 'NE': 'beige',
@@ -1070,23 +1072,22 @@ class moor:
             for pp in self.season:
                 for ss in self.season[pp]:
                     clr = seasonColor[ss]
-                    ylim = ax.get_ylim()
                     xx = dt.date2num(self.season[pp][ss])
-                    ax.fill_between(xx, ylim[1], ylim[0],
+                    ax.fill_between(xx, 0, 1,
+                                    transform=ax.get_xaxis_transform('grid'),
                                     facecolor=clr, alpha=0.35,
-                                    zorder=-10, edgecolor=None)
-                    ax.set_ylim(ylim)
+                                    zorder=zorder, edgecolor=None)
 
         if events:
             for ss in self.events:
-                ylim = ax.get_ylim()
                 xx = dt.date2num(self.events[ss])
-                ax.fill_between(xx, ylim[1], ylim[0],
+                ax.fill_between(xx, 0, 1,
+                                transform=ax.get_xaxis_transform('grid'),
                                 facecolor='#dddddd', alpha=0.35,
-                                zorder=-5)
-                ax.set_ylim(ylim)
+                                zorder=zorder+1)
 
         ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
 
     def PlotCTD(self, name, ax=None, filt=None, filter_len=None,
                 add_mld=True, kind='timeseries', lw=1, region={}, **kwargs):
