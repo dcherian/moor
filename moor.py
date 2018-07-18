@@ -2620,27 +2620,14 @@ class moor:
 
         # get a range of depths that the χpods cover
         # calcualte mean KE over that depth & then wavelet transform
-        meanz = self.zχpod.mean(dim='time')
-        stdz = self.zχpod.std(dim='time')
+        # meanz = self.zχpod.mean(dim='time')
+        # stdz = self.zχpod.std(dim='time')
 
-        if self.kind == 'ebob':
-            depth_range = slice((meanz.min()-2*stdz.max()).values,
-                                (meanz.max()+2*stdz.max()).values)
-        elif self.kind == 'rama':
-            depth_range = self.vel.u.depth
-
-        depth_range = slice(100, 120, None)
-
-        if self.kind == 'ebob':
-            shear = dcpy.ts.Spectrogram((self.vel.uz + 1j * self.vel.vz)
-                                        .sel(depth_shear=depth_range)
-                                        .mean(dim='depth_shear')
-                                        .interpolate_na(dim='time'),
-                                        dim='time',
-                                        nfft=nfft, shift=shift,
-                                        multitaper=True, dt=1/24)
-            shear.freq.attrs['units'] = 'cpd'
-
+        # if self.kind == 'ebob':
+        #     depth_range = slice((meanz.min()-2*stdz.max()).values,
+        #                         (meanz.max()+2*stdz.max()).values)
+        # elif self.kind == 'rama':
+        #     depth_range = self.vel.u.depth
         # tau = dcpy.ts.Spectrogram(
         #     self.tropflux.tau.sel(time=slice('2013', '2015')).squeeze(),
         #     dim='time', nfft=30, shift=2, multitaper=True, dt=1)
@@ -2652,25 +2639,28 @@ class moor:
         #     nfft=60, shift=2, multitaper=True, dt=1)
         # tau.freq.attrs['units'] = 'cpd'
 
-        label = (str(np.floor(depth_range.start)) + '-'
-                 + str(np.floor(depth_range.stop))
-                 + 'm')
+        # label = (str(np.floor(depth_range.start)) + '-'
+        #          + str(np.floor(depth_range.stop))
+        #          + 'm')
 
         ax = dict()
-        f, axes = plt.subplots(3, 2, sharex=True, constrained_layout=True)
-        f.set_size_inches((12, 6))
+        ax['z0'] = dict()
+        ax['z1'] = dict()
 
-        # ax['ts1'] = axes[0, 0]
-        # ax['ts2'] = axes[0, 1]
+        lineargs = dict(x='time', yscale='log', lw=0.5)
 
-        ax['cw'] = axes[0, 0]
-        ax['ts1'] = axes[0, 1]
+        f, axes = plt.subplots(3, 4, sharex=True, constrained_layout=True)
+        f.set_size_inches((16, 9))
 
-        ax['ccw'] = axes[1, 0]
-        ax['T'] = axes[1, 1]
-
-        ax['eps'] = axes[2, 0]
-        ax['KT'] = axes[2, 1]
+        for ii in ['0', '1']:
+            col1 = 0 if ii == '0' else 2
+            col2 = col1 + 1
+            ax['z'+ii]['cw'] = axes[0, col1]
+            ax['z'+ii]['ccw'] = axes[1, col1]
+            ax['z'+ii]['Tz'] = axes[0, col2]
+            ax['z'+ii]['N2'] = axes[1, col2]
+            ax['z'+ii]['turb'] = axes[2, col1]
+            ax['z'+ii]['ts'] = axes[2, col2]
 
         def add_colorbar(f, ax, hdl):
             # if not hasattr(ax, '__iter__'):
@@ -2700,47 +2690,99 @@ class moor:
             # (np.sqrt(N2)*86400).plot.line(x='time', color='k', ax=ax,
             #                               add_legend=False)
 
-            ax.text(0.05, 0.05, label + ' ' + name,
+            ax.text(0.05, 0.05, name,
                     color='k',
                     horizontalalignment='left',
                     transform=ax.transAxes)
 
+            self.MarkSeasonsAndEvents(ax=ax, season=False, zorder=3)
+
             return hdl
 
+        def interpolate_shear(shear, z):
+            newz = (z.interp(time=shear.time)
+                    .dropna(dim='time'))
+            uzi = xr.DataArray(
+                np.diag(shear.sel(time=newz.time)
+                        .interp(depth_shear=newz.values)),
+                dims=['time'], coords={'time': newz.time})
+
+            return uzi
+
+        hdlcw = []
+        hdlccw = []
+        hdlN = []
+        hdlT = []
+
         if self.kind == 'ebob':
-            hdlcw = plot_spec(ax['cw'], shear.cw, 'CW shear')
-            plot_spec(ax['ccw'], shear.ccw, 'CCW shear', levels=hdlcw.levels)
-            add_colorbar(f, ax['cw'], hdlcw)
+            for zz in np.arange(len(self.N2.depth)):
+                z = self.zχpod.copy().isel(num=zz).drop('num')
+                if zz == 0:
+                    z -= 30
 
-            Tmean = (self.ctd['T'].sel(depth2=depth_range)
-                     .interpolate_na(dim='time')
-                     .dropna(dim='depth2', how='any'))
+                uzi = interpolate_shear(self.vel.uz, z)
+                vzi = interpolate_shear(self.vel.vz, z)
+                shear = dcpy.ts.Spectrogram((uzi + 1j * vzi)
+                                            .interpolate_na(dim='time')
+                                            .dropna(dim='time'),
+                                            dim='time', nfft=nfft, shift=shift,
+                                            multitaper=True, dt=1/24)
+                shear.freq.attrs['units'] = 'cpd'
 
-            # T = dcpy.ts.Spectrogram(Tmean.mean(dim='depth2'),
-            #                         dim='time', multitaper=True,
-            #                         dt=1/144, nfft=nfft*6, shift=shift*6)
+                N2 = dcpy.ts.Spectrogram(self.N2.isel(depth=zz)
+                                         .dropna(dim='time'),
+                                         dim='time', multitaper=True,
+                                         dt=1/144, nfft=nfft*6, shift=shift*6)
 
-            N2 = dcpy.ts.Spectrogram(self.N2.mean(dim='depth')
-                                     .dropna(dim='time'),
-                                     dim='time', multitaper=True,
-                                     dt=1/144, nfft=nfft*6, shift=shift*6)
+                Tz = dcpy.ts.Spectrogram(self.Tz.isel(depth=zz)
+                                         .dropna(dim='time'),
+                                         dim='time', multitaper=True,
+                                         dt=1/144, nfft=nfft*6, shift=shift*6)
 
-            hdlT = plot_spec(ax['T'], N2, '$N^2$')
-            add_colorbar(f, ax['T'], hdlT)
+                zname = 'z' + str(zz)
 
-            zpod = self.zχpod.where(self.zχpod > 10)
-            (self.ctd['T']
-             .sel(depth2=slice(np.nanmin(zpod)-10,
-                               np.nanmax(zpod)+10))
-             .plot.contourf(levels=20, x='time', ax=ax['ts1'],
-                            cmap=mpl.cm.RdYlBu_r, yincrease=False,
-                            robust=True))
+                (self.ε.isel(depth=zz)
+                 .resample(time='6H').mean(dim='time')
+                 .plot.line(ax=ax[zname]['turb'], **lineargs))
 
-            dcpy.plots.liney([depth_range.start, depth_range.stop],
-                             ax=ax['ts1'], zorder=10)
+                (self.KT.isel(depth=zz)
+                 .resample(time='6H').mean(dim='time')
+                 .plot.line(ax=ax[zname]['turb'], **lineargs))
 
-            self.ctd.depth[-2, :].plot(ax=ax['ts1'], color='k', lw=0.5)
-            self.PlotχpodDepth(ax=ax['ts1'], lw=0.5)
+                ax[zname]['turb'].legend(['$\epsilon$', '$K_T$'])
+                ax[zname]['turb'].set_ylabel('')
+
+                hdlcw.append(plot_spec(ax[zname]['cw'], shear.cw, 'CW shear'))
+                hdlccw.append(plot_spec(ax[zname]['ccw'], shear.ccw,
+                                        'CCW shear', levels=hdlcw[-1].levels))
+
+                hdlT.append(plot_spec(ax[zname]['Tz'], Tz, '$dT/dz$'))
+                hdlN.append(plot_spec(ax[zname]['N2'], N2, '$N^2$'))
+
+            self.tropflux.tau.plot(x='time', ax=ax['z0']['ts'], lw=0.5,
+                                   color='k')
+            if self.ssh is not []:
+                ((self.ssh.EKE/2).plot(ax=ax['z0']['ts']))
+                (self.ssh.sla.plot(ax=ax['z0']['ts']))
+                ax['z0']['ts'].axhline(0, zorder=-10, color='gray', ls='--')
+            ax['z0']['ts'].legend(['τ', 'EKE/2', 'SSHA'])
+            self.MarkSeasonsAndEvents(ax['z0']['ts'])
+
+            # add_colorbar(f, ax['T'], hdlT)
+
+            # zpod = self.zχpod.where(self.zχpod > 10)
+            # (self.ctd['T']
+            #  .sel(depth2=slice(np.nanmin(zpod)-10,
+            #                    np.nanmax(zpod)+10))
+            #  .plot.contourf(levels=20, x='time', ax=ax['ts1'],
+            #                 cmap=mpl.cm.RdYlBu_r, yincrease=False,
+            #                 robust=True))
+
+            # dcpy.plots.liney([depth_range.start, depth_range.stop],
+            #                  ax=ax['ts1'], zorder=10)
+
+            # self.ctd.depth[-2, :].plot(ax=ax['ts1'], color='k', lw=0.5)
+            # self.PlotχpodDepth(ax=ax['ts1'], lw=0.5)
             # nz = len(Tmean.depth2)
             # (Tmean.isel(depth2=(np.linspace(1, nz-1, 3).astype('int32')))
             #  .plot.line(x='time', ax=ax['ts1'], lw=0.5))
@@ -2748,23 +2790,196 @@ class moor:
         elif self.kind == 'rama':
             a = 1
 
+        hdlT[1].levels = hdlT[0].levels
+        hdlN[1].levels = hdlN[0].levels
+        hdlcw[1].levels = hdlcw[0].levels
+        hdlccw[1].levels = hdlcw[0].levels
+
         # self.tropflux.tau.plot(x='time', ax=ax['ts1'])
         # plot_spec(ax['stress'], tau)
 
-        lineargs = dict(x='time', yscale='log', lw=0.5)
-
-        (self.ε.resample(time='6H').mean(dim='time')
-         .plot.line(ax=ax['eps'], **lineargs))
-
-        (self.KT.resample(time='6H').mean(dim='time')
-         .plot.line(ax=ax['KT'], **lineargs))
-
         [aa.set_xlabel('') for aa in axes[:-1, :].flat]
-        # ax[-1].set_xlim([self.KT.time.min().values,
-        #                  self.KT.time.max().values])
+        axes.flat[-1].set_xlim([self.KT.time.min().values,
+                                self.KT.time.max().values])
         f.suptitle(self.name)
 
         for aa in axes.flat:
             self.MarkSeasonsAndEvents(aa)
 
-        return ax
+        ax['z0']['turb'].set_ylim([1e-12, 1e-1])
+        ax['z1']['turb'].set_ylim([1e-12, 1e-1])
+
+        for aa in axes[0:2, 1:].flat:
+            aa.set_ylabel('', visible=False)
+
+        hdls = dict(cw=hdlcw, ccw=hdlccw,
+                    Tz=hdlT, N2=hdlN)
+
+        return ax, hdls
+
+    def plot_mixing_seasons(self, z=120):
+
+        def setup_figure():
+            f = plt.figure(constrained_layout=True)
+            f.set_size_inches((16, 9))
+
+            if self.kind == 'rama':
+                gs = mpl.gridspec.GridSpec(3, 3, figure=f,
+                                           height_ratios=[1, 2, 1])
+            elif self.kind == 'ebob':
+                gs = mpl.gridspec.GridSpec(3, 3, figure=f,
+                                           height_ratios=[1, 2, 2])
+
+            ax = dict()
+            ax['ts'] = f.add_subplot(gs[0, :])
+            ax['ts1'] = ax['ts'].twinx()
+            ax['ts1'].spines['right'].set_visible(True)
+            ax['vcw'] = f.add_subplot(gs[1, 0])
+            ax['vccw'] = f.add_subplot(gs[1, 1], sharex=ax['vcw'])
+            ax['T'] = f.add_subplot(gs[1, 2])
+            if self.kind == 'ebob':
+                ax['scw'] = f.add_subplot(gs[2, 0], sharex=ax['vcw'])
+                ax['sccw'] = f.add_subplot(gs[2, 1], sharex=ax['vcw'])
+                ax['shear'] = f.add_subplot(gs[2, 2])
+            else:
+                ax['ts2'] = f.add_subplot(gs[2, :], sharex=ax['ts'])
+
+            return f, ax
+
+        if self.kind == 'ebob':
+            uz = (self.vel.uz
+                  .sel(depth_shear=z, method='nearest')
+                  .interpolate_na(dim='time')
+                  .dropna(dim='time'))
+
+            vz = (self.vel.vz
+                  .sel(depth_shear=z, method='nearest')
+                  .interpolate_na(dim='time')
+                  .dropna(dim='time'))
+            wz = (uz + 1j * vz)
+            wz.name = 'shear'
+
+            # T = ((self.ctd['T'])
+            #      .sel(depth2=z, method='nearest')
+            #      .interpolate_na(dim='time')
+            #      .dropna(dim='time'))
+
+        # else:
+            # T = ((self.ctd['T'])
+            #      .sel(depth=z, method='nearest')
+            #      .interpolate_na(dim='time')
+            #      .dropna(dim='time'))
+
+        u = (self.vel.u
+             .sel(depth=z, method='nearest')
+             .interpolate_na(dim='time')
+             .dropna(dim='time'))
+        v = (self.vel.v
+             .sel(depth=z, method='nearest')
+             .interpolate_na(dim='time')
+             .dropna(dim='time'))
+        w = (u + 1j * v)
+        w.name = 'velocity'
+
+        kwargs = dict(multitaper=True, preserve_area=False,
+                      linearx=False, lw=0.75)
+
+        for idx, unit in enumerate(self.χpod):
+            pod = self.χpod[unit]
+
+            time_range = slice(mdatenum2dt64(pod.time[0]),
+                               mdatenum2dt64(pod.time[-1]))
+
+            if len(pod.mixing_seasons) == 0:
+                continue
+
+            f, ax = setup_figure()
+
+            KT = (self.KT.isel(depth=idx)
+                  .sel(time=time_range)
+                  .resample(time='6H').mean(dim='time'))
+            KT.attrs = self.KT.attrs
+
+            eps = (self.ε.isel(depth=idx)
+                   .sel(time=time_range)
+                   .resample(time='6H').mean(dim='time'))
+            eps.values[eps.values < 1e-12] = 1e-12
+            eps.attrs = self.ε.attrs
+
+            KT.plot.line(x='time', ax=ax['ts'], yscale='log', color='k')
+            eps.plot.line(x='time', ax=ax['ts1'], yscale='log', color='teal')
+            # ax['ts'].legend(['$K_T$', '$ε$'])
+            ax['ts'].set_xlabel('')
+            ax['ts'].autoscale(enable=True, tight=True)
+            ax['ts1'].autoscale(enable=True, tight=True)
+
+            if 'ts2' in ax:
+                (self.met.τ.sel(time=time_range)
+                 .resample(time='6H').mean(dim='time')
+                 .plot(x='time', ax=ax['ts2'], color='k', ylim=[0, 0.3]))
+
+            # iterate over regions
+            for region in pod.mixing_seasons.values():
+                hdl, _ = dcpy.ts.PlotSpectrum(w.sel(time=region),
+                                              dt=_get_dt_in_days(w.time),
+                                              ax=[ax['vcw'], ax['vccw']], **kwargs)
+                ax['ts'].axvspan(region.start, region.stop,
+                                 facecolor=hdl[0].get_color(),
+                                 alpha=0.1, zorder=-2)
+
+                if 'ts2' in ax:
+                    ax['ts2'].axvspan(region.start, region.stop,
+                                      facecolor=hdl[0].get_color(),
+                                      alpha=0.1, zorder=-2)
+
+                if 'wz' in locals():
+                    dcpy.ts.PlotSpectrum(wz.sel(time=region),
+                                         dt=_get_dt_in_days(wz.time),
+                                         ax=[ax['scw'], ax['sccw']], **kwargs)
+
+                # dcpy.ts.PlotSpectrum(T.sel(time=region),
+                #                      dt=_get_dt_in_days(T.time),
+                #                      ax=ax['T'], **kwargs)
+
+                dcpy.ts.PlotSpectrum(np.log10(eps.sel(time=region)),
+                                     dt=_get_dt_in_days(eps.time),
+                                     ax=ax['T'], **kwargs)
+
+                # dcpy.ts.PlotSpectrum(np.log10(KT.sel(time=region)),
+                #                      dt=_get_dt_in_days(KT.time),
+                #                      multitaper=True,
+                #                      ax=ax['shear'])
+
+                if 'shear' in self.vel:
+                    shear = self.vel.shear.sel(time=region,
+                                               depth_shear=slice(10, None))
+                    shear = shear.where(shear < np.nanpercentile(shear, 98))
+                    mean = (shear.mean(dim='time'))
+                    mean.attrs['long_name'] = 'Time-mean shear'
+                    mean.attrs['units'] = '1/s'
+                    mean.depth_shear.attrs['long_name'] = 'depth'
+                    mean.depth_shear.attrs['units'] = 'm'
+                    std = self.vel.shear.sel(time=region).std(dim='time')
+                    (mean.plot.line(x='depth_shear', ax=ax['shear']))
+
+            ax['vcw'].invert_xaxis()
+
+            for aa in [ax['vcw'], ax['vccw'], ax['T']]:
+                txt = aa.get_title()
+                aa.text(0.1, 0.1, txt, transform=aa.transAxes)
+                aa.set_title('')
+
+            if self.kind == 'ebob':
+                for aa in [ax['scw'], ax['sccw']]:
+                    txt = aa.get_title()
+                    aa.text(0.1, 0.1, txt, transform=aa.transAxes)
+                    aa.set_title('')
+
+            axlist = list(ax.values())[2:-1]
+            tides = dcpy.ts.TidalAliases(dt=1/24)
+            dcpy.plots.linex(np.array([1, 2, 3, 4, 5])*tides['M2'], ax=axlist)
+            dcpy.plots.linex(self.inertial, ax=axlist)
+
+            f.suptitle(self.name + ': velocity, T @ ' + str(z) + 'm')
+
+            return ax
