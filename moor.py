@@ -605,13 +605,20 @@ class moor:
                 raise ValueError('I need a filename for PMEL met data!')
 
             met = xr.open_dataset(fname, autoclose=True)
-            spd = met.WS_401.squeeze()
+            spd = met.WS_401.where(met.WS_401 < 100).squeeze()
+            wu = met.WU_422.where(met.WU_422 < 100).squeeze()
+            wv = met.WV_423.where(met.WV_423 < 100).squeeze()
             z0 = abs(met['depu'][0])
-            τ = airsea.windstress.stress(spd, z0, drag='smith')
+            τ = xr.DataArray(airsea.windstress.stress(spd, z0, drag='smith'),
+                             dims=['time'], coords=[met.time.values],
+                             name='τ')
+            tau = τ * np.exp(1j * np.angle(wu + 1j*wv))
+            taux = xr.DataArray(tau.real, dims=['time'], coords=[met.time.values],
+                                name='taux')
+            tauy = xr.DataArray(tau.imag, dims=['time'], coords=[met.time.values],
+                                name='tauy')
 
-            self.met = xr.merge([self.met,
-                                 xr.DataArray(τ, coords=[met.time.values],
-                                              dims=['time'], name='τ')])
+            self.met = xr.merge([self.met, τ, taux, tauy])
 
         elif FluxType == 'merged':
             from scipy.io import loadmat
