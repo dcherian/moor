@@ -2962,9 +2962,14 @@ class moor:
 
             # iterate over regions
             for region in pod.mixing_seasons.values():
-                hdl, _ = dcpy.ts.PlotSpectrum(w.sel(time=region),
-                                              dt=_get_dt_in_days(w.time),
-                                              ax=[ax['vcw'], ax['vccw']], **kwargs)
+                try:
+                    hdl, _ = dcpy.ts.PlotSpectrum(w.sel(time=region),
+                                                  dt=_get_dt_in_days(w.time),
+                                                  ax=[ax['vcw'], ax['vccw']],
+                                                  **kwargs)
+                except ValueError:
+                    pass
+
                 ax['ts'].axvspan(region.start, region.stop,
                                  facecolor=hdl[0].get_color(),
                                  alpha=0.1, zorder=-2)
