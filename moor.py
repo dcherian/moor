@@ -746,34 +746,64 @@ class moor:
         self.deploy[name] = _decode_time(t0, t1)
 
     def calc_near_inertial_input(self):
-        loc = '/home/deepak/datasets/ncep/'
+        if self.kind is not 'rama':
+            loc = '/home/deepak/datasets/ncep/'
 
-        uwind = (xr.open_mfdataset(loc + 'uwnd*', autoclose=True)
-                 .sel(lon=self.lon, lat=self.lat, method='nearest')
-                 .uwnd
-                 .load())
+            uwind = (xr.open_mfdataset(loc + 'uwnd*', autoclose=True)
+                     .sel(lon=self.lon, lat=self.lat, method='nearest')
+                     .uwnd
+                     .load())
 
-        vwind = (xr.open_mfdataset(loc + 'vwnd*.nc', autoclose=True)
-                 .sel(lon=self.lon, lat=self.lat, method='nearest')
-                 .vwnd
-                 .load())
+            vwind = (xr.open_mfdataset(loc + 'vwnd*.nc', autoclose=True)
+                     .sel(lon=self.lon, lat=self.lat, method='nearest')
+                     .vwnd
+                     .load())
+
+            tau = xr.DataArray(
+                airsea.windstress.stress(np.hypot(uwind, vwind))
+                * np.exp(1j * np.angle(uwind + 1j*vwind)),
+                dims=uwind.dims, coords=uwind.coords)
+
+        else:
+            tau = (self.met.taux.interp(time=self.vel.time)
+                   + 1j * self.met.tauy.interp(time=self.vel.time))
 
         # complex demodulate to get near-inertial currents
         dm = dcpy.ts.complex_demodulate(
             self.vel.w.isel(depth=0).squeeze(),
-            central_period=1/self.inertial,
-            cycles_per='D', hw=3, debug=False
+            central_period=1/self.inertial/1.05,
+            cycles_per='D', bw=0.3, debug=False
         )
-
-        tau = (xr.DataArray(
-            airsea.windstress.stress(np.hypot(uwind, vwind))
-            * np.exp(1j * np.angle(uwind + 1j*vwind)),
-            dims=uwind.dims, coords=uwind.coords)
-               .interp(time=dm.time))
 
         niwflux = tau.real * dm.cw.real + tau.imag * dm.cw.imag
 
-        return niwflux
+        self.niw = xr.Dataset()
+        self.niw['u'] = dm.cw.real
+        self.niw['v'] = dm.cw.imag
+        self.niw['KE'] = self.niw.u**2 + self.niw.v**2
+        self.niw['amp'] = np.abs(dm.cw)
+        self.niw['pha'] = xr.DataArray(np.angle(dm.cw),
+                                       dims=self.niw.amp.dims,
+                                       coords=self.niw.amp.coords)
+        self.niw['flux'] = niwflux
+
+        plt.figure()
+        np.abs(dm.cw).plot()
+        np.abs(dm.ccw).plot()
+        plt.legend(['cw', 'ccw'])
+
+        f, ax = plt.subplots(4, 1, sharex=True)
+        self.met.τ.plot(ax=ax[0])
+        niwflux.plot(ax=ax[1])
+
+        tau.real.plot(ax=ax[2])
+        dm.cw.real.plot(ax=ax[2])
+        tau.imag.plot(ax=ax[3])
+        dm.cw.imag.plot(ax=ax[3])
+
+        [self.MarkSeasonsAndEvents(aa) for aa in ax]
+
+        return niwflux, dm
 
     def ReadVel(self, fname, FileType: str='ebob'):
         ''' Read velocity data '''
