@@ -1278,11 +1278,15 @@ class moor:
         return region
 
     def met_turb_summary(self, filt='mean', filter_len=86400, region={},
-                         met='tropflux', naxes=2):
+                         met='tropflux', naxes=2, ax=[]):
 
         from dcpy.ts import xfilter
 
-        f, axx = plt.subplots(naxes, 1, sharex=True)
+        if len(ax) == 0:
+            f, axx = plt.subplots(naxes, 1, sharex=True)
+        else:
+            axx = ax
+
         ax = {'met': axx[0], 'Kt': axx[1]}
         if naxes > 2:
             ax['rest'] = axx[2:]
@@ -1395,11 +1399,10 @@ class moor:
 
     def Plotχpods(self, est: str='best', filt='mean', filter_len=86400,
                   quiv=False, TSkind='pcolor', region={},
-                  Tlim=[None,None], Slim=[None, None], add_mld=False,
+                  Tlim=[None, None], Slim=[None, None], add_mld=False,
                   met='local', fluxvar='netflux', tau='local', event=None):
         ''' Summary plot for all χpods '''
 
-        from dcpy.util import dt64_to_datenum
         from dcpy.ts import xfilter
 
         plt.figure(figsize=[11.0, 6])
@@ -2898,6 +2901,8 @@ class moor:
                                mdatenum2dt64(pod.time[-1]))
 
             if len(pod.mixing_seasons) == 0:
+                print('No mixing seasons defined for unit '
+                      + str(unit))
                 continue
 
             f, ax = setup_figure()
