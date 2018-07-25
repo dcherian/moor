@@ -1,5 +1,4 @@
 import numpy as np
-
 import xarray as xr
 
 
@@ -26,8 +25,8 @@ class MonsoonAccessor(object):
         obj_type = type(self._obj)
 
         return obj_type(self._obj.where(self._labels == label.upper()),
-                   name=self._obj.name+' | '+label.upper(),
-                   coords=self._obj.coords, dims=self._obj.dims)
+                        name=self._obj.name+' | '+label.upper(),
+                        coords=self._obj.coords, dims=self._obj.dims)
 
     @property
     def ne(self):
