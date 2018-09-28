@@ -1839,10 +1839,10 @@ class moor:
                          ax=ax[0], zorder=10, color='black')
 
         turb = np.log10(self.KT.isel(depth=0)
-                       .resample(time='H')
-                       .mean(dim='time')
-                       .interpolate_na(dim='time', method='linear')
-                       .dropna(dim='time'))
+                        .resample(time='H')
+                        .mean(dim='time')
+                        .interpolate_na(dim='time', method='linear')
+                        .dropna(dim='time'))
 
         turb[~np.isfinite(turb)] = 1e-12
         specturb = dcpy.ts.Spectrogram(turb, **kwargs, dt=1/24)
@@ -2676,20 +2676,21 @@ class moor:
         ax['z0'] = dict()
         ax['z1'] = dict()
 
-        lineargs = dict(x='time', yscale='log', lw=0.5)
+        lineargs = dict(x='time', yscale='log', lw=0.5, ylim=[1e-12, 1e-1])
 
-        f, axes = plt.subplots(3, 4, sharex=True, constrained_layout=True)
+        f, axes = plt.subplots(3, 3, sharex=True, constrained_layout=True)
         f.set_size_inches((16, 9))
 
-        for ii in ['0', '1']:
-            col1 = 0 if ii == '0' else 2
-            col2 = col1 + 1
-            ax['z'+ii]['cw'] = axes[0, col1]
-            ax['z'+ii]['ccw'] = axes[1, col1]
-            ax['z'+ii]['Tz'] = axes[0, col2]
-            ax['z'+ii]['N2'] = axes[1, col2]
-            ax['z'+ii]['turb'] = axes[2, col1]
-            ax['z'+ii]['ts'] = axes[2, col2]
+        ax['z1']['cw'] = axes[0, 1]
+        ax['z1']['ccw'] = axes[1, 1]
+        ax['z1']['Tz'] = axes[0, 2]
+        ax['z1']['N2'] = axes[1, 2]
+        ax['z1']['turb'] = axes[2, 1]
+        ax['ts'] = axes[2, 2]
+
+        ax['z0']['Tz'] = axes[0, 0]
+        ax['z0']['N2'] = axes[1, 0]
+        ax['z0']['turb'] = axes[2, 0]
 
         def add_colorbar(f, ax, hdl):
             # if not hasattr(ax, '__iter__'):
@@ -2779,24 +2780,27 @@ class moor:
                  .resample(time='6H').mean(dim='time')
                  .plot.line(ax=ax[zname]['turb'], **lineargs))
 
-                ax[zname]['turb'].legend(['$\epsilon$', '$K_T$'])
+                ax[zname]['turb'].legend(['$ε$', '$K_T$'])
                 ax[zname]['turb'].set_ylabel('')
 
-                hdlcw.append(plot_spec(ax[zname]['cw'], shear.cw, 'CW shear'))
-                hdlccw.append(plot_spec(ax[zname]['ccw'], shear.ccw,
-                                        'CCW shear', levels=hdlcw[-1].levels))
+                if zz == 1:
+                    hdlcw.append(plot_spec(ax[zname]['cw'], shear.cw,
+                                           'CW shear, '+depth))
+                    hdlccw.append(plot_spec(ax[zname]['ccw'], shear.ccw,
+                                            'CCW shear, '+depth,
+                                            levels=hdlcw[-1].levels))
 
-                hdlT.append(plot_spec(ax[zname]['Tz'], Tz, '$dT/dz$'))
-                hdlN.append(plot_spec(ax[zname]['N2'], N2, '$N^2$'))
+                hdlT.append(plot_spec(ax[zname]['Tz'], Tz, '$dT/dz$, '+depth))
+                hdlN.append(plot_spec(ax[zname]['N2'], N2, '$N^2$, '+depth))
 
-            self.tropflux.tau.plot(x='time', ax=ax['z0']['ts'], lw=0.5,
+            self.tropflux.tau.plot(x='time', ax=ax['ts'], lw=0.5,
                                    color='k')
             if self.ssh is not []:
-                ((self.ssh.EKE/2).plot(ax=ax['z0']['ts']))
-                (self.ssh.sla.plot(ax=ax['z0']['ts']))
-                ax['z0']['ts'].axhline(0, zorder=-10, color='gray', ls='--')
-            ax['z0']['ts'].legend(['τ', 'EKE/2', 'SSHA'])
-            self.MarkSeasonsAndEvents(ax['z0']['ts'])
+                ((self.ssh.EKE/2).plot(ax=ax['ts']))
+                (self.ssh.sla.plot(ax=ax['ts']))
+                ax['ts'].axhline(0, zorder=-10, color='gray', ls='--')
+            ax['ts'].legend(['τ', 'EKE/2', 'SSHA'])
+            self.MarkSeasonsAndEvents(ax['ts'])
 
             # add_colorbar(f, ax['T'], hdlT)
 
@@ -2822,11 +2826,6 @@ class moor:
 
         hdlT[1].levels = hdlT[0].levels
         hdlN[1].levels = hdlN[0].levels
-        hdlcw[1].levels = hdlcw[0].levels
-        hdlccw[1].levels = hdlcw[0].levels
-
-        # self.tropflux.tau.plot(x='time', ax=ax['ts1'])
-        # plot_spec(ax['stress'], tau)
 
         [aa.set_xlabel('') for aa in axes[:-1, :].flat]
         axes.flat[-1].set_xlim([self.KT.time.min().values,
@@ -2835,9 +2834,6 @@ class moor:
 
         for aa in axes.flat:
             self.MarkSeasonsAndEvents(aa)
-
-        ax['z0']['turb'].set_ylim([1e-12, 1e-1])
-        ax['z1']['turb'].set_ylim([1e-12, 1e-1])
 
         for aa in axes[0:2, 1:].flat:
             aa.set_ylabel('', visible=False)
