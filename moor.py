@@ -1,19 +1,18 @@
-import matplotlib as mpl
-import matplotlib.pyplot as plt
+import airsea
 import numpy as np
 import pandas as pd
 import scipy as sp
-import xarray as xr
 import seawater as sw
-import airsea
 
+import dcpy.oceans
 import dcpy.plots
 import dcpy.ts
 import dcpy.util
-import dcpy.oceans
-from dcpy.util import mdatenum2dt64
-
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import sciviscolor as svc
+import xarray as xr
+from dcpy.util import mdatenum2dt64
 
 
 def _get_dt_in_days(time):
