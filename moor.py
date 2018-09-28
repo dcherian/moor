@@ -838,19 +838,9 @@ class moor:
                 # last few depth levels are nonsense it looks like.
                 self.vel = self.vel.isel(depth=slice(None, -6))
 
-            dz = self.vel.u.depth.diff(dim='depth')
-
-            uz = self.vel.u.diff(dim='depth')/dz
-            vz = self.vel.v.diff(dim='depth')/dz
-            shear = np.hypot(uz, vz)
-
-            shear['depth'] = (shear.depth/1.0) - dz/2  # relocate to bin edges
-            uz['depth'] = shear.depth
-            vz['depth'] = shear.depth
-
-            self.vel['shear'] = shear.rename({'depth': 'depth_shear'})
-            self.vel['uz'] = uz.rename({'depth': 'depth_shear'})
-            self.vel['vz'] = vz.rename({'depth': 'depth_shear'})
+            self.vel['uz'] = self.vel.u.differentiate('depth')
+            self.vel['vz'] = self.vel.v.differentiate('depth')
+            self.vel['shear'] = np.hypot(self.vel.uz, self.vel.vz)
 
         self.vel['w'] = self.vel.u + 1j * self.vel.v
 
@@ -1823,7 +1813,7 @@ class moor:
 
         vel = (self.vel.sel(depth=slice(0, 120))
                .mean(dim='depth')
-               .drop(['shear', 'depth_shear']))
+               .drop(['shear', 'depth']))
         KE = 1/2 * (vel.u**2 + vel.v**2)
 
         kwargs = dict(dim='time', window=30*24, shift=2*24,
@@ -2572,8 +2562,8 @@ class moor:
 
         if self.kind == 'ebob':
             shear = wavelet((self.vel.shear)
-                            .sel(depth_shear=depth_range)
-                            .mean(dim='depth_shear'),
+                            .sel(depth=depth_range)
+                            .mean(dim='depth'),
                             dt=1/24)
             shear.period.attrs['units'] = 'days'
             shear.power.attrs['long_name'] = 'shear power'
@@ -2743,7 +2733,7 @@ class moor:
                     .dropna(dim='time'))
             uzi = xr.DataArray(
                 np.diag(shear.sel(time=newz.time)
-                        .interp(depth_shear=newz.values)),
+                        .interp(depth=newz.values)),
                 dims=['time'], coords={'time': newz.time})
 
             return uzi
@@ -2779,6 +2769,7 @@ class moor:
                                          dt=1/144, nfft=nfft*6, shift=shift*6)
 
                 zname = 'z' + str(zz)
+                depth = str(self.KT.depth.isel(depth=zz).values) + 'm'
 
                 (self.ε.isel(depth=zz)
                  .resample(time='6H').mean(dim='time')
@@ -2887,12 +2878,12 @@ class moor:
 
         if self.kind == 'ebob':
             uz = (self.vel.uz
-                  .sel(depth_shear=z, method='nearest')
+                  .sel(depth=z, method='nearest')
                   .interpolate_na(dim='time')
                   .dropna(dim='time'))
 
             vz = (self.vel.vz
-                  .sel(depth_shear=z, method='nearest')
+                  .sel(depth=z, method='nearest')
                   .interpolate_na(dim='time')
                   .dropna(dim='time'))
             wz = (uz + 1j * vz)
@@ -2998,15 +2989,15 @@ class moor:
 
                 if 'shear' in self.vel:
                     shear = self.vel.shear.sel(time=region,
-                                               depth_shear=slice(10, None))
+                                               depth=slice(10, None))
                     shear = shear.where(shear < np.nanpercentile(shear, 98))
                     mean = (shear.mean(dim='time'))
                     mean.attrs['long_name'] = 'Time-mean shear'
                     mean.attrs['units'] = '1/s'
-                    mean.depth_shear.attrs['long_name'] = 'depth'
-                    mean.depth_shear.attrs['units'] = 'm'
+                    mean.depth.attrs['long_name'] = 'depth'
+                    mean.depth.attrs['units'] = 'm'
                     std = self.vel.shear.sel(time=region).std(dim='time')
-                    (mean.plot.line(x='depth_shear', ax=ax['shear']))
+                    (mean.plot.line(x='depth', ax=ax['shear']))
 
             ax['vcw'].invert_xaxis()
 
