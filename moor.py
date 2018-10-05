@@ -415,6 +415,9 @@ class moor:
                                   'time': self.χ.time}).transpose()
         self.zχpod = da
 
+        self.KT.attrs['long_name'] = '$K_T$'
+        self.KT.attrs['units'] = '$m^2/s$'
+
     def ReadSSH(self):
         ssha = xr.open_dataset('../datasets/ssh/' +
                                'dataset-duacs-rep-global-merged' +
@@ -1315,7 +1318,7 @@ class moor:
         filtargs = {'kind': filt, 'decimate': True,
                     'flen': filter_len, 'dim': 'time'}
         lineargs = {'x': 'time', 'hue': 'depth',
-                    'linewidth': 0.5, 'add_legend': False}
+                    'linewidth': 1, 'add_legend': False}
         tauargs = {'color': 'k', 'linewidth': lineargs['linewidth'],
                    'zorder': 1, 'ax': ax['met']}
 
@@ -2732,11 +2735,11 @@ class moor:
         def interpolate_shear(shear, z):
             newz = (z.interp(time=shear.time)
                     .dropna(dim='time'))
-            uzi = xr.DataArray(
-                np.diag(shear.sel(time=newz.time)
-                        .interp(depth=newz.values)),
-                dims=['time'], coords={'time': newz.time})
+            # uzi = xr.DataArray(
+            #     np.diag(shear.interp(depth=newz.values)),
+            #     dims=['time'], coords={'time': newz.time})
 
+            uzi = shear.interp(time=newz.time, depth=newz)
             return uzi
 
         hdlcw = []
@@ -3015,4 +3018,67 @@ class moor:
 
             f.suptitle(self.name + ': velocity, T @ ' + str(z) + 'm')
 
-            return ax
+        return ax
+
+    def plot_variances(self, debug=False):
+        fM2 = 24/12.42
+
+        def interp_var(var):
+            z = 120  # self.zχpod.isel(num=1).median().values + 5
+            return (var.sel(depth=z, method='nearest')
+                    .interpolate_na(dim='time')
+                    .dropna('time'))
+
+        def plot_spec(spec, ax=None, levels=20):
+            if ax is None:
+                _, _ax = plt.subplots()
+
+            var = (spec*spec.freq)
+            # var = np.log10(spec)
+            hdl = var.plot.contourf(levels=levels, yscale='log',
+                                    x='time', robust=True, ax=ax,
+                                    cmap=mpl.cm.RdPu, add_colorbar=True)
+
+            var.plot.contour(
+                levels=np.linspace(hdl.levels[-1], var.max(), 6)[1:],
+                yscale='log', x='time', ax=ax, colors='w',
+                linewidths=0.5)
+
+            dcpy.plots.liney([0.8*fM2, 1.2*fM2,
+                              0.9*fM2*2, 1.1*fM2*2,
+                              0.9*fM2*3, 1.1*fM2*3,
+                              0.6*self.inertial, 1.5*self.inertial],
+                             zorder=10, ax=ax)
+
+        kwargs = dict(dim='time', multitaper=True)
+
+        shear_pod = interp_var(self.vel.uz) + 1j*interp_var(self.vel.vz)
+        shear_spec = dcpy.ts.Spectrogram(np.abs(shear_pod), **kwargs,
+                                         dt=1/24, nfft=30*24, shift=4*24)
+        shear_spec.attrs['long_name'] = 'PSD(shear) at 120m'
+
+        # temp_spec = dcpy.ts.Spectrogram(
+        #     interp_var(self.ctd['T'].rename({'depth2': 'depth'})),
+        #     **kwargs, dt=1/24/6, nfft=30*24*6, shift=4*24*6)
+        # temp_spec.attrs['long_name'] = 'PSD(temp)'
+
+        if debug:
+            f, ax = plt.subplots(1, 2, sharex=True, sharey=True,
+                                 constrained_layout=True)
+            plot_spec(shear_spec.sel(time='2014'), ax[0])
+            plot_spec(temp_spec.sel(time='2014'), ax[1])
+
+        dcpy.ts.PlotSpectrum(shear_pod,
+                             dt=1/24, multitaper=True, decimate=False,
+                             twoside=False)
+        # dcpy.plots.linex([0.8*fM2, 1.2*fM2,
+        #                   0.9*fM2*2, 1.1*fM2*2,
+        #                   0.9*fM2*3, 1.1*fM2*3,
+        #                   0.6*self.inertial, 1.5*self.inertial],
+        #                  zorder=10)
+
+        f0 = self.inertial
+        dcpy.plots.linex([f0, 1,
+                          f0+fM2, fM2-f0,
+                          f0+2*fM2, 2*fM2-f0,
+                          3*fM2+f0, 3*fM2-f0], zorder=10)
