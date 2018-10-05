@@ -25,7 +25,7 @@ class MonsoonAccessor(object):
         obj_type = type(self._obj)
 
         return obj_type(self._obj.where(self._labels == label.upper()),
-                        name=self._obj.name+' | '+label.upper(),
+                        name=self._obj.name + ' | ' + label.upper(),
                         coords=self._obj.coords, dims=self._obj.dims)
 
     @property

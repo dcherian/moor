@@ -94,7 +94,7 @@ def _colorbar(hdl, ax=None, format='%.2f'):
         box.y0 += box.height * 0.05
         box.y1 -= box.height * 0.05
 
-    axcbar = plt.axes([(box.x0 + box.width)*1.02,
+    axcbar = plt.axes([(box.x0 + box.width) * 1.02,
                        box.y0, 0.01, box.height])
     hcbar = plt.colorbar(hdl, axcbar,
                          format=mpl.ticker.FormatStrFormatter(format),
@@ -117,9 +117,8 @@ class moor:
         # location
         self.lon = lon
         self.lat = lat
-        self.inertial = xr.DataArray(1/
-                                     (2*np.pi/
-                                      (dcpy.oceans.coriolis(self.lat)*86400)))
+        self.inertial = xr.DataArray(
+            1 / (2 * np.pi / (dcpy.oceans.coriolis(self.lat) * 86400)))
         self.inertial.attrs['units'] = 'cpd'
         self.inertial.attrs['long_name'] = 'Inertial frequency'
 
@@ -158,7 +157,7 @@ class moor:
         podstr = ''
         for unit in self.χpod:
             pod = self.χpod[unit]
-            podstr += '\t'+pod.name[2:]
+            podstr += '\t' + pod.name[2:]
             times = (dt.num2date(pod.time[0]).strftime('%Y-%b-%d')
                      + ' → '
                      + dt.num2date(pod.time[-2]).strftime('%Y-%b-%d'))
@@ -197,13 +196,11 @@ class moor:
         # Thorpe (4.1)
         B = g * α * self.flux.Jq0 / ρ0 / cp
 
-        ustar = np.sqrt(self.met.τ/ρ0)
+        ustar = np.sqrt(self.met.τ / ρ0)
 
-        Bi = np.interp(ustar.time.values.astype('float32'),
-                       B.time.values.astype('datetime64[ns]').astype('float32'),
-                       B, left=np.nan, right=np.nan)
+        Bi = B.interp(time=ustar.time, left=np.nan, right=np.nan)
 
-        Lmo = -ustar**3/k/Bi
+        Lmo = -ustar**3 / k / Bi
         Lmo.name = 'Lmo'
 
         Lmo[abs(Lmo) > 200] = np.nan
@@ -230,7 +227,7 @@ class moor:
 
         tall = (np.array([[np.nanmin(tt), np.nanmax(tt)] for tt in t]))
         tmatlab = np.arange(np.floor(np.nanmin(tall)),
-                            np.ceil(np.nanmax(tall)), 10*60/86400)
+                            np.ceil(np.nanmax(tall)), 10 * 60 / 86400)
         tcommon = ((-86400 + tmatlab * 86400).astype('timedelta64[s]')
                    + np.datetime64('0001-01-01')).astype('datetime64[ns]')
 
@@ -251,18 +248,20 @@ class moor:
 
             ρ1 = sw.pden(pod.ctd1.S, pod.ctd1.T, pod.ctd1.z)
             ρ2 = sw.pden(pod.ctd2.S, pod.ctd2.T, pod.ctd2.z)
-            ρ = np.interp(tmatlab, pod.ctd1.time, (ρ1+ρ2)/2,
+            ρ = np.interp(tmatlab, pod.ctd1.time, (ρ1 + ρ2) / 2,
                           **interpargs)[np.newaxis, :]
-            T = np.interp(tmatlab, pod.ctd1.time, (pod.ctd1.T+pod.ctd2.T)/2,
+            T = np.interp(tmatlab, pod.ctd1.time, (pod.ctd1.T + pod.ctd2.T) / 2,
                           **interpargs)[np.newaxis, :]
-            S = np.interp(tmatlab, pod.ctd1.time, (pod.ctd1.S+pod.ctd2.S)/2,
+            S = np.interp(tmatlab, pod.ctd1.time, (pod.ctd1.S + pod.ctd2.S) / 2,
                           **interpargs)[np.newaxis, :]
 
             mld = np.interp(tcommon.astype('float32'),
-                            self.mld.time.astype('datetime64[ns]').astype('float32'),
+                            self.mld.time.astype(
+                                'datetime64[ns]').astype('float32'),
                             self.mld, **interpargs)
             ild = np.interp(tcommon.astype('float32'),
-                            self.ild.time.astype('datetime64[ns]').astype('float32'),
+                            self.ild.time.astype(
+                                'datetime64[ns]').astype('float32'),
                             self.ild, **interpargs)
 
             coords = {'z': (['depth', 'time'], z[-1].values),
@@ -351,9 +350,9 @@ class moor:
                 from dcpy.util import find_approx
                 i0 = find_approx(tmatlab, time[inds[0][0]])
                 if len(inds[0]) > 1:
-                    i1 = find_approx(tmatlab, time[inds[0][1]+2])
+                    i1 = find_approx(tmatlab, time[inds[0][1] + 2])
                 else:
-                    i1 = find_approx(tmatlab, time[inds[0][0]+2])
+                    i1 = find_approx(tmatlab, time[inds[0][0] + 2])
 
                 for var in [χ, KT, Jq, Tz, N2]:
                     var[-1].values[:, i0:i1] = np.nan
@@ -369,9 +368,9 @@ class moor:
 
             def merge2(aa):
                 if aa.ndim > 3:
-                    return xr.merge([aa.isel(depth=zz)
-                                    for zz in
-                                    np.arange(len(np.atleast_1d(aa.depth)))])
+                    return xr.merge(
+                        [aa.isel(depth=zz)
+                         for zz in np.arange(len(np.atleast_1d(aa.depth)))])
                 else:
                     return aa.to_dataset()
 
@@ -411,7 +410,7 @@ class moor:
 
         # convert zχpod to DataArray
         da = xr.DataArray(self.zχpod, dims=['num', 'time'],
-                          coords={'num': np.arange(self.zχpod.shape[0])+1,
+                          coords={'num': np.arange(self.zχpod.shape[0]) + 1,
                                   'time': self.χ.time}).transpose()
         self.zχpod = da
 
@@ -433,7 +432,7 @@ class moor:
     def ReadNIW(self):
         dirname = '../datasets/ewa/'
 
-        self.niw = (xr.open_dataset(dirname+self.name+'.nc', autoclose=True)
+        self.niw = (xr.open_dataset(dirname + self.name + '.nc', autoclose=True)
                     .load())
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
@@ -447,7 +446,7 @@ class moor:
             except KeyError:
                 pass
 
-            time = dcpy.util.mdatenum2dt64(mat.time-366)
+            time = dcpy.util.mdatenum2dt64(mat.time - 366)
             z = np.floor(mat.depth)
             zmat = np.tile(z, (len(mat.time), 1)).T
 
@@ -499,7 +498,7 @@ class moor:
                            squeeze_me=True)
             temp2 = mat2['Wtmp' + fname[-1]].T
 
-            time = dcpy.util.mdatenum2dt64(mat['time']-366)
+            time = dcpy.util.mdatenum2dt64(mat['time'] - 366)
             pres = np.float16(pres)
             z2 = mat2['dbar_dpth']
 
@@ -529,7 +528,7 @@ class moor:
                                                    data.values.T,
                                                    kx=1, ky=1, s=None)
 
-            idepths = np.arange(data.depth.min(), data.depth.max()+1, 1)
+            idepths = np.arange(data.depth.min(), data.depth.max() + 1, 1)
             datai = xr.DataArray(f(data.time.astype('float32'), idepths),
                                  dims=['time', 'depth'],
                                  coords=[data.time, idepths])
@@ -554,12 +553,12 @@ class moor:
             self.mld = find_mld(rho, 0.03)
             salt = interp_to_1m(self.ctd.S)
             self.sld = find_mld(salt, 0.02)
-            self.bld = np.abs(self.mld-self.ild)
+            self.bld = np.abs(self.mld - self.ild)
         else:
-            self.mld = xr.zeros_like(self.ild)*np.nan
-            self.ild = xr.zeros_like(self.ild)*np.nan
-            self.sld = xr.zeros_like(self.ild)*np.nan
-            self.bld = xr.zeros_like(self.ild)*np.nan
+            self.mld = xr.zeros_like(self.ild) * np.nan
+            self.ild = xr.zeros_like(self.ild) * np.nan
+            self.sld = xr.zeros_like(self.ild) * np.nan
+            self.bld = xr.zeros_like(self.ild) * np.nan
 
     def ReadSST(self, name='mur'):
 
@@ -570,23 +569,19 @@ class moor:
             raise ValueError('SST dataset ' + name + ' is not supported yet!')
 
         # read ±1° for gradients
-        sst = sst.sel(lon=slice(self.lon-1, self.lon+1),
-                      lat=slice(self.lat-1, self.lat+1)).load()-273.15
+        sst = sst.sel(lon=slice(self.lon - 1, self.lon + 1),
+                      lat=slice(self.lat - 1, self.lat + 1)).load() - 273.15
 
         self.sst['T'] = sst.sel(lon=self.lon, lat=self.lat, method='nearest')
 
         sst.values = sp.ndimage.uniform_filter(sst.values, 10)
-        zongrad = xr.DataArray(np.gradient(sst,
-                                           sst.lon.diff(dim='lon').mean().values,
-                                           axis=1),
-                               dims=sst.dims, coords=sst.coords,
-                               name='Zonal ∇T')
+        zongrad = xr.DataArray(
+            np.gradient(sst, sst.lon.diff(dim='lon').mean().values, axis=1),
+            dims=sst.dims, coords=sst.coords, name='Zonal ∇T')
 
-        mergrad = xr.DataArray(np.gradient(sst,
-                                           sst.lat.diff(dim='lat').mean().values,
-                                           axis=2),
-                               dims=sst.dims, coords=sst.coords,
-                               name='Meridional ∇T')
+        mergrad = xr.DataArray(
+            np.gradient(sst, sst.lat.diff(dim='lat').mean().values, axis=2),
+            dims=sst.dims, coords=sst.coords, name='Meridional ∇T')
 
         zongrad /= 1e5
         mergrad /= 1e5
@@ -614,7 +609,7 @@ class moor:
             τ = xr.DataArray(airsea.windstress.stress(spd, z0, drag='smith'),
                              dims=['time'], coords=[met.time.values],
                              name='τ')
-            tau = τ * np.exp(1j * np.angle(wu + 1j*wv))
+            tau = τ * np.exp(1j * np.angle(wu + 1j * wv))
             taux = xr.DataArray(tau.real, dims=['time'], coords=[met.time.values],
                                 name='taux')
             tauy = xr.DataArray(tau.imag, dims=['time'], coords=[met.time.values],
@@ -649,7 +644,7 @@ class moor:
 
         P = P.rename(dict(time='Ptime', prate='P'))
         # convert from kg/m^2/s to mm/hr
-        P *= 1/1000 * 1000 * 3600.0
+        P *= 1 / 1000 * 1000 * 3600.0
 
         self.met = xr.merge([self.met, P])
 
@@ -675,10 +670,12 @@ class moor:
         ty_x = tauy.diff(dim='longitude')
 
         # tropflux is 1° - lets use that to our advantage
-        lat2m, _ = sw.dist([self.lat-0.5, self.lat+0.5], self.lon, units='m')
-        lon2m, _ = sw.dist(self.lat, [self.lon-0.5, self.lon+0.5], units='m')
+        lat2m, _ = sw.dist([self.lat - 0.5, self.lat + 0.5],
+                           self.lon, units='m')
+        lon2m, _ = sw.dist(
+            self.lat, [self.lon - 0.5, self.lon + 0.5], units='m')
 
-        curl = ((ty_x/lon2m - tx_y/lat2m)
+        curl = ((ty_x / lon2m - tx_y / lat2m)
                 .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                 .to_dataset(name='curl'))
 
@@ -723,14 +720,14 @@ class moor:
 
         seasons[2014] = {
             'NE': ('2013-Dec-01', '2014-Apr-01'),
-            'NESW':  ('2014-Apr-01', '2014-May-31'),
+            'NESW': ('2014-Apr-01', '2014-May-31'),
             'SW': ('2014-May-31', '2014-Oct-01'),
             'SWNE': ('2014-Oct-01', '2014-Dec-01')
         }
 
         seasons[2015] = {
             'NE': ('2014-Dec-01', '2015-Mar-31'),
-            'NESW':  ('2015-Apr-01', '2015-May-31'),
+            'NESW': ('2015-Apr-01', '2015-May-31'),
             'SW': ('2015-June-01', '2015-Sep-30'),
             'SWNE': ('2015-Oct-1', '2015-Nov-30')
         }
@@ -763,7 +760,7 @@ class moor:
 
             tau = xr.DataArray(
                 airsea.windstress.stress(np.hypot(uwind, vwind))
-                * np.exp(1j * np.angle(uwind + 1j*vwind)),
+                * np.exp(1j * np.angle(uwind + 1j * vwind)),
                 dims=uwind.dims, coords=uwind.coords)
 
         else:
@@ -773,7 +770,7 @@ class moor:
         # complex demodulate to get near-inertial currents
         dm = dcpy.ts.complex_demodulate(
             self.vel.w.isel(depth=0).squeeze(),
-            central_period=1/self.inertial/1.05,
+            central_period=1 / self.inertial / 1.05,
             cycles_per='D', bw=0.3, debug=False
         )
 
@@ -832,9 +829,9 @@ class moor:
             adcp = loadmat('../ebob/ancillary/adcp/' + self.name + '.mat')
 
             z = adcp['depth_levels'].squeeze()
-            time = dcpy.util.mdatenum2dt64(adcp['date_time']-366).squeeze()
-            self.vel = xr.Dataset({'u': (['depth', 'time'], adcp['u']/100),
-                                   'v': (['depth', 'time'], adcp['v']/100)},
+            time = dcpy.util.mdatenum2dt64(adcp['date_time'] - 366).squeeze()
+            self.vel = xr.Dataset({'u': (['depth', 'time'], adcp['u'] / 100),
+                                   'v': (['depth', 'time'], adcp['v'] / 100)},
                                   coords={'depth': z, 'time': time})
 
             if self.name == 'NRL2':
@@ -893,10 +890,8 @@ class moor:
             pods = list(pods)
 
         for idx, name in enumerate(pods):
-            hdl, lbl, p = \
-                    self.χpod[name].SeasonalSummary(ax=ax,
-                                                    idx=idx,
-                                                    filter_len=filter_len)
+            hdl, lbl, p = self.χpod[name].SeasonalSummary(
+                ax=ax, idx=idx, filter_len=filter_len)
             handles.append(hdl)
             clabels.append(lbl)
             pos.append(p)
@@ -955,8 +950,7 @@ class moor:
             if scale == 'log':
                 normvar = np.log10(var)
                 dn = normvar - np.nanmin(normvar)
-                size = s0 \
-                    + ns * s0 * dn/np.nanstd(dn)
+                size = s0 + ns * s0 * dn / np.nanstd(dn)
 
             # running average depths,
             # then interpolate to correct time grid
@@ -1016,9 +1010,9 @@ class moor:
 
         x_is_xarray = type(x) is xr.core.dataarray.DataArray
         if type(t) is xr.core.dataarray.DataArray:
-            dt = (t[3]-t[2]).values
+            dt = (t[3] - t[2]).values
         else:
-            dt = (t[3]-t[2]) * 86400
+            dt = (t[3] - t[2]) * 86400
 
         if np.issubdtype(dt.dtype, np.timedelta64):
             dt = dt.astype('timedelta64[s]').astype('float32')
@@ -1026,30 +1020,30 @@ class moor:
         if flen is not None:
             if filt == 'mean':
                 if x_is_xarray:
-                    N = np.int(np.floor(flen/dt))
+                    N = np.int(np.floor(flen / dt))
                     a = x.rolling(time=N, center=True, min_periods=1).mean()
-                    a = a.isel(time=slice(N-1, len(a['time'])-N+1, N))
+                    a = a.isel(time=slice(N - 1, len(a['time']) - N + 1, N))
                     t = a['time']
                     return t, a
                 else:
-                    t = MovingAverage(t.copy(), flen/dt,
+                    t = MovingAverage(t.copy(), flen / dt,
                                       axis=axis, decimate=decimate)
-                    x = MovingAverage(x.copy(), flen/dt,
+                    x = MovingAverage(x.copy(), flen / dt,
                                       axis=axis, decimate=decimate)
 
             elif filt == 'bandpass':
                 flen = np.array(flen.copy())
                 assert(len(flen) > 1)
-                x = BandPassButter(x.copy(), 1/flen,
+                x = BandPassButter(x.copy(), 1 / flen,
                                    dt, axis=axis, dim='time')
 
             else:
                 from dcpy.util import smooth
                 if x_is_xarray:
-                    xnew = smooth(x.values.squeeze(), flen/dt)
+                    xnew = smooth(x.values.squeeze(), flen / dt)
                     x.values = np.reshape(xnew, x.shape)
                 else:
-                    x = smooth(x, flen/dt, axis=axis)
+                    x = smooth(x, flen / dt, axis=axis)
 
         if ax is None:
             return t, x
@@ -1113,7 +1107,7 @@ class moor:
                 ax.fill_between(xx, 0, 1,
                                 transform=ax.get_xaxis_transform('grid'),
                                 facecolor='#dddddd', alpha=0.35,
-                                zorder=zorder+1)
+                                zorder=zorder + 1)
 
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
@@ -1156,7 +1150,7 @@ class moor:
         if kind is 'timeseries':
             from cycler import cycler
             N = len(var.depth)
-            colors = mpl.cm.Greys_r(np.arange(N+1)/(N+1))
+            colors = mpl.cm.Greys_r(np.arange(N + 1) / (N + 1))
             ax.set_prop_cycle(cycler('color', colors))
 
             # more ebob hackery
@@ -1168,7 +1162,8 @@ class moor:
                 else:
                     ydim = 'depth'
 
-            hdl = var.plot.line(x='time', hue=ydim, ax=ax, add_legend=False, lw=0.5)
+            hdl = var.plot.line(x='time', hue=ydim, ax=ax,
+                                add_legend=False, lw=0.5)
 
             ncol = N if N < 5 else 5
             ax.legend([str(aa) + 'm'
@@ -1293,7 +1288,8 @@ class moor:
                 if name[0] in self.season:
                     t0, t1 = self.season[name[0]][name[1].upper()]
                 else:
-                    raise ValueError(str(name[0])+' not in '+self.name+'.season')
+                    raise ValueError(
+                        str(name[0]) + ' not in ' + self.name + '.season')
 
             region = {'time': slice(t0, t1)}
 
@@ -1406,7 +1402,8 @@ class moor:
 
         f, ax = plt.subplots(3, 1, sharex=True)
 
-        niw = self.niw.interp(depth=np.floor(self.zχpod.mean(dim='time').values))
+        niw = self.niw.interp(
+            depth=np.floor(self.zχpod.mean(dim='time').values))
 
         niw.KE.sel(**region).plot.line(x='time', hue='depth', ax=ax[0])
         (self.KT.sel(**region)
@@ -1445,14 +1442,17 @@ class moor:
 
         if self.vel:
             if TSkind is not 'timeseries' and self.kind == 'ebob':
-                ax['u'] = plt.subplot(6, 2, 7, sharex=ax['met'], sharey=ax['T'])
+                ax['u'] = plt.subplot(6, 2, 7,
+                                      sharex=ax['met'], sharey=ax['T'])
 
             if TSkind is 'timeseries' or self.kind != 'ebob':
                 ax['u'] = plt.subplot(6, 2, 7, sharex=ax['met'])
 
             if self.kind == 'ebob':
-                ax['v'] = plt.subplot(6, 2, 9, sharex=ax['met'], sharey=ax['u'])
-                ax['shear'] = plt.subplot(6, 2, 5, sharex=ax['met'], sharey=ax['u'])
+                ax['v'] = plt.subplot(
+                    6, 2, 9, sharex=ax['met'], sharey=ax['u'])
+                ax['shear'] = plt.subplot(
+                    6, 2, 5, sharex=ax['met'], sharey=ax['u'])
             else:
                 ax['v'] = ax['u']
                 ax['χ'] = plt.subplot(6, 2, 9, sharex=ax['met'])
@@ -1471,7 +1471,8 @@ class moor:
 
         filtargs = {'kind': filt, 'decimate': True,
                     'flen': filter_len, 'dim': 'time'}
-        lineargs = {'x': 'time', 'hue': 'depth', 'linewidth': lw, 'add_legend': False}
+        lineargs = {'x': 'time', 'hue': 'depth',
+                    'linewidth': lw, 'add_legend': False}
 
         if filter_len is None:
             filt = None
@@ -1485,7 +1486,7 @@ class moor:
         if event is not None:
             t0, t1 = self.events[event]
             dt = np.timedelta64(5, 'D')
-            region['time'] = slice(t0-dt, t1+dt)
+            region['time'] = slice(t0 - dt, t1 + dt)
             titlestr += '| Event = ' + event
 
         plt.suptitle(titlestr, y=1.03)
@@ -1520,7 +1521,7 @@ class moor:
         # ----------- precip
         if 'P' in self.met:
             self.avgplt(ax['met'], self.met.P.Ptime.values,
-                        self.met.P.values/10,
+                        self.met.P.values / 10,
                         flen=filter_len, filt=filt, color='slateblue',
                         linewidth=lw, zorder=-1)
 
@@ -1557,8 +1558,10 @@ class moor:
             # filter length is not long enough, i.e. data is too coarse
             pass
 
-        self.PlotFlux(ax['Jq0'], Jq0.sel(**region).time.values, Jq0.sel(**region))
-        ax['Jq0'].set_ylabel(fluxvar+' (W/m²)', labelpad=0)
+        self.PlotFlux(ax['Jq0'],
+                      Jq0.sel(**region).time.values,
+                      Jq0.sel(**region))
+        ax['Jq0'].set_ylabel(fluxvar + ' (W/m²)', labelpad=0)
         ax['Jq0'].spines['right'].set_visible(True)
         ax['Jq0'].spines['left'].set_visible(False)
         ax['Jq0'].xaxis_date()
@@ -1569,7 +1572,7 @@ class moor:
 
         ((self.N2.copy()
           .pipe(xfilter, **filtargs)
-          .sel(**region)/1e-4)
+          .sel(**region) / 1e-4)
          .plot.line(ax=ax['N2'], **lineargs))
 
         (self.Tz.copy()
@@ -1607,7 +1610,7 @@ class moor:
 
         # -------- T, S
         ctdargs = dict(filt=filt, filter_len=filter_len, kind=TSkind,
-                    lw=0.5, region=region, add_colorbar=False, add_mld=add_mld)
+                       lw=0.5, region=region, add_colorbar=False, add_mld=add_mld)
         ax['Splot'] = self.PlotCTD('S', ax['S'], vmin=Slim[0], vmax=Slim[1],
                                    **ctdargs)
         ax['Tplot'] = self.PlotCTD('T', ax['T'], vmin=Tlim[0], vmax=Tlim[1],
@@ -1626,7 +1629,7 @@ class moor:
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
         ax['N2'].set_title('')
-        ax['N2'].legend([str(zz)+' m' for zz in self.N2.depth.values])
+        ax['N2'].legend([str(zz) + ' m' for zz in self.N2.depth.values])
         ax['N2'].set_ylabel('$N²$ ($10^{-4}$)')
         limy = ax['N2'].get_ylim()
         if filt != 'bandpass':
@@ -1665,8 +1668,8 @@ class moor:
                                      .plot(ax=ax['v'], lw=0.5, color='gray',
                                            zorder=-10))
                     zint = uplt.depth.values.astype('int32')
-                    ax['u'].legend(('$u_{'+str(zint)+'}$',
-                                    '$v_{'+str(zint)+'}$'), ncol=2)
+                    ax['u'].legend(('$u_{' + str(zint) + '}$',
+                                    '$v_{' + str(zint) + '}$'), ncol=2)
                     ax['u'].axhline(0, color='gray', lw=0.5)
                     ax['v'].set_ylabel('(m/s)')
                     ax['v'].set_title('')
@@ -1682,7 +1685,7 @@ class moor:
                     mn = np.min([udict['vmin'], vdict['vmin']])
                     mx = np.max([udict['vmax'], vdict['vmax']])
 
-                    vargs['vmin'] = -1*np.max(np.abs([mn, mx]))
+                    vargs['vmin'] = -1 * np.max(np.abs([mn, mx]))
                     vargs['vmax'] = np.max(np.abs([mn, mx]))
 
                     ax['Uplot'] = uplt.plot.contourf(ax=ax['u'], **vargs)
@@ -1779,15 +1782,15 @@ class moor:
                              .plot(ax=ax['v'], lw=0.5, color='gray',
                                    zorder=-10))
             zint = uplt.depth.values.astype('int32')
-            ax['u'].legend(('$u_{'+str(zint)+'}$',
-                            '$v_{'+str(zint)+'}$'), ncol=2)
+            ax['u'].legend(('$u_{' + str(zint) + '}$',
+                            '$v_{' + str(zint) + '}$'), ncol=2)
             ax['u'].axhline(0, color='gray', lw=0.5)
             ax['v'].set_ylabel('(m/s)')
             ax['v'].set_title('')
 
         if self.kind == 'ebob':
             vargs = dict(robust=True, yincrease=False, levels=50,
-                      add_colorbar=False, cmap='RdBu_r', center=0)
+                         add_colorbar=False, cmap='RdBu_r', center=0)
 
             udict = xr.plot.utils._determine_cmap_params(uplt.values,
                                                          robust=True)
@@ -1796,7 +1799,7 @@ class moor:
             mn = np.min([udict['vmin'], vdict['vmin']])
             mx = np.max([udict['vmax'], vdict['vmax']])
 
-            vargs['vmin'] = -1*np.max(np.abs([mn, mx]))
+            vargs['vmin'] = -1 * np.max(np.abs([mn, mx]))
             vargs['vmax'] = np.max(np.abs([mn, mx]))
 
             ax['Uplot'] = uplt.plot.contourf(ax=ax['u'], **vargs)
@@ -1817,18 +1820,18 @@ class moor:
         vel = (self.vel.sel(depth=slice(0, 120))
                .mean(dim='depth')
                .drop(['shear', 'depth']))
-        KE = 1/2 * (vel.u**2 + vel.v**2)
+        KE = 1 / 2 * (vel.u**2 + vel.v**2)
 
-        kwargs = dict(dim='time', window=30*24, shift=2*24,
+        kwargs = dict(dim='time', window=30 * 24, shift=2 * 24,
                       multitaper=True)
         plot_kwargs = dict(levels=15, cmap=svc.cm.blue_orange_div,
                            add_colorbar=True, yscale='log')
 
-        spec = dcpy.ts.Spectrogram(KE, **kwargs, dt=1/24)
+        spec = dcpy.ts.Spectrogram(KE, **kwargs, dt=1 / 24)
         spec.freq.attrs['units'] = 'cpd'
         spec.name = 'PSD(depth avg KE)'
 
-        tf = dcpy.ts.TidalAliases(1/24)
+        tf = dcpy.ts.TidalAliases(1 / 24)
         f0 = dcpy.oceans.coriolis(self.lat)
 
         f, ax = plt.subplots(2, 1, sharex=True, constrained_layout=True)
@@ -1838,7 +1841,7 @@ class moor:
         # ax[0].set_ylim(ylim)
 
         np.log10(spec).plot.contourf(x='time', ax=ax[0], **plot_kwargs)
-        dcpy.plots.liney([tf['M2'], tf['M2']*2, 1/(2*np.pi/(f0*86400))],
+        dcpy.plots.liney([tf['M2'], tf['M2'] * 2, 1 / (2 * np.pi / (f0 * 86400))],
                          ax=ax[0], zorder=10, color='black')
 
         turb = np.log10(self.KT.isel(depth=0)
@@ -1848,11 +1851,11 @@ class moor:
                         .dropna(dim='time'))
 
         turb[~np.isfinite(turb)] = 1e-12
-        specturb = dcpy.ts.Spectrogram(turb, **kwargs, dt=1/24)
+        specturb = dcpy.ts.Spectrogram(turb, **kwargs, dt=1 / 24)
         specturb.name = 'PSD(log$_{10}$ ' + turb.name + ')'
         specturb.freq.attrs['units'] = 'cpd'
         np.log10(specturb).plot(x='time', ax=ax[1], **plot_kwargs,
-                               robust=True)
+                                robust=True)
 
         # spec = dcpy.ts.Spectrogram(self.ctd['T'].sel(depth2=100), **kwargs,
         #                            dt=10/24/60)
@@ -1907,8 +1910,8 @@ class moor:
         if freqs is not None:
             # band pass filter
             from dcpy.ts import BandPassButter
-            τ = BandPassButter(τ, freqs=freqs, dt=(tτ[3]-tτ[2])*86400.0)
-            titlestr += str(1/freqs/86400.0) + ' day bandpassed '
+            τ = BandPassButter(τ, freqs=freqs, dt=(tτ[3] - tτ[2]) * 86400.0)
+            titlestr += str(1 / freqs / 86400.0) + ' day bandpassed '
 
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
@@ -1929,7 +1932,7 @@ class moor:
                 # band pass filter
                 from dcpy.ts import BandPassButter
                 Jqt = BandPassButter(Jqt, freqs=freqs,
-                                     dt=(tJ[3]-tJ[2])*86400.0)
+                                     dt=(tJ[3] - tJ[2]) * 86400.0)
 
             τi = np.interp(tJ, tτ, τ)
 
@@ -1951,7 +1954,7 @@ class moor:
                         bottom='off', left='off', right='off')
         plt.grid(False)
         plt.ylabel("Correlation coeff.")
-        plt.xlabel(metvar+" lag (days)")
+        plt.xlabel(metvar + " lag (days)")
 
         plt.tight_layout()
 
@@ -2118,13 +2121,12 @@ class moor:
     def PlotCoherence(self, ax, v1, v2, nsmooth=5, multitaper=True):
 
         if multitaper:
-            f, Cxy, phase, siglevel = \
-                          dcpy.ts.MultiTaperCoherence(v1, v2,
-                                                      dt=1, tbp=nsmooth)
+            f, Cxy, phase, siglevel = dcpy.ts.MultiTaperCoherence(
+                v1, v2, dt=1, tbp=nsmooth)
             siglevel = siglevel[0]
         else:
-            f, Cxy, phase, siglevel = \
-                      dcpy.ts.Coherence(v1, v2, dt=1, nsmooth=nsmooth)
+            f, Cxy, phase, siglevel = dcpy.ts.Coherence(
+                v1, v2, dt=1, nsmooth=nsmooth)
 
         hcoh = ax[0].plot(f, Cxy)
         dcpy.plots.liney(siglevel, ax=ax[0], color=hcoh[0].get_color())
@@ -2262,7 +2264,7 @@ class moor:
                 if metidx == 0:
                     xlim = ax0.get_xlim()
                     self.avgplt(ax0, t1, v2i, filter_len, filt,
-                                label='$J_q^t$'+pod.name[5:])
+                                label='$J_q^t$' + pod.name[5:])
                     ax0.set_xlim([max(xlim[0], t1[0]),
                                   min(xlim[1], t1[-1])])
 
@@ -2303,7 +2305,7 @@ class moor:
         g = 9.81
         α = 1.7e-4
 
-        jb0 = - g*α/ρ0/cp * self.flux.Jq0
+        jb0 = - g * α / ρ0 / cp * self.flux.Jq0
         Lmo = self.monin_obukhov()
 
         depths = [15, 30]
@@ -2337,8 +2339,8 @@ class moor:
         ax[2].set_ylim([-50, 0])
 
         for iz, zz in enumerate(depths):
-            dcpy.plots.liney(-1*zz, ax=ax[2], color=hdl[iz].get_color(), zorder=10)
-
+            dcpy.plots.liney(-1 * zz, ax=ax[2],
+                             color=hdl[iz].get_color(), zorder=10)
 
         axN2 = ax[3]
         self.N2.plot.line(x='time', ax=axN2)
@@ -2374,14 +2376,14 @@ class moor:
             return x.resample(time='3H').mean(dim='time')
 
         def ddt(x):
-            dt = x.time.diff(dim='time')/np.timedelta64(1, 's')
-            return x.diff(dim='time')/dt
+            dt = x.time.diff(dim='time') / np.timedelta64(1, 's')
+            return x.diff(dim='time') / dt
 
         def interp_b_to_a(a, b):
             return np.interp(a.time.astype(np.float32),
-                        b.time.astype(np.float32),
-                        b.squeeze(),
-                        left=np.nan, right=np.nan)
+                             b.time.astype(np.float32),
+                             b.squeeze(),
+                             left=np.nan, right=np.nan)
 
         # T = dcpy.ts.xfilter(self.ctd['T'], kind='hann', flen=3*3600.0)
         T = self.ctd['T'].resample(**resample_args).mean(dim='time')
@@ -2391,7 +2393,7 @@ class moor:
 
             # mixed layer depth
             mld = rho.depth[(np.abs(rho - rho.isel(depth=1)) >
-                             0.01/2).argmax(axis=0)].drop('depth')
+                             0.01 / 2).argmax(axis=0)].drop('depth')
 
         # interpolate temp to 1m grid, then calculate heat content
         timevec = T.time.values.astype('float32')
@@ -2410,7 +2412,7 @@ class moor:
 
         if do_mld:
             Qmld = Q.sel(time=mld.time, depth=mld, method='nearest')
-            Tmld = Qmld/ρ/cp/mld
+            Tmld = Qmld / ρ / cp / mld
             dTdt = ddt(Tmld)
 
         # budget is dQ/dt = Jq0 - Ih + Jqt
@@ -2423,13 +2425,13 @@ class moor:
                            dims=['time'], coords=[Q.time])
 
         # penetrative heating
-        Ih = 0.45 * swr * np.exp(-(1/15)*Q.depth)
+        Ih = 0.45 * swr * np.exp(-(1 / 15) * Q.depth)
 
         Jqt = self.Jq
         Jqt = Jqt.resample(**resample_args).mean(dim='time')
 
         sfcflx = (Jq0 - Ih).resample(**resample_args).mean(dim='time')
-        dJdz = ((sfcflx + Jqt)/Jqt.depth).where(Jqt.time == Jq0.time)
+        dJdz = ((sfcflx + Jqt) / Jqt.depth).where(Jqt.time == Jq0.time)
         dJdz.name = 'dJdz'
 
         dQdt = Q.pipe(average).pipe(ddt)
@@ -2438,7 +2440,8 @@ class moor:
 
         f, ax = plt.subplots(len(Jqt.depth[:-1]), 1, sharex=True)
         for iz, z in enumerate(Jqt.depth[:-1]):
-            Qadv = (self.sst.Tx * velmean.u + self.sst.Ty * velmean.v) * z * ρ * cp
+            Qadv = (self.sst.Tx * velmean.u +
+                    self.sst.Ty * velmean.v) * z * ρ * cp
 
             ((dQdt).sel(depth=z)
              .plot.line(x='time', color='k', label='dQ/dt', ax=ax[iz]))
@@ -2532,15 +2535,14 @@ class moor:
 
         from dcpy.ts import wavelet
 
-        tides = dcpy.ts.TidalAliases(1/24)
+        tides = dcpy.ts.TidalAliases(1 / 24)
 
         def common(axes):
             for ax in axes.flat:
                 ax.set_yscale('log')
                 ax.invert_yaxis()
-                ax.axhline(1/tides['M2'], color='k')
-                ax.axhline(1/self.inertial, color='k')
-
+                ax.axhline(1 / tides['M2'], color='k')
+                ax.axhline(1 / self.inertial, color='k')
 
         # get a range of depths that the χpods cover
         # calcualte mean KE over that depth & then wavelet transform
@@ -2548,8 +2550,8 @@ class moor:
         stdz = self.zχpod.std(dim='time')
 
         if self.kind == 'ebob':
-            depth_range = slice((meanz.min()-2*stdz.max()).values,
-                                (meanz.max()+2*stdz.max()).values)
+            depth_range = slice((meanz.min() - 2 * stdz.max()).values,
+                                (meanz.max() + 2 * stdz.max()).values)
         elif self.kind == 'rama':
             depth_range = self.vel.u.depth
 
@@ -2567,7 +2569,7 @@ class moor:
             shear = wavelet((self.vel.shear)
                             .sel(depth=depth_range)
                             .mean(dim='depth'),
-                            dt=1/24)
+                            dt=1 / 24)
             shear.period.attrs['units'] = 'days'
             shear.power.attrs['long_name'] = 'shear power'
 
@@ -2634,7 +2636,7 @@ class moor:
         (self.KT.resample(time='D').mean(dim='time')
          .plot.line(ax=ax['KT'], **lineargs))
 
-        [aa.set_xlabel('') for aa in axes[:-1,:].flat]
+        [aa.set_xlabel('') for aa in axes[:-1, :].flat]
         # ax[-1].set_xlim([self.KT.time.min().values,
         #                  self.KT.time.max().values])
         f.suptitle(self.name)
@@ -2646,7 +2648,7 @@ class moor:
 
     def plot_turb_spectrogram(self):
 
-        tides = dcpy.ts.TidalAliases(1/24)
+        tides = dcpy.ts.TidalAliases(1 / 24)
         nfft = 30 * 24  # in hours
         shift = 2 * 24  # in hours
 
@@ -2704,7 +2706,7 @@ class moor:
             hcbar.update_ticks()
 
         def plot_spec(ax, spec, name, levels=20):
-            var = (spec*spec.freq)
+            var = (spec * spec.freq)
             # var = np.log10(spec)
             hdl = var.plot.contourf(levels=levels, yscale='log',
                                     x='time', robust=True, ax=ax,
@@ -2715,8 +2717,8 @@ class moor:
                 yscale='log', x='time', ax=ax, colors='w',
                 linewidths=0.5, add_colorbar=False)
 
-            dcpy.plots.liney([tides['M2'], 2*tides['M2'],
-                              3*tides['M2'], self.inertial, 1],
+            dcpy.plots.liney([tides['M2'], 2 * tides['M2'],
+                              3 * tides['M2'], self.inertial, 1],
                              label=['$M_2$', '$2M_2$', '$3M_2$', '$f_0$', 'd'],
                              lw=1, color='w', ax=ax, zorder=10)
 
@@ -2759,18 +2761,18 @@ class moor:
                                             .interpolate_na(dim='time')
                                             .dropna(dim='time'),
                                             dim='time', nfft=nfft, shift=shift,
-                                            multitaper=True, dt=1/24)
+                                            multitaper=True, dt=1 / 24)
                 shear.freq.attrs['units'] = 'cpd'
 
                 N2 = dcpy.ts.Spectrogram(self.N2.isel(depth=zz)
                                          .dropna(dim='time'),
                                          dim='time', multitaper=True,
-                                         dt=1/144, nfft=nfft*6, shift=shift*6)
+                                         dt=1 / 144, nfft=nfft * 6, shift=shift * 6)
 
                 Tz = dcpy.ts.Spectrogram(self.Tz.isel(depth=zz)
                                          .dropna(dim='time'),
                                          dim='time', multitaper=True,
-                                         dt=1/144, nfft=nfft*6, shift=shift*6)
+                                         dt=1 / 144, nfft=nfft * 6, shift=shift * 6)
 
                 zname = 'z' + str(zz)
                 depth = str(self.KT.depth.isel(depth=zz).values) + 'm'
@@ -2788,18 +2790,20 @@ class moor:
 
                 if zz == 1:
                     hdlcw.append(plot_spec(ax[zname]['cw'], shear.cw,
-                                           'CW shear, '+depth))
+                                           'CW shear, ' + depth))
                     hdlccw.append(plot_spec(ax[zname]['ccw'], shear.ccw,
-                                            'CCW shear, '+depth,
+                                            'CCW shear, ' + depth,
                                             levels=hdlcw[-1].levels))
 
-                hdlT.append(plot_spec(ax[zname]['Tz'], Tz, '$dT/dz$, '+depth))
-                hdlN.append(plot_spec(ax[zname]['N2'], N2, '$N^2$, '+depth))
+                hdlT.append(plot_spec(ax[zname]['Tz'], Tz,
+                                      '$dT/dz$, ' + depth))
+                hdlN.append(plot_spec(ax[zname]['N2'], N2,
+                                      '$N^2$, ' + depth))
 
             self.tropflux.tau.plot(x='time', ax=ax['ts'], lw=0.5,
                                    color='k')
             if self.ssh is not []:
-                ((self.ssh.EKE/2).plot(ax=ax['ts']))
+                ((self.ssh.EKE / 2).plot(ax=ax['ts']))
                 (self.ssh.sla.plot(ax=ax['ts']))
                 ax['ts'].axhline(0, zorder=-10, color='gray', ls='--')
             ax['ts'].legend(['τ', 'EKE/2', 'SSHA'])
@@ -3012,8 +3016,9 @@ class moor:
                     aa.set_title('')
 
             axlist = list(ax.values())[2:-1]
-            tides = dcpy.ts.TidalAliases(dt=1/24)
-            dcpy.plots.linex(np.array([1, 2, 3, 4, 5])*tides['M2'], ax=axlist)
+            tides = dcpy.ts.TidalAliases(dt=1 / 24)
+            dcpy.plots.linex(np.array([1, 2, 3, 4, 5]) * tides['M2'],
+                             ax=axlist)
             dcpy.plots.linex(self.inertial, ax=axlist)
 
             f.suptitle(self.name + ': velocity, T @ ' + str(z) + 'm')
@@ -3021,7 +3026,7 @@ class moor:
         return ax
 
     def plot_variances(self, debug=False):
-        fM2 = 24/12.42
+        fM2 = 24 / 12.42
 
         def interp_var(var):
             z = 120  # self.zχpod.isel(num=1).median().values + 5
@@ -3033,7 +3038,7 @@ class moor:
             if ax is None:
                 _, _ax = plt.subplots()
 
-            var = (spec*spec.freq)
+            var = (spec * spec.freq)
             # var = np.log10(spec)
             hdl = var.plot.contourf(levels=levels, yscale='log',
                                     x='time', robust=True, ax=ax,
@@ -3044,17 +3049,17 @@ class moor:
                 yscale='log', x='time', ax=ax, colors='w',
                 linewidths=0.5)
 
-            dcpy.plots.liney([0.8*fM2, 1.2*fM2,
-                              0.9*fM2*2, 1.1*fM2*2,
-                              0.9*fM2*3, 1.1*fM2*3,
-                              0.6*self.inertial, 1.5*self.inertial],
+            dcpy.plots.liney([0.8 * fM2, 1.2 * fM2,
+                              0.9 * fM2 * 2, 1.1 * fM2 * 2,
+                              0.9 * fM2 * 3, 1.1 * fM2 * 3,
+                              0.6 * self.inertial, 1.5 * self.inertial],
                              zorder=10, ax=ax)
 
         kwargs = dict(dim='time', multitaper=True)
 
-        shear_pod = interp_var(self.vel.uz) + 1j*interp_var(self.vel.vz)
+        shear_pod = interp_var(self.vel.uz) + 1j * interp_var(self.vel.vz)
         shear_spec = dcpy.ts.Spectrogram(np.abs(shear_pod), **kwargs,
-                                         dt=1/24, nfft=30*24, shift=4*24)
+                                         dt=1 / 24, nfft=30 * 24, shift=4 * 24)
         shear_spec.attrs['long_name'] = 'PSD(shear) at 120m'
 
         # temp_spec = dcpy.ts.Spectrogram(
@@ -3069,7 +3074,7 @@ class moor:
             plot_spec(temp_spec.sel(time='2014'), ax[1])
 
         dcpy.ts.PlotSpectrum(shear_pod,
-                             dt=1/24, multitaper=True, decimate=False,
+                             dt=1 / 24, multitaper=True, decimate=False,
                              twoside=False)
         # dcpy.plots.linex([0.8*fM2, 1.2*fM2,
         #                   0.9*fM2*2, 1.1*fM2*2,
@@ -3079,6 +3084,6 @@ class moor:
 
         f0 = self.inertial
         dcpy.plots.linex([f0, 1,
-                          f0+fM2, fM2-f0,
-                          f0+2*fM2, 2*fM2-f0,
-                          3*fM2+f0, 3*fM2-f0], zorder=10)
+                          f0 + fM2, fM2 - f0,
+                          f0 + 2 * fM2, 2 * fM2 - f0,
+                          3 * fM2 + f0, 3 * fM2 - f0], zorder=10)
