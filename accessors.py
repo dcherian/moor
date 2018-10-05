@@ -16,8 +16,7 @@ class MonsoonAccessor(object):
 
         inds = np.zeros(self._obj.time.shape)
         for index, ss in enumerate(self._seasons):
-            inds[np.in1d(self._obj.time.dt.month,
-                         np.asarray(self._seasons[ss]))] = index
+            inds[self._obj.time.dt.month.isin(self._seasons[ss])] = index
 
         self._labels = names[inds.astype(np.int32)]
 
