@@ -1996,8 +1996,8 @@ class moor:
             ax.set_xlabel('')
             ax.set_xticklabels([])
 
-    def TSPlot(self, pref=0, ax=None,
-               varname='KT', varmin=1e-3, filter_len=86400):
+    def TSPlot(self, pref=0, ax=None, varname='KT', varmin=1e-3,
+               filter_len=86400):
         '''
         Create a TS plot using all mooring data.
         Highlight $varname > $varmin at CTDs above/below
@@ -2011,113 +2011,26 @@ class moor:
             filter_len : averaging for $varname
         '''
 
-        size = 5
+        f, axes = plt.subplots(2, 2, constrained_layout=True,
+                               sharex=True, sharey=True)
+        ax = dict()
+        ax['NE'] = axes[0, 0]
+        ax['NESW'] = axes[0, 1]
+        ax['SW'] = axes[1, 0]
+        ax['SWNE'] = axes[1, 1]
 
-        if ax is None:
-            ax = plt.gca()
+        mask = getattr(self, varname) > varmin
 
-        prop_cycle = plt.rcParams['axes.prop_cycle']
-        colors = prop_cycle.by_key()['color']
-        markers = '+^s'
+        ctd = self.ctd.resample(time='H').mean('time')
+        for season in ['NE', 'NESW', 'SW', 'SWNE']:
+            mask = ctd.time.monsoon.labels == season
+            dcpy.oceans.TSplot(ctd.S.where(mask),
+                               ctd.T_S.where(mask),
+                               ax=ax[season],
+                               plot_distrib=False)
+            ax[season].set_title(season)
 
-        for idx, unit in enumerate(self.χpod):
-            pod = self.χpod[unit]
-
-            var, name, _, _ = pod.ChooseVariable(varname)
-            # daily average quantities
-            t, var = pod.FilterEstimate(
-                'mean', pod.time, var, filter_len=filter_len, decimate=True)
-
-            t1, T1 = pod.FilterEstimate(
-                'mean',
-                pod.ctd1.time,
-                pod.ctd1.T,
-                filter_len=filter_len,
-                decimate=True)
-            _, S1 = pod.FilterEstimate(
-                'mean',
-                pod.ctd1.time,
-                pod.ctd1.S,
-                filter_len=filter_len,
-                decimate=True)
-
-            t2, T2 = pod.FilterEstimate(
-                'mean',
-                pod.ctd2.time,
-                pod.ctd2.T,
-                filter_len=filter_len,
-                decimate=True)
-            _, S2 = pod.FilterEstimate(
-                'mean',
-                pod.ctd2.time,
-                pod.ctd2.S,
-                filter_len=filter_len,
-                decimate=True)
-
-            # interpolate onto averaged χpod time grid
-            T1 = np.interp(t, t1, T1)
-            S1 = np.interp(t, t1, S1)
-            T2 = np.interp(t, t2, T2)
-            S2 = np.interp(t, t2, S2)
-
-            mask = var > varmin
-            frac = sum(mask) / len(mask)
-            if frac < 0.1:
-                alpha = 0.6
-            else:
-                alpha = 0.3
-
-            ax.plot(
-                np.concatenate([S1[mask], S2[mask]]),
-                np.concatenate([T1[mask], T2[mask]]),
-                color='k',
-                linestyle='None',
-                label=pod.name,
-                marker=markers[idx],
-                alpha=alpha,
-                zorder=2)
-
-        for index, z in enumerate(self.ctd.depth):
-            S = self.ctd.sal[:, index]
-            T = self.ctd.temp[:, index]
-            ax.scatter(
-                S[::10],
-                T[::10],
-                s=size,
-                facecolor=colors[index],
-                alpha=0.1,
-                label='CTD ' + str(np.int(z)) + ' m',
-                zorder=-1)
-
-        # make sure legend has visible entries
-        hleg = plt.legend()
-        for hh in hleg.legendHandles:
-            hh.set_alpha(1)
-
-        Slim = ax.get_xlim()
-        Tlim = ax.get_ylim()
-        Tvec = np.arange(Tlim[0], Tlim[1], 0.1)
-        Svec = np.arange(Slim[0], Slim[1], 0.1)
-        [Smat, Tmat] = np.meshgrid(Svec, Tvec)
-
-        # density contours
-        ρ = sw.pden(Smat, Tmat, pref) - 1000
-        cs = ax.contour(
-            Smat, Tmat, ρ, colors='gray', linestyles='dashed', zorder=-1)
-        ax.clabel(cs, fmt='%.1f')
-
-        # labels
-        ax.set_xlabel('S')
-        ax.set_ylabel('T')
-        ax.set_title(self.name)
-
-        ax.annotate(
-            name + '$^{' + str(np.round(filter_len / 86400, decimals=1)) +
-            ' d}$ > ' + str(varmin),
-            xy=[0.75, 0.9],
-            xycoords='axes fraction',
-            size='large',
-            bbox=dict(facecolor='gray', alpha=0.15, edgecolor='none'))
+        f.suptitle(self.name)
 
     def PlotCoherence(self, ax, v1, v2, nsmooth=5, multitaper=True):
 
