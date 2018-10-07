@@ -106,11 +106,12 @@ def _colorbar(hdl, ax=None, format='%.2f'):
 class moor:
     ''' Class for a *single* mooring that has χpods '''
 
-    def __init__(self, lon, lat, name, kind, datadir):
+    def __init__(self, lon, lat, name, short_name, kind, datadir):
 
         import collections
 
         self.name = name
+        self.short_name = short_name
         self.kind = kind
         self.datadir = datadir
 
