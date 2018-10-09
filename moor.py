@@ -169,6 +169,9 @@ class moor:
     def Tz(self):
         return self.turb.Tz
 
+    @property
+    def Sz(self):
+        return self.turb.Sz
 
     def __repr__(self):
         import matplotlib.dates as dt
@@ -442,6 +445,11 @@ class moor:
         self.turb.Jq.attrs['long_name'] = '$J_q^t$'
         self.turb.Jq.attrs['units'] = 'W/m²'
 
+        self.turb['Sz'] = (-(self.turb.N2 / 9.81 - 1.7e-4 * self.turb.Tz)
+                           / 7.6e-4)
+        self.turb['Js'] = - self.turb.ρ * self.turb.KT * self.turb.Sz
+        self.turb.Js.attrs['long_name'] = '$J_s^t$'
+        self.turb.Js.attrs['units'] = 'g/m²/s'
 
     def ReadSSH(self):
         ssha = xr.open_dataset('../datasets/ssh/' +
