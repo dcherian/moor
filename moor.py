@@ -2050,18 +2050,29 @@ class moor:
         ax['SW'] = axes[1, 0]
         ax['SWNE'] = axes[1, 1]
 
+        ax['NE'].set_xlim([31, 35.8])
+        ax['NE'].set_ylim([16, 32])
+
         mask = getattr(self, varname) > varmin
 
         ctd = self.ctd.resample(time='H').mean('time')
         for season in ['NE', 'NESW', 'SW', 'SWNE']:
             mask = ctd.time.monsoon.labels == season
+            T = ctd.T_S if 'T_S' in ctd else ctd['T']
             dcpy.oceans.TSplot(ctd.S.where(mask),
-                               ctd.T_S.where(mask),
+                               T.where(mask),
                                ax=ax[season],
-                               plot_distrib=False)
-            ax[season].set_title(season)
+                               plot_distrib=False,
+                               hexbin=False,
+                               size=2)
+            ax[season].text(0.05, 0.9, season, transform=ax[season].transAxes)
+
+        [aa.set_xlabel('') for aa in axes[0, :]]
+        [aa.set_ylabel('') for aa in axes[:, 1]]
 
         f.suptitle(self.name)
+
+        plt.savefig('images/ts-' + self.short_name + '.png')
 
     def PlotCoherence(self, ax, v1, v2, nsmooth=5, multitaper=True):
 
