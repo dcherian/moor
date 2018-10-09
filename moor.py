@@ -141,16 +141,34 @@ class moor:
         self.χpod = collections.OrderedDict()
         self.zχpod = dict([])
 
+        self.turb = xr.Dataset()
         # combined turb data
-        self.χ = xr.Dataset()
-        self.ε = xr.Dataset()
-        self.KT = xr.Dataset()
-        self.Jq = xr.Dataset()
         self.pitot = xr.Dataset()
 
-        # combine Tz, N² for χpod depths
-        self.Tz = xr.Dataset()
-        self.N2 = xr.Dataset()
+    @property
+    def χ(self):
+        return self.turb.χ
+
+    @property
+    def ε(self):
+        return self.turb.ε
+
+    @property
+    def Jq(self):
+        return self.turb.Jq
+
+    @property
+    def JqS(self):
+        return self.turb.JqS
+
+    @property
+    def N2(self):
+        return self.turb.N2
+
+    @property
+    def Tz(self):
+        return self.turb.Tz
+
 
     def __repr__(self):
         import matplotlib.dates as dt
@@ -209,7 +227,9 @@ class moor:
         return Lmo
 
     def CombineTurb(self):
-        ''' Combines all χpod χ, ε, KT, Jq etc. into a single DataArray each '''
+        '''
+        Combines all χpod χ, ε, KT, Jq etc. into a single DataArray each
+        '''
 
         χ = []
         ε = []
@@ -251,9 +271,11 @@ class moor:
             ρ2 = sw.pden(pod.ctd2.S, pod.ctd2.T, pod.ctd2.z)
             ρ = np.interp(tmatlab, pod.ctd1.time, (ρ1 + ρ2) / 2,
                           **interpargs)[np.newaxis, :]
-            T = np.interp(tmatlab, pod.ctd1.time, (pod.ctd1.T + pod.ctd2.T) / 2,
+            T = np.interp(tmatlab, pod.ctd1.time,
+                          (pod.ctd1.T + pod.ctd2.T) / 2,
                           **interpargs)[np.newaxis, :]
-            S = np.interp(tmatlab, pod.ctd1.time, (pod.ctd1.S + pod.ctd2.S) / 2,
+            S = np.interp(tmatlab, pod.ctd1.time,
+                          (pod.ctd1.S + pod.ctd2.S) / 2,
                           **interpargs)[np.newaxis, :]
 
             mld = np.interp(tcommon.astype('float32'),
@@ -378,12 +400,9 @@ class moor:
             b = [merge2(aa) for aa in a]
             return xr.concat(b, dim='depth')
 
-        self.χ = merge(χ).χ
-        self.ε = merge(ε).ε
-        self.KT = merge(KT).KT
-        self.Jq = merge(Jq).Jq
-        self.Tz = merge(Tz).Tz
-        self.N2 = merge(N2).N2
+        self.turb = xr.Dataset()
+        self.turb = xr.merge([self.turb] +
+                             [merge(data) for data in [χ, ε, KT, Jq, Tz, N2]])
 
         if pitot_shear != []:
             self.pitot['shear'] = merge(pitot_shear).shear
@@ -400,11 +419,10 @@ class moor:
             self.zχpod = (np.array([[5, 10]]).T
                           + np.array([z0, z1]))
 
-            for a in [self.χ, self.ε, self.KT, self.Jq, self.Tz, self.N2]:
-                if self.name == 'NRL2':
-                    a['z'].values = self.zχpod[1, :]
-                else:
-                    a['z'].values = self.zχpod
+            if self.name == 'NRL2':
+                self.turb['z'].values = self.zχpod[1, :]
+            else:
+                self.turb['z'].values = self.zχpod
 
         else:
             self.zχpod = xr.merge(z).zχpod
@@ -412,11 +430,18 @@ class moor:
         # convert zχpod to DataArray
         da = xr.DataArray(self.zχpod, dims=['num', 'time'],
                           coords={'num': np.arange(self.zχpod.shape[0]) + 1,
-                                  'time': self.χ.time}).transpose()
+                                  'time': self.turb.time}).transpose()
         self.zχpod = da
 
-        self.KT.attrs['long_name'] = '$K_T$'
-        self.KT.attrs['units'] = '$m^2/s$'
+        self.turb.KT.attrs['long_name'] = '$K_T$'
+        self.turb.KT.attrs['units'] = 'm²/s'
+        self.turb.ε.attrs['long_name'] = '$ε$'
+        self.turb.ε.attrs['units'] = 'W/kg'
+        self.turb.χ.attrs['long_name'] = '$χ$'
+        self.turb.χ.attrs['units'] = 'm²/s'
+        self.turb.Jq.attrs['long_name'] = '$J_q^t$'
+        self.turb.Jq.attrs['units'] = 'W/m²'
+
 
     def ReadSSH(self):
         ssha = xr.open_dataset('../datasets/ssh/' +
