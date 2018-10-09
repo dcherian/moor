@@ -446,8 +446,7 @@ class moor:
     def ReadSSH(self):
         ssha = xr.open_dataset('../datasets/ssh/' +
                                'dataset-duacs-rep-global-merged' +
-                               '-allsat-phy-l4-v3_1522711420825.nc',
-                               autoclose=True)
+                               '-allsat-phy-l4-v3_1522711420825.nc')
 
         ssha['EKE'] = np.hypot(ssha.ugosa, ssha.vgosa)
 
@@ -458,8 +457,7 @@ class moor:
     def ReadNIW(self):
         dirname = '../datasets/ewa/'
 
-        self.niw = (xr.open_dataset(dirname + self.name + '.nc', autoclose=True)
-                    .load())
+        self.niw = xr.open_dataset(dirname + self.name + '.nc').load()
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
@@ -589,7 +587,7 @@ class moor:
     def ReadSST(self, name='mur'):
 
         if name == 'mur':
-            sst = xr.open_mfdataset('../datasets/mur/201*', autoclose=True)
+            sst = xr.open_mfdataset('../datasets/mur/201*')
             sst = sst.analysed_sst
         else:
             raise ValueError('SST dataset ' + name + ' is not supported yet!')
@@ -627,7 +625,7 @@ class moor:
             if fname is None:
                 raise ValueError('I need a filename for PMEL met data!')
 
-            met = xr.open_dataset(fname, autoclose=True)
+            met = xr.open_dataset(fname)
             spd = met.WS_401.where(met.WS_401 < 100).squeeze()
             wu = met.WU_422.where(met.WU_422 < 100).squeeze()
             wv = met.WV_423.where(met.WV_423 < 100).squeeze()
@@ -665,7 +663,7 @@ class moor:
     def ReadNcep(self):
         ''' Read NCEP precip rate '''
 
-        P = (xr.open_mfdataset('../ncep/prate*', autoclose=True)
+        P = (xr.open_mfdataset('../ncep/prate*')
              .sel(lon=self.lon, lat=self.lat, method='nearest').load())
 
         P = P.rename(dict(time='Ptime', prate='P'))
@@ -677,21 +675,21 @@ class moor:
     def ReadTropflux(self, loc):
         ''' Read tropflux data. Save in moor.tropflux'''
 
-        swr = (xr.open_mfdataset(loc + '/swr_*.nc', autoclose=True)
+        swr = (xr.open_mfdataset(loc + '/swr_*.nc')
                .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                .load())
-        lwr = (xr.open_mfdataset(loc + '/lwr_*.nc', autoclose=True)
+        lwr = (xr.open_mfdataset(loc + '/lwr_*.nc')
                .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                .load())
-        tau = (xr.open_mfdataset(loc + '/tau_*.nc', autoclose=True)
+        tau = (xr.open_mfdataset(loc + '/tau_*.nc')
                .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                .load())
-        net = (xr.open_mfdataset(loc + '/netflux_*.nc', autoclose=True)
+        net = (xr.open_mfdataset(loc + '/netflux_*.nc')
                .sel(latitude=self.lat, longitude=self.lon, method='nearest')
                .load())
 
-        taux = xr.open_mfdataset(loc + '/taux_*.nc', autoclose=True).taux
-        tauy = xr.open_mfdataset(loc + '/tauy_*.nc', autoclose=True).tauy
+        taux = xr.open_mfdataset(loc + '/taux_*.nc').taux
+        tauy = xr.open_mfdataset(loc + '/tauy_*.nc').tauy
         tx_y = taux.diff(dim='latitude')
         ty_x = tauy.diff(dim='longitude')
 
@@ -774,12 +772,12 @@ class moor:
         if self.kind is not 'rama':
             loc = '/home/deepak/datasets/ncep/'
 
-            uwind = (xr.open_mfdataset(loc + 'uwnd*', autoclose=True)
+            uwind = (xr.open_mfdataset(loc + 'uwnd*')
                      .sel(lon=self.lon, lat=self.lat, method='nearest')
                      .uwnd
                      .load())
 
-            vwind = (xr.open_mfdataset(loc + 'vwnd*.nc', autoclose=True)
+            vwind = (xr.open_mfdataset(loc + 'vwnd*.nc')
                      .sel(lon=self.lon, lat=self.lat, method='nearest')
                      .vwnd
                      .load())
@@ -834,7 +832,7 @@ class moor:
         ''' Read velocity data '''
 
         if FileType == 'pmel':
-            self.vel = xr.open_dataset(fname, autoclose=True)
+            self.vel = xr.open_dataset(fname)
 
             self.vel.rename({'U_320': 'u',
                              'V_321': 'v'}, inplace=True)
