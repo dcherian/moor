@@ -755,16 +755,16 @@ class moor:
         # }
 
         seasons[2014] = {
-            'NE': ('2013-Dec-01', '2014-Apr-01'),
-            'NESW': ('2014-Apr-01', '2014-May-31'),
-            'SW': ('2014-May-31', '2014-Oct-01'),
+            'NE': ('2013-Dec-01', '2014-Mar-01'),
+            'NESW': ('2014-Mar-01', '2014-May-01'),
+            'SW': ('2014-May-01', '2014-Oct-01'),
             'SWNE': ('2014-Oct-01', '2014-Dec-01')
         }
 
         seasons[2015] = {
-            'NE': ('2014-Dec-01', '2015-Mar-31'),
-            'NESW': ('2015-Apr-01', '2015-May-31'),
-            'SW': ('2015-June-01', '2015-Sep-30'),
+            'NE': ('2014-Dec-01', '2015-Mar-01'),
+            'NESW': ('2015-Mar-01', '2015-Apr-30'),
+            'SW': ('2015-Apr-30', '2015-Sep-30'),
             'SWNE': ('2015-Oct-1', '2015-Nov-30')
         }
 
@@ -1111,7 +1111,8 @@ class moor:
 
         return hquiv
 
-    def MarkSeasonsAndEvents(self, ax=None, season=True, events=True, zorder=-10):
+    def MarkSeasonsAndEvents(self, ax=None, season=True, events=True,
+                             zorder=-10):
         import matplotlib.dates as dt
 
         if ax is None:
