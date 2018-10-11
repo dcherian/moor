@@ -13,13 +13,11 @@ class MonsoonAccessor(object):
                          'SW': [6, 7, 8, 9],
                          'SWNE': [10, 11]}
 
-        names = np.asarray(list(self._seasons.keys()))
+        self._labels = np.asarray(['    '] * len(xarray_obj))
 
-        inds = np.zeros(self._obj.time.shape)
-        for index, ss in enumerate(self._seasons):
-            inds[self._obj.time.dt.month.isin(self._seasons[ss])] = index
-
-        self._labels = names[inds.astype(np.int32)]
+        for ss in self._seasons:
+            self._labels[self._obj.time.dt.month.isin(
+                self._seasons[ss]).values] = ss
 
     def _monsoon_func(self, label):
         obj_type = type(self._obj)
