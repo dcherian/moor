@@ -726,6 +726,47 @@ class moor:
                                            longitude=self.lon,
                                            method='nearest').load()])
 
+    def calc_niw_input(self):
+        '''
+            Band passes top-most velocity bin and calculates flux with local or
+            TropFlux winds
+        '''
+        # 1/1.25, 1.25 taken from Alford (2003)
+        freqs = np.array([1 / 1.25, 1.25]) * self.inertial.values
+
+        def filt(comp, freqs=freqs):
+            dt = (comp.time.diff('time').mean()
+                  .values.astype('timedelta64[m]').astype('float32'))
+            ufilt = dcpy.ts.BandPassButter(np.real(comp),
+                                           dim='time',
+                                           freqs=freqs,
+                                           dt=dt / 24 / 60)
+            vfilt = dcpy.ts.BandPassButter(np.imag(comp),
+                                           dim='time',
+                                           freqs=freqs,
+                                           dt=dt / 24 / 60)
+
+            return (ufilt + 1j * vfilt)
+
+        # choose ML velocity: pick topmost bin
+        uinterp = self.vel.u.isel(depth=0).squeeze().interpolate_na('time')
+        vinterp = self.vel.u.isel(depth=0).squeeze().interpolate_na('time')
+
+        ZI = filt(uinterp + 1j * vinterp)
+
+        # choose wind-stress
+        if 'taux' in self.met:
+            T = ((self.met.taux + 1j * self.met.tauy)
+                 .rolling(time=12).mean())
+        else:
+            T = (self.tropflux.taux + 1j * self.tropflux.tauy)
+
+        T = 1 / 1025 * (T.interp_like(ZI).interpolate_na('time')
+                        .dropna('time'))
+
+        # calculate flux
+        self.niw['true_flux'] = np.real(1025 * ZI * np.conj(T))
+
     def AddEvents(self, name, t0, t1, pods=None):
 
         if pods is None:
@@ -784,7 +825,11 @@ class moor:
         self.deployments.append(name)
         self.deploy[name] = _decode_time(t0, t1)
 
-    def calc_near_inertial_input(self):
+    def calc_near_inertial_input_complex(self):
+        '''
+            Uses complex demodulation. Not sure if this is a good idea
+            since the inertial peak is broad.
+        '''
         if self.kind is not 'rama':
             loc = '/home/deepak/datasets/ncep/'
 
