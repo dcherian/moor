@@ -154,6 +154,10 @@ class moor:
         return self.turb.ε
 
     @property
+    def KT(self):
+        return self.turb.KT
+
+    @property
     def Jq(self):
         return self.turb.Jq
 
