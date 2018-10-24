@@ -1288,6 +1288,7 @@ class moor:
             else:
                 hdl.append(var.plot.contourf(ax=ax, levels=25,
                                              cmap=cmap, zorder=-1,
+                                             add_colorbar=True,
                                              **kwargs))
                 if filt is 'bandpass':
                     levels = 20
