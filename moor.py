@@ -1517,50 +1517,51 @@ class moor:
 
         from dcpy.ts import xfilter
 
-        plt.figure(figsize=[11.0, 6])
         lw = 0.5
 
         region = self.select_region(region)
 
         # initialize axes
-        ax = dict()
-        ax['met'] = plt.subplot(6, 2, 1)
-        ax['N2'] = plt.subplot(6, 2, 3, sharex=ax['met'])
+        f = plt.figure(figsize=[11.0, 6], constrained_layout=True)
+        f.set_constrained_layout_pads(h_pad=1/72.0)
+        gs = f.add_gridspec(6, 2)
 
-        ax['T'] = plt.subplot(6, 2, 2, sharex=ax['met'])
+        ax = dict()
+        ax['met'] = f.add_subplot(gs[0, 0])
+        ax['N2'] = f.add_subplot(gs[1, 0], sharex=ax['met'])
+
+        ax['T'] = f.add_subplot(gs[0, 1], sharex=ax['met'])
         if TSkind is not 'timeseries':
-            ax['S'] = plt.subplot(6, 2, 4, sharex=ax['met'], sharey=ax['T'])
+            ax['S'] = f.add_subplot(gs[1, 1], sharex=ax['met'], sharey=ax['T'])
         else:
-            ax['S'] = plt.subplot(6, 2, 4, sharex=ax['met'])
+            ax['S'] = f.add_subplot(gs[1, 1], sharex=ax['met'])
 
         if self.vel:
             if TSkind is not 'timeseries' and self.kind == 'ebob':
-                ax['u'] = plt.subplot(6, 2, 7,
-                                      sharex=ax['met'], sharey=ax['T'])
+                ax['u'] = f.add_subplot(gs[3, 0], sharex=ax['met'], sharey=ax['T'])
 
             if TSkind is 'timeseries' or self.kind != 'ebob':
-                ax['u'] = plt.subplot(6, 2, 7, sharex=ax['met'])
+                ax['u'] = f.add_subplot(gs[3, 0], sharex=ax['met'])
 
             if self.kind == 'ebob':
-                ax['v'] = plt.subplot(
-                    6, 2, 9, sharex=ax['met'], sharey=ax['u'])
-                ax['shear'] = plt.subplot(
-                    6, 2, 5, sharex=ax['met'], sharey=ax['u'])
+                ax['v'] = f.add_subplot(gs[4, 0], sharex=ax['met'], sharey=ax['u'])
+                ax['shear'] = f.add_subplot(gs[2, 0],
+                                            sharex=ax['met'], sharey=ax['u'])
             else:
                 ax['v'] = ax['u']
-                ax['χ'] = plt.subplot(6, 2, 9, sharex=ax['met'])
-                ax['shear'] = plt.subplot(6, 2, 5, sharex=ax['met'])
+                ax['χ'] = f.add_subplot(gs[4, 0], sharex=ax['met'])
+                ax['shear'] = f.add_subplot(gs[2, 0], sharex=ax['met'])
 
         else:
-            ax['χ'] = plt.subplot(6, 2, 7, sharex=ax['met'])
+            ax['χ'] = f.add_subplot(gs[3, 0], sharex=ax['met'])
 
         if self.ssh is not []:
-            ax['ssh'] = plt.subplot(6, 2, 11, sharex=ax['met'])
+            ax['ssh'] = f.add_subplot(gs[5, 0], sharex=ax['met'])
 
-        ax['niw'] = plt.subplot(6, 2, 6, sharex=ax['met'], sharey=ax['T'])
-        ax['Tz'] = plt.subplot(6, 2, 8, sharex=ax['met'])
-        ax['Kt'] = plt.subplot(6, 2, 10, sharex=ax['met'])
-        ax['Jq'] = plt.subplot(6, 2, 12, sharex=ax['met'])
+        ax['niw'] = f.add_subplot(gs[2, 1], sharex=ax['met'], sharey=ax['T'])
+        ax['Tz'] = f.add_subplot(gs[3, 1], sharex=ax['met'])
+        ax['Kt'] = f.add_subplot(gs[4, 1], sharex=ax['met'])
+        ax['Jq'] = f.add_subplot(gs[5, 1], sharex=ax['met'])
 
         filtargs = {'kind': filt, 'decimate': True,
                     'flen': filter_len, 'dim': 'time'}
@@ -1631,6 +1632,7 @@ class moor:
             ax['ssh'].set_title('')
             ax['ssh'].legend(['EKE', 'SSHA'])
             ax['ssh'].axhline(0, zorder=-10, color='gray', ls='--')
+            ax['ssh'].set_ylabel('')
 
         # ------------ flux
         ax['Jq0'] = ax['met'].twinx()
@@ -1654,10 +1656,9 @@ class moor:
         self.PlotFlux(ax['Jq0'],
                       Jq0.sel(**region).time.values,
                       Jq0.sel(**region))
-        ax['Jq0'].set_ylabel(fluxvar + ' (W/m²)', labelpad=0)
+        ax['Jq0'].set_ylabel(fluxvar + ' [W/m²]', labelpad=0)
         ax['Jq0'].spines['right'].set_visible(True)
         ax['Jq0'].spines['left'].set_visible(False)
-        ax['Jq0'].xaxis_date()
 
         if filt == 'bandpass':
             ax['Jq0'].set_ylim(
@@ -1703,8 +1704,7 @@ class moor:
 
         # -------- T, S
         ctdargs = dict(filt=filt, filter_len=filter_len, kind=TSkind,
-                       lw=0.5, region=region, add_colorbar=False,
-                       add_mld=add_mld)
+                       lw=0.5, region=region, add_mld=add_mld)
         ax['Splot'] = self.PlotCTD('S', ax['S'], vmin=Slim[0], vmax=Slim[1],
                                    **ctdargs)
         ax['Tplot'] = self.PlotCTD('T', ax['T'], vmin=Tlim[0], vmax=Tlim[1],
@@ -1712,11 +1712,12 @@ class moor:
 
         # -------- NIW
         if 'KE' in self.niw:
-            self.niw.KE.plot(ax=ax['niw'], robust=True,
-                             add_colorbar=False, cmap=mpl.cm.Reds)
+            self.niw.sel(**region).KE.plot(ax=ax['niw'], robust=True,
+                                           add_colorbar=False, cmap=mpl.cm.Reds)
             self.PlotχpodDepth(ax=ax['niw'], color='k')
             _corner_label('NIW KE', ax=ax['niw'], y=0.1)
             ax['niw'].set_ylim([150, 0])
+            ax['niw'].set_title('')
 
         # _colorbar(hdl)
 
@@ -1816,7 +1817,6 @@ class moor:
 
         ax['met'].set_xlim([self.χ.sel(**region).time.min().values,
                             self.χ.sel(**region).time.max().values])
-        plt.gcf().autofmt_xdate()
 
         for name in ['N2', 'T', 'S', 'v', 'χ', 'Kt',
                      'Jq', 'Tz', 'shear', 'ssh']:
@@ -1828,8 +1828,6 @@ class moor:
                         dcpy.plots.liney(0, ax=ax[name])
 
         self.MarkSeasonsAndEvents(ax['met'], season=False)
-
-        plt.tight_layout(w_pad=5, h_pad=-0.5)
 
         hcbar = dict()
         if isinstance(ax['Tplot'], mpl.contour.QuadContourSet):
@@ -1847,7 +1845,11 @@ class moor:
         if 'shear' in ax and self.kind == 'ebob':
             hcbar['shear'] = _colorbar(shhdl, ax=ax['shear'])
 
-        # ax['cbar'].set_ylabel(colorlabel)
+        for aa in ax:
+            if isinstance(ax[aa], mpl.axes.Axes):
+                ax[aa].set_xlabel('')
+                if ~ax[aa].is_last_row():
+                    [tt.set_visible(False) for tt in ax[aa].get_xticklabels()]
 
         return ax
 
