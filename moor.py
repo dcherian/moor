@@ -162,8 +162,8 @@ class moor:
         return self.turb.Jq
 
     @property
-    def JqS(self):
-        return self.turb.JqS
+    def Js(self):
+        return self.turb.Js
 
     @property
     def N2(self):
