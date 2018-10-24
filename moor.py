@@ -449,8 +449,12 @@ class moor:
         self.turb.Jq.attrs['long_name'] = '$J_q^t$'
         self.turb.Jq.attrs['units'] = 'W/m²'
 
+        self.turb.Tz.attrs['units'] = 'C/m'
+
         self.turb['Sz'] = (-(self.turb.N2 / 9.81 - 1.7e-4 * self.turb.Tz)
                            / 7.6e-4)
+        self.turb.Sz.attrs['units'] = '1/m'
+
         self.turb['Js'] = - self.turb.ρ * self.turb.KT * self.turb.Sz
         self.turb.Js.attrs['long_name'] = '$J_s^t$'
         self.turb.Js.attrs['units'] = 'g/m²/s'
