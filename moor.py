@@ -3111,3 +3111,46 @@ class moor:
                           f0 + fM2, fM2 - f0,
                           f0 + 2 * fM2, 2 * fM2 - f0,
                           3 * fM2 + f0, 3 * fM2 - f0], zorder=10)
+
+    def plot_turb_fluxes(self, region={}):
+
+        region = self.select_region(region)
+
+        f, ax = plt.subplots(5, 1, sharex=True, constrained_layout=True)
+
+        self.Jq.sel(**region).plot.line(ax=ax[0], hue='depth')
+        self.Tz.sel(**region).plot.line(ax=ax[1], hue='depth')
+        self.Js.sel(**region).plot.line(ax=ax[2], hue='depth')
+        self.Sz.sel(**region).plot.line(ax=ax[3], hue='depth')
+
+        shear = self.calc_shear_bandpass(depth=60).resample(time='D').var()
+
+        shear['f0'].sel(**region).plot(ax=ax[4], label='$f_0$')
+        shear['M2'].sel(**region).plot(ax=ax[4], label='$M_2$')
+        shear['M4'].sel(**region).plot(ax=ax[4], label='$M_4$')
+        ax[4].legend()
+
+        ax[0].set_ylim([-150, 10])
+        ax[2].set_ylim([0, 5e-3])
+
+        [aa.set_xlabel('') for aa in ax]
+        [aa.set_title('') for aa in ax[1:]]
+        [self.MarkSeasonsAndEvents(ax=aa) for aa in ax]
+
+    def calc_shear_bandpass(self, depth=120):
+        def calc_shear(freqs, depth):
+            return (dcpy.ts.BandPassButter(
+                self.vel.shear.sel(depth=depth, method='nearest')
+                .interpolate_na('time'),
+                freqs, dim='time', dt=1 / 24, debug=False))
+
+        shear = xr.Dataset()
+
+        shear['f0'] = calc_shear(np.array([1 / 1.5, 1.5])
+                                 * self.inertial.values, depth)
+        shear['M2'] = calc_shear(np.array([1 / 1.05, 1.05])
+                                 * 24 / 12.42, depth)
+        shear['M4'] = calc_shear(np.array([1 / 1.05, 1.05])
+                                 * 24 / 12.42 * 2, depth)
+
+        return shear
