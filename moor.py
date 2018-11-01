@@ -3154,3 +3154,51 @@ class moor:
                                  * 24 / 12.42 * 2, depth)
 
         return shear
+
+    def isothermal_shear(self, trange=slice('2014-06-01', '2014-09-01'),
+                         zrange=slice(70, None)):
+        ''' Maps shear on to isotherms. Returns Dataset. '''
+
+        T = (self.ctd.T.sel(time=trange, depth2=zrange)
+             .resample(time='H').mean('time')
+             .rename({'depth2': 'depth'})
+             .dropna('depth', how='all'))
+        T['depth'] = T.depth.astype('float32')
+        # choose isopycnals
+        isos = T.mean('time').isel(depth=slice(0, None, 5))
+
+        isoT = xr.Dataset()
+        isoT['depth'] = (xr.DataArray(np.zeros((len(isos), len(T.time))),
+                                      dims=['T', 'time'],
+                                      coords={'T': isos.values,
+                                              'time': T.time})
+                         * np.nan)
+        isoT['uz'] = xr.zeros_like(isoT.depth) * np.nan
+        isoT['vz'] = xr.zeros_like(isoT.depth) * np.nan
+
+        vel = self.vel.sel(time=trange, depth=zrange)
+
+        for tt, t in enumerate(T.time.values):
+            subset = T.sel(time=t).dropna('depth', how='all')
+            # Si = np.interp(subset.depth.values,
+            # self.ctd.depth.sel(time=t, method='nearest').values,
+            #                nrl5.ctd.S.sel(time=t, method='nearest').values)
+            # rho = sw.pden(Si, subset.T, subset.depth)
+
+            isoT['depth'][:, tt] = np.interp(
+                isoT.T.values,
+                subset.T.sortby(subset.T).values,
+                subset.depth.sortby(subset.T).values,
+                left=np.nan, right=np.nan)
+            isoT['uz'][:, tt] = np.interp(
+                isoT.depth.sel(time=t).values,
+                vel.depth.values,
+                vel.uz.sel(time=t, method='nearest').values,
+                left=np.nan, right=np.nan)
+            isoT['vz'][:, tt] = np.interp(
+                isoT.depth.sel(time=t).values,
+                vel.depth.values,
+                vel.vz.sel(time=t, method='nearest').values,
+                left=np.nan, right=np.nan)
+
+        return isoT
