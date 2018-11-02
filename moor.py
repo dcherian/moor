@@ -554,6 +554,12 @@ class moor:
                                           'time': ('time', time[0, :])})
             self.ctd['depth'] = self.ctd.depth.fillna(0)
 
+            with xr.open_dataset(
+                    '../intermediate-files/'+self.name+'-sgrid.nc') as Sgrid:
+                self.ctd['S_T'] = Sgrid.S.load()
+                self.ctd['ρ_T'] = xr.apply_ufunc(
+                    sw.pden, self.ctd.S_T, self.ctd.T, self.ctd.depth2)
+
             if fname == 'NRL3':
                 # instrument is bad. All salinities are in 20s.
                 # Simple offset correction doesn't help
