@@ -439,6 +439,8 @@ class moor:
                           coords={'num': np.arange(self.zχpod.shape[0]) + 1,
                                   'time': self.turb.time}).transpose()
         self.zχpod = da
+        self.zχpod.attrs['long_name'] = 'χpod depth'
+        self.zχpod.attrs['units'] = 'm'
 
         self.turb.KT.attrs['long_name'] = '$K_T$'
         self.turb.KT.attrs['units'] = 'm²/s'
@@ -451,6 +453,7 @@ class moor:
 
         self.turb.Tz.attrs['units'] = 'C/m'
 
+        # this is not a good idea with WDA Tz estimate!
         self.turb['Sz'] = (-(self.turb.N2 / 9.81 - 1.7e-4 * self.turb.Tz)
                            / 7.6e-4)
         self.turb.Sz.attrs['units'] = '1/m'
@@ -2671,8 +2674,8 @@ class moor:
     def plot_turb_spectrogram(self):
 
         tides = dcpy.ts.TidalAliases(1 / 24)
-        nfft = 30 * 24  # in hours
-        shift = 2 * 24  # in hours
+        nfft = 21 * 24  # in hours
+        shift = 4 * 24  # in hours
 
         # get a range of depths that the χpods cover
         # calcualte mean KE over that depth & then wavelet transform
@@ -3116,19 +3119,17 @@ class moor:
 
         region = self.select_region(region)
 
-        f, ax = plt.subplots(5, 1, sharex=True, constrained_layout=True)
+        f, ax = plt.subplots(4, 1, sharex=True, constrained_layout=True)
 
         self.Jq.sel(**region).plot.line(ax=ax[0], hue='depth')
-        self.Tz.sel(**region).plot.line(ax=ax[1], hue='depth')
+        self.N2.sel(**region).plot.line(ax=ax[1], hue='depth')
         self.Js.sel(**region).plot.line(ax=ax[2], hue='depth')
-        self.Sz.sel(**region).plot.line(ax=ax[3], hue='depth')
 
         shear = self.calc_shear_bandpass(depth=60).resample(time='D').var()
-
-        shear['f0'].sel(**region).plot(ax=ax[4], label='$f_0$')
-        shear['M2'].sel(**region).plot(ax=ax[4], label='$M_2$')
-        shear['M4'].sel(**region).plot(ax=ax[4], label='$M_4$')
-        ax[4].legend()
+        shear['f0'].sel(**region).plot(ax=ax[3], label='$f_0$')
+        shear['M2'].sel(**region).plot(ax=ax[3], label='$M_2$')
+        shear['M4'].sel(**region).plot(ax=ax[3], label='$M_4$')
+        ax[-1].legend()
 
         ax[0].set_ylim([-150, 10])
         ax[2].set_ylim([0, 5e-3])
@@ -3152,12 +3153,16 @@ class moor:
                                  * 24 / 12.42, depth)
         shear['M4'] = calc_shear(np.array([1 / 1.05, 1.05])
                                  * 24 / 12.42 * 2, depth)
+        shear['total'] = self.vel.shear.sel(depth=depth, method='nearest')
 
         return shear
 
     def isothermal_shear(self, trange=slice('2014-06-01', '2014-09-01'),
-                         zrange=slice(70, None)):
+                         zrange=None):
         ''' Maps shear on to isotherms. Returns Dataset. '''
+
+        if zrange is None:
+            zrange = slice(self.zχpod.isel(num=1).median(), None)
 
         T = (self.ctd.T.sel(time=trange, depth2=zrange)
              .resample(time='H').mean('time')
