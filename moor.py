@@ -554,11 +554,14 @@ class moor:
                                           'time': ('time', time[0, :])})
             self.ctd['depth'] = self.ctd.depth.fillna(0)
 
-            with xr.open_dataset(
-                    '../intermediate-files/'+self.name+'-sgrid.nc') as Sgrid:
+            try:
+                Sgrid = xr.open_dataset(
+                    '../intermediate-files/' + self.name + '-sgrid.nc')
                 self.ctd['S_T'] = Sgrid.S.load()
                 self.ctd['ρ_T'] = xr.apply_ufunc(
                     sw.pden, self.ctd.S_T, self.ctd.T, self.ctd.depth2)
+            except FileNotFoundError:
+                pass
 
             if fname == 'NRL3':
                 # instrument is bad. All salinities are in 20s.
