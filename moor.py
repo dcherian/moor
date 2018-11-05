@@ -779,6 +779,8 @@ class moor:
 
         # calculate flux
         self.niw['true_flux'] = np.real(1025 * ZI * np.conj(T))
+        self.niw['true_flux'].attrs['long_name'] = 'Local wind input'
+        self.niw['true_flux'].attrs['units'] = 'W/m²'
 
     def AddEvents(self, name, t0, t1, pods=None):
 
