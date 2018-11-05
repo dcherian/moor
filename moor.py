@@ -908,8 +908,8 @@ class moor:
         if FileType == 'pmel':
             self.vel = xr.open_dataset(fname)
 
-            self.vel.rename({'U_320': 'u',
-                             'V_321': 'v'}, inplace=True)
+            self.vel = self.vel.rename({'U_320': 'u',
+                                        'V_321': 'v'})
             self.vel.u.load()
             self.vel.v.load()
 
