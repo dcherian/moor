@@ -1408,7 +1408,7 @@ class moor:
         from dcpy.ts import xfilter
 
         if len(ax) == 0:
-            f, axx = plt.subplots(naxes, 1, sharex=True)
+            f, axx = plt.subplots(naxes, 1, sharex=True, constrained_layout=True)
         else:
             axx = ax
 
