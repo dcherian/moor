@@ -3218,3 +3218,40 @@ class moor:
                 left=np.nan, right=np.nan)
 
         return isoT
+
+    def linear_fit_shear(self, region):
+        '''
+        Estimate shear using linear fits in depth.
+
+        Parameters
+        ----------
+        region : dict
+            dictionary passed to sel.
+
+        Returns
+        -------
+        shear : xarray.Dataset
+            contains uz, vz, shear = np.hypot(uz, vz)
+        '''
+
+        u = (self.vel.u.sel(**region)
+             .interpolate_na('time')
+             .dropna('time', how='any'))
+        v = (self.vel.u.sel(**region)
+             .interpolate_na('time')
+             .dropna('time', how='any'))
+
+        daargs = dict(dims=['time'], coords={'time': u.time})
+
+        uz = xr.DataArray(
+            np.apply_along_axis(lambda x: np.polyfit(u.depth, x, 1)[0],
+                                u.get_axis_num('depth'), u.values),
+            **daargs, name='uz')
+        vz = xr.DataArray(
+            np.apply_along_axis(lambda x: np.polyfit(u.depth, x, 1)[0],
+                                v.get_axis_num('depth'), v.values),
+            **daargs, name='vz')
+        shear = xr.merge([uz, vz])
+        shear['shear'] = np.hypot(uz, vz)
+
+        return shear
