@@ -3255,3 +3255,43 @@ class moor:
         shear['shear'] = np.hypot(uz, vz)
 
         return shear
+
+    def plot_niw_fraction(self, region=dict(depth=slice(110, 160), time='2014')):
+
+        roll = dict(time=4*24)
+
+        shear = self.linear_fit_shear(region).shear
+        # shear = np.sqrt((self.vel.shear.sel(**region)**2).mean('depth'))
+        niw_shear = dcpy.ts.BandPassButter(
+            shear,
+            freqs=np.array([0.7, 1.3]) * self.inertial.values,
+            dt=1/24, debug=False)
+
+        ke = (np.hypot(self.vel.u, self.vel.v)**2).sel(**region).mean('depth')
+        niw_ke = dcpy.ts.BandPassButter(
+            ke,
+            freqs=np.array([0.7, 1.3]) * self.inertial.values,
+            dt=1/24, debug=False)
+
+        f, ax = plt.subplots(2, 1, constrained_layout=True, sharex=True)
+
+        for full, niw, aa in zip([ke, shear],
+                                 [niw_ke, niw_shear],
+                                 ax):
+            full.rolling(**roll).var().plot(ax=aa)
+            niw.rolling(**roll).var().plot(ax=aa)
+
+            a2 = aa.twinx()
+            ((niw.rolling(**roll).var() / full.rolling(**roll).var())
+             .plot(ax=a2, color='gray'))
+            dcpy.plots.set_axes_color(a2, 'gray', spine='right')
+            a2.set_ylim([0, 1])
+            a2.set_ylabel('Near-inertial fraction')
+            aa.set_xlabel('')
+
+            f.suptitle(self.name + ': Rolling 4 day variances')
+            ax[0].set_title('KE')
+            ax[1].set_title('shear = linear fit to vel in depth = '
+                            + str(region['depth']))
+
+        return f, ax
