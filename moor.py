@@ -238,12 +238,6 @@ class moor:
         Combines all χpod χ, ε, KT, Jq etc. into a single DataArray each
         '''
 
-        χ = []
-        ε = []
-        KT = []
-        Jq = []
-        Tz = []
-        N2 = []
         z = []
         pitot_shear = []
         pitot_spd = []
@@ -251,7 +245,7 @@ class moor:
         t = []
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
-            t.append(pod.chi[pod.best]['time'])
+            t.append(pod.turb[pod.best]['time'])
 
         tall = (np.array([[np.nanmin(tt), np.nanmax(tt)] for tt in t]))
         tmatlab = np.arange(np.floor(np.nanmin(tall)),
@@ -261,10 +255,11 @@ class moor:
 
         interpargs = {'left': np.nan, 'right': np.nan}
 
+        estimates = []
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
 
-            timevec = pod.chi[pod.best]['time']
+            timevec = pod.turb[pod.best]['time']
             mask = np.logical_not(np.isnan(timevec))
 
             z.append(xr.DataArray(
@@ -310,48 +305,81 @@ class moor:
 
             dims = ['depth', 'time']
 
-            χ.append(xr.DataArray(
-                np.interp(tmatlab, timevec[mask],
-                          pod.chi[pod.best]['chi'][mask],
-                          **interpargs)[np.newaxis, :],
-                dims=dims, coords=coords, name='χ'))
+            debug_combine = False
+
+            est = pod.chi[pod.best].copy()
+            dt = (est.time.dt.floor('min').diff('time').values
+                  .astype('timedelta64[s]').astype('float32'))
+            median_dt = np.median(dt)
+            inds = np.where(np.abs(dt - median_dt) > 60)[0]
+            time_old = pod.chi[pod.best].time.reset_coords(drop=True)
+
+            if 'dzdT' in est:
+                est = est.drop(['dzdT', 'no_min_dz', 'sgn', 'eps'])
+
+            time_new = time_old
+            # NaN out large gaps
+            if inds.size > 0:
+                for ii in inds:
+                    t0 = time_old[ii].values
+                    t1 = time_old[ii + 1].values
+
+                    warnings.warn('Found large gap. NaNing out...')
+                    gap = pd.date_range(t0, t1, freq=str(int(median_dt)) + 's')
+                    gap = xr.DataArray(gap.values[1:], dims=['time'],
+                                       coords={'time': gap.values[1:]},
+                                       name='time')
+                    if (((t1 - gap[-1].values)
+                         .astype('timedelta64[s]').astype('float32'))
+                       < median_dt):
+                        gap = gap[:-1]
+
+                    time_new = xr.concat([time_new.sel(time=slice(None, t0)),
+                                          gap,
+                                          time_new.sel(time=slice(t1, None))],
+                                         dim='time')
+
+            est = est.reindex({'time': time_new})
+
+            est = est.rename({'Kt': 'KT',
+                              'dTdz': 'Tz',
+                              'chi': 'χ'})
+
+            if debug_combine:
+                plt.figure()
+                pod.chi[pod.best].Kt.plot.line(yscale='log', label='original')
+                est.KT.plot.line(yscale='log', label='reindexed')
+                plt.legend()
+
+            if 'depth' in est:
+                # ebob
+                est = est.rename({'depth': 'z'})
 
             if 'w' in pod.best:
-                ε.append(xr.DataArray(
-                    np.interp(tmatlab, timevec[mask],
-                              pod.chi[pod.best]['eps_Kt'][mask],
-                              **interpargs)[np.newaxis, :],
-                    dims=dims, coords=coords, name='ε'))
+                # strided rolling mean is faster than resample
+                nt = int(10 * 60 / np.median(dt))
+                if nt > 1:
+                    est = (est
+                           .rename({'eps_Kt': 'ε'})
+                           .rolling(time=nt, center=True)
+                           .construct('chunk', stride=nt).mean('chunk')
+                           .interp(time=tcommon)
+                           .expand_dims('depth'))
             else:
-                ε.append(xr.DataArray(
-                    np.interp(tmatlab, timevec[mask],
-                              pod.chi[pod.best]['eps'][mask],
-                              **interpargs)[np.newaxis, :],
-                    dims=dims, coords=coords, name='ε'))
+                est = (est.rename({'eps': 'ε'})
+                       .interp(time=tcommon)
+                       .expand_dims('depth'))
 
-            KT.append(xr.DataArray(
-                np.interp(tmatlab, timevec[mask],
-                          pod.KT[pod.best][mask],
-                          **interpargs)[np.newaxis, :],
-                dims=dims, coords=coords, name='KT'))
+            # add in extra info
+            for cc in coords:
+                est[cc] = coords[cc]
+                est = est.set_coords(cc)
 
-            Jq.append(xr.DataArray(
-                np.interp(tmatlab, timevec[mask],
-                          pod.Jq[pod.best][mask],
-                          **interpargs)[np.newaxis, :],
-                dims=dims, coords=coords, name='Jq'))
+            estimates.append(est)
 
-            Tz.append(xr.DataArray(
-                np.interp(tmatlab, timevec[mask],
-                          pod.chi[pod.best]['dTdz'][mask],
-                          **interpargs)[np.newaxis, :],
-                dims=dims, coords=coords, name='Tz'))
-
-            N2.append(xr.DataArray(
-                np.interp(tmatlab, timevec[mask],
-                          pod.chi[pod.best]['N2'][mask],
-                          **interpargs)[np.newaxis, :],
-                dims=dims, coords=coords, name='N2'))
+            if debug_combine:
+                est.KT.plot(label='interpolated', _labels=False)
+                plt.title(pod.name + '|' + pod.best)
 
             if pod.pitot is not None:
                 pitot_spd.append(xr.DataArray(
@@ -369,26 +397,7 @@ class moor:
                                   **interpargs)[np.newaxis, :],
                         dims=dims, coords=coords, name='shear'))
 
-            # check if there are big gaps (> 1 day)
-            # must replace these with NaNs
-            time = timevec[mask]
-            dtime = np.diff(timevec[mask])
-            inds = np.where(np.round(dtime) > 0)
-            if len(inds[0]) > 0:
-                import warnings
-                warnings.warn('Found large gap. NaNing out...')
-                from dcpy.util import find_approx
-                i0 = find_approx(tmatlab, time[inds[0][0]])
-                if len(inds[0]) > 1:
-                    i1 = find_approx(tmatlab, time[inds[0][1] + 2])
-                else:
-                    i1 = find_approx(tmatlab, time[inds[0][0] + 2])
-
-                for var in [χ, KT, Jq, Tz, N2]:
-                    var[-1].values[:, i0:i1] = np.nan
-
         def merge(x0):
-
             x = xr.merge(map(lambda xx: xx.to_dataset(), x0))[x0[0].name]
             x['depth'] = x.z.mean(dim='time')
             # grouped by depth
@@ -408,8 +417,7 @@ class moor:
             return xr.concat(b, dim='depth')
 
         self.turb = xr.Dataset()
-        self.turb = xr.merge([self.turb] +
-                             [merge(data) for data in [χ, ε, KT, Jq, Tz, N2]])
+        self.turb = xr.merge([self.turb] + estimates)
 
         if pitot_shear != []:
             self.pitot['shear'] = merge(pitot_shear).shear
@@ -427,7 +435,7 @@ class moor:
                           + np.array([z0, z1]))
 
             if self.name == 'NRL2':
-                self.turb['z'].values = self.zχpod[1, :]
+                self.turb['z'].values = self.zχpod[1, :][np.newaxis, :]
             else:
                 self.turb['z'].values = self.zχpod
 
