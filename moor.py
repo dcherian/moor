@@ -485,6 +485,9 @@ class moor:
         dirname = '../datasets/ewa/'
 
         self.niw = xr.open_dataset(dirname + self.name + '.nc').load()
+        self.niw['latitude'] = self.lat
+        self.niw['longitude'] = self.lon
+        self.niw = self.niw.set_coords(['latitude', 'longitude'])
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
@@ -750,7 +753,7 @@ class moor:
                                            longitude=self.lon,
                                            method='nearest').load()])
 
-    def calc_niw_input(self):
+    def calc_niw_input(self, debug=False):
         '''
             Band passes top-most velocity bin and calculates flux with local or
             TropFlux winds
@@ -774,7 +777,11 @@ class moor:
 
         # choose ML velocity: pick topmost bin
         uinterp = self.vel.u.isel(depth=0).squeeze().interpolate_na('time')
-        vinterp = self.vel.u.isel(depth=0).squeeze().interpolate_na('time')
+        vinterp = self.vel.v.isel(depth=0).squeeze().interpolate_na('time')
+
+        if debug:
+            dcpy.ts.PlotSpectrum(uinterp + 1j * vinterp, twoside=False)
+            dcpy.plots.linex(freqs)
 
         ZI = filt(uinterp + 1j * vinterp)
 
