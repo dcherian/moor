@@ -775,6 +775,9 @@ class moor:
 
             return (ufilt + 1j * vfilt)
 
+        if 'depth' not in self.vel.u.dims:
+            self.vel = self.vel.expand_dims(['depth'])
+
         # choose ML velocity: pick topmost bin
         uinterp = self.vel.u.isel(depth=0).squeeze().interpolate_na('time')
         vinterp = self.vel.v.isel(depth=0).squeeze().interpolate_na('time')
@@ -928,8 +931,9 @@ class moor:
         if FileType == 'pmel':
             self.vel = xr.open_dataset(fname)
 
-            self.vel = self.vel.rename({'U_320': 'u',
-                                        'V_321': 'v'})
+            self.vel = (self.vel.rename({'U_320': 'u',
+                                         'V_321': 'v'})
+                        .squeeze())
             self.vel.u.load()
             self.vel.v.load()
 
@@ -959,8 +963,15 @@ class moor:
             self.vel['uz'] = self.vel.u.differentiate('depth')
             self.vel['vz'] = self.vel.v.differentiate('depth')
             self.vel['shear'] = np.hypot(self.vel.uz, self.vel.vz)
+            self.vel.time.values = self.vel.time.dt.round('H')
+            self.vel.uz.attrs['units'] = '1/s'
+            self.vel.vz.attrs['units'] = '1/s'
 
         self.vel['w'] = self.vel.u + 1j * self.vel.v
+
+        self.vel.depth.attrs['units'] = 'm'
+        self.vel.u.attrs['units'] = 'm/s'
+        self.vel.v.attrs['units'] = 'm/s'
 
     def AddChipod(self, name, depth: int,
                   best: str, fname: str='Turb.mat', dir=None):
