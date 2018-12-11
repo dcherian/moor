@@ -488,6 +488,7 @@ class moor:
         self.niw['latitude'] = self.lat
         self.niw['longitude'] = self.lon
         self.niw = self.niw.set_coords(['latitude', 'longitude'])
+        self.niw.time.values = self.niw.time.dt.round('H')
 
     def ReadCTD(self, fname: str, FileType: str='ramaprelim'):
 
