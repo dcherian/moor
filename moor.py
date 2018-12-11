@@ -1216,11 +1216,17 @@ class moor:
         ylim = ax.get_ylim()
 
         if season:
+            # seasonColor = {
+            #     'NE': '#fef3d3',  # 'beige',
+            #     'NESW': '#E6F5DE',  # lemonchiffon
+            #     'SW': '#E7F1FA',  # wheat
+            #     'SWNE': 'white'  # honeydew
+            # }
             seasonColor = {
-                'NE': 'beige',
-                'NESW': 'lemonchiffon',
-                'SW': 'wheat',
-                'SWNE': 'honeydew'
+                'NE': 'beige',  # 'beige',
+                'NESW': 'lemonchiffon',  # lemonchiffon
+                'SW': 'wheat',  # wheat
+                'SWNE': 'honeydew'  # honeydew
             }
 
             for pp in self.season:
@@ -1229,7 +1235,7 @@ class moor:
                     xx = dt.date2num(self.season[pp][ss])
                     ax.fill_between(xx, 0, 1,
                                     transform=ax.get_xaxis_transform('grid'),
-                                    facecolor=clr, alpha=0.35,
+                                    facecolor=clr, alpha=0.9,
                                     zorder=zorder, edgecolor=None)
 
         if events:
