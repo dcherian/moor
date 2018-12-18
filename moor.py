@@ -3059,12 +3059,12 @@ class moor:
                     pass
 
                 ax['ts'].axvspan(region.start, region.stop,
-                                 facecolor=hdl[0].get_color(),
+                                 facecolor=hdl.get_color(),
                                  alpha=0.1, zorder=-2)
 
                 if 'ts2' in ax:
                     ax['ts2'].axvspan(region.start, region.stop,
-                                      facecolor=hdl[0].get_color(),
+                                      facecolor=hdl.get_color(),
                                       alpha=0.1, zorder=-2)
 
                 if 'wz' in locals():
