@@ -2715,6 +2715,30 @@ class moor:
         for aa in axes.flat:
             self.MarkSeasonsAndEvents(aa)
 
+    def interp_shear(self, kind='ctd'):
+        '''
+        kind: str, optional
+            'nearest': interpolate smoothed shear field to χpod depth
+            'pod_diff': difference velocity in bins above & below χpod
+            'ctd': interpolate u,v to depth of CTDs & difference
+            'linear' : fit straight line
+        '''
+
+        zpod = (self.zχpod.sel(num=2, drop=True)
+                .interp(time=self.vel.time).dropna('time'))
+
+        uzi = (self.vel[['uz', 'vz', 'u', 'v']]
+               .rolling(depth=4, center=True, min_periods=1).mean()
+               .interp(time=zpod.time, depth=zpod, method='nearest')
+               .interpolate_na('time'))
+
+        uzi.attrs['description'] = ('4 point running mean smoothed '
+                                    'central difference shear + '
+                                    'nearest neighbour interpolation to '
+                                    'χpod depth')
+
+        return uzi
+
     def plot_turb_spectrogram(self):
 
         tides = dcpy.ts.TidalAliases(1 / 24)
