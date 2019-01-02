@@ -13,6 +13,7 @@ import seawater as sw
 from dcpy.util import mdatenum2dt64
 
 import xarray as xr
+import xfilter
 
 
 def _get_dt_in_days(time):
@@ -763,16 +764,10 @@ class moor:
         freqs = np.array([1 / 1.25, 1.25]) * self.inertial.values
 
         def filt(comp, freqs=freqs):
-            dt = (comp.time.diff('time').mean()
-                  .values.astype('timedelta64[m]').astype('float32'))
-            ufilt = dcpy.ts.BandPassButter(np.real(comp),
-                                           dim='time',
-                                           freqs=freqs,
-                                           dt=dt / 24 / 60)
-            vfilt = dcpy.ts.BandPassButter(np.imag(comp),
-                                           dim='time',
-                                           freqs=freqs,
-                                           dt=dt / 24 / 60)
+            ufilt = xfilter.bandpass(np.real(comp), coord='time',
+                                     freq=freqs, cycles_per='D', order=3)
+            vfilt = xfilter.bandpass(np.imag(comp), coord='time',
+                                     freq=freqs, cycles_per='D', order=3)
 
             return (ufilt + 1j * vfilt)
 
@@ -783,24 +778,29 @@ class moor:
         uinterp = self.vel.u.isel(depth=0).squeeze().interpolate_na('time')
         vinterp = self.vel.v.isel(depth=0).squeeze().interpolate_na('time')
 
-        if debug:
-            dcpy.ts.PlotSpectrum(uinterp + 1j * vinterp, twoside=False)
-            dcpy.plots.linex(freqs)
-
         ZI = filt(uinterp + 1j * vinterp)
+
+        if debug:
+            _, ax = dcpy.ts.PlotSpectrum(uinterp + 1j * vinterp, twoside=False)
+            dcpy.ts.PlotSpectrum(ZI.dropna('time'), ax=ax, twoside=False)
+            dcpy.plots.linex(freqs)
 
         # choose wind-stress
         if 'taux' in self.met:
-            T = ((self.met.taux + 1j * self.met.tauy)
-                 .rolling(time=12).mean())
+            T = (self.met.taux + 1j * self.met.tauy)
         else:
             T = (self.tropflux.taux + 1j * self.tropflux.tauy)
 
-        T = 1 / 1025 * (T.interp_like(ZI).interpolate_na('time')
-                        .dropna('time'))
+        That = filt(T)
+        if debug:
+            dcpy.ts.PlotSpectrum(T.dropna('time'), ax=ax, twoside=False)
+            dcpy.ts.PlotSpectrum(That.dropna('time'), ax=ax, twoside=False)
+
+        That = 1 / 1025 * (That.interp_like(ZI).interpolate_na('time')
+                           .dropna('time'))
 
         # calculate flux
-        self.niw['true_flux'] = np.real(1025 * ZI * np.conj(T))
+        self.niw['true_flux'] = np.real(1025 * np.conj(ZI) * That)
         self.niw['true_flux'].attrs['long_name'] = 'Local wind input'
         self.niw['true_flux'].attrs['units'] = 'W/m²'
 
