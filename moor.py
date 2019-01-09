@@ -1,3 +1,5 @@
+import warnings
+
 import airsea
 import dcpy.oceans
 import dcpy.plots
@@ -221,11 +223,11 @@ class moor:
         k = 0.41
 
         # Thorpe (4.1)
-        B = g * α * self.flux.Jq0 / ρ0 / cp
+        B = g * α * self.flux.Jq0.where(self.flux.Jq0 < 0) / ρ0 / cp
 
         ustar = np.sqrt(self.met.τ / ρ0)
 
-        Bi = B.interp(time=ustar.time, left=np.nan, right=np.nan)
+        Bi = B.interp(time=ustar.time)
 
         Lmo = -ustar**3 / k / Bi
         Lmo.name = 'Lmo'
@@ -2964,7 +2966,7 @@ class moor:
 
         return ax, hdls
 
-    def plot_mixing_seasons(self, z=120):
+    def plot_mixing_seasons(self, z=104):
 
         def setup_figure():
             f = plt.figure(constrained_layout=True)
@@ -3095,7 +3097,7 @@ class moor:
                 #                      dt=_get_dt_in_days(T.time),
                 #                      ax=ax['T'], **kwargs)
 
-                dcpy.ts.PlotSpectrum(np.log10(eps.sel(time=region)),
+                dcpy.ts.PlotSpectrum((eps.sel(time=region)),
                                      dt=_get_dt_in_days(eps.time),
                                      ax=ax['T'], **kwargs)
 
@@ -3143,7 +3145,7 @@ class moor:
         fM2 = 24 / 12.42
 
         def interp_var(var):
-            z = 120  # self.zχpod.isel(num=1).median().values + 5
+            z = 110  # self.zχpod.isel(num=1).median().values + 5
             return (var.sel(depth=z, method='nearest')
                     .interpolate_na(dim='time')
                     .dropna('time'))
@@ -3244,14 +3246,14 @@ class moor:
 
         return shear
 
-    def isothermal_shear(self, trange=slice('2014-06-01', '2014-09-01'),
-                         zrange=None):
-        ''' Maps shear on to isotherms. Returns Dataset. '''
+    def isopycnal_shear(self, trange=slice('2014-06-01', '2014-09-01'),
+                        zrange=None):
+        ''' Maps shear on to isopycnals. Returns Dataset. '''
 
         if zrange is None:
-            zrange = slice(self.zχpod.isel(num=1).median(), None)
+            zrange = slice(self.zχpod.isel(num=1).median()-10, None)
 
-        T = (self.ctd.T.sel(time=trange, depth2=zrange)
+        T = (self.ctd.ρ_T.sel(time=trange, depth2=zrange)
              .resample(time='H').mean('time')
              .rename({'depth2': 'depth'})
              .dropna('depth', how='all'))
