@@ -2727,15 +2727,33 @@ class moor:
         zpod = (self.zχpod.sel(num=2, drop=True)
                 .interp(time=self.vel.time).dropna('time'))
 
-        uzi = (self.vel[['uz', 'vz', 'u', 'v']]
-               .rolling(depth=4, center=True, min_periods=1).mean()
-               .interp(time=zpod.time, depth=zpod, method='nearest')
-               .interpolate_na('time'))
+        if kind == 'nearest':
+            uzi = (self.vel[['uz', 'vz', 'u', 'v']]
+                   .rolling(depth=4, center=True, min_periods=1).mean()
+                   .interp(time=zpod.time, depth=zpod, method='nearest')
+                   .interpolate_na('time'))
 
-        uzi.attrs['description'] = ('4 point running mean smoothed '
-                                    'central difference shear + '
-                                    'nearest neighbour interpolation to '
-                                    'χpod depth')
+            uzi.attrs['description'] = ('4 point running mean smoothed '
+                                        'central difference shear + '
+                                        'nearest neighbour interpolation to '
+                                        'χpod depth')
+        if kind == 'bins':
+            iz0 = np.digitize(zpod.values, self.vel.depth - 4) - 1
+            zbin = xr.DataArray(np.stack([iz0 - 1, iz0, iz0 + 1]),
+                                dims=['iz', 'time'],
+                                coords={'time': zpod.time, 'iz': [-8, 0, 8]})
+            subset = (self.vel[['u', 'v']]
+                      .sel(depth=self.vel.depth[zbin], time=zbin.time)
+                      .interpolate_na('time'))
+            subsetz = (subset.differentiate('iz').isel(iz=1, drop=True)
+                       .rename({'u': 'uz', 'v': 'vz'}))
+            subsetz['u'] = subset.u.isel(iz=1)
+            subsetz['v'] = subset.v.isel(iz=1)
+            subsetz['shear'] = subsetz.uz + 1j * subsetz.vz
+
+            uzi = subsetz
+            uzi.attrs['description'] = ('difference bins above, below'
+                                        'χpod depth')
 
         return uzi
 
