@@ -778,7 +778,9 @@ class moor:
         uinterp = self.vel.u.isel(depth=0).squeeze().interpolate_na('time')
         vinterp = self.vel.v.isel(depth=0).squeeze().interpolate_na('time')
 
-        ZI = filt(uinterp + 1j * vinterp)
+        # reintroduce nans after filtering
+        ZI = (filt(uinterp + 1j * vinterp)
+              .where(~np.isnan(self.vel.u.isel(depth=0))))
 
         if debug:
             _, ax = dcpy.ts.PlotSpectrum(uinterp + 1j * vinterp, twoside=False)
@@ -796,8 +798,7 @@ class moor:
             dcpy.ts.PlotSpectrum(T.dropna('time'), ax=ax, twoside=False)
             dcpy.ts.PlotSpectrum(That.dropna('time'), ax=ax, twoside=False)
 
-        That = 1 / 1025 * (That.interp_like(ZI).interpolate_na('time')
-                           .dropna('time'))
+        That = 1 / 1025 * (That.interp_like(ZI).dropna('time'))
 
         # calculate flux
         self.niw['true_flux'] = np.real(1025 * np.conj(ZI) * That)
