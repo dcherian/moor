@@ -12,10 +12,10 @@ import pandas as pd
 import scipy as sp
 import sciviscolor as svc
 import seawater as sw
+import xfilter
 from dcpy.util import mdatenum2dt64
 
 import xarray as xr
-import xfilter
 
 
 def _get_dt_in_days(time):
@@ -1902,6 +1902,113 @@ class moor:
                     [tt.set_visible(False) for tt in ax[aa].get_xticklabels()]
 
         return ax
+
+    def plot_shear_mixing(self):
+        uzi = self.interp_shear('bins')
+
+        filter_kwargs = dict(cycles_per='D', coord='time', order=3)
+
+        zpod = (self.zχpod.sel(num=2, drop=True)
+                .interp(time=self.vel.time).dropna('time'))
+
+        full = xr.Dataset()
+        full['shear'] = (uzi.uz.interpolate_na('time')
+                         + 1j * uzi.vz.interpolate_na('time'))
+        full['u'] = uzi.u
+        full['v'] = uzi.v
+        full['N2'] = ((self.turb.N2).isel(depth=1)
+                      .interp(time=zpod.time))
+        full['Tz'] = (self.turb.Tz.isel(depth=1)
+                      .interp(time=zpod.time))
+        full = full.interpolate_na('time')
+
+        low = full.apply(xfilter.lowpass, freq=0.15, **filter_kwargs)
+        loni = full.apply(xfilter.lowpass, freq=2.1, **filter_kwargs)
+        high = full.apply(xfilter.bandpass, freq=[0.15, 4], **filter_kwargs)
+        niw = full.apply(xfilter.bandpass, freq=[0.15, 2.1], **filter_kwargs)
+
+        for ds in [full, low, high, niw]:
+            ds['ke'] = 0.5 * (ds.u**2 + ds.v**2)
+            ds['ke'].attrs['long_name'] = 'KE'
+            ds['ke'].attrs['units'] = 'm²/s²'
+            ds['dkedz'] = ds.u * np.real(ds.shear) + ds.v * np.imag(ds.shear)
+            ds['dkedz'].dc.set_name_units('dKE/dz', 'm/s²')
+
+        f, axx = plt.subplots(3, 1, sharex=True, constrained_layout=True)
+        ax = dict(zip(['shear', 'N2', 'KT'], axx))
+
+        # np.abs(uzi.uz + 1j*uzi.vz).plot(color='gray')
+        # np.abs(high).plot(ax=ax[0])
+        # rs = dict(time='W', loffset='3D')
+        rs = dict(time=7 * 24, center=True)
+        var = 'shear'
+        ((np.abs(full[var])**2)
+         .plot(color='k', alpha=0.2, lw=1, ax=ax['shear'], label='Full'))
+        (np.abs(low[var]).rolling(**rs).reduce(dcpy.util.ms)
+         .plot(color='k', ax=ax['shear'], lw=2, zorder=10,
+               label='RMS LF (< 7 days)'))
+        (np.abs(loni[var]).rolling(**rs).reduce(dcpy.util.ms)
+         .plot(color='k', ax=ax['shear'], lw=2, zorder=4, ls='--',
+               label='RMS LF (< $M_2$)'))
+        ((np.abs(niw.shear)).rolling(**rs).reduce(dcpy.util.ms)
+         .plot(color='g', lw=2, ax=ax['shear'], zorder=-1,
+               label='RMS BP (7d - $M_2$)'))
+        ax['shear'].legend(loc='upper right')
+        ax['shear'].set_ylim([0, 0.0001])
+        ax['shear'].set_ylabel('$S²$')
+
+        ((low.N2)
+         .plot(ax=ax['N2'], color='k', lw=2, label='low passed'))
+        ((full.N2)
+         .plot(ax=ax['N2'], color='k', alpha=0.2, zorder=-2))
+        ax['N2'].legend()
+        ax['N2'].set_ylabel('$N²$')
+
+        ax['z'] = ax['N2'].twinx()
+        (zpod.resample(time='D', loffset='12H').mean('time')
+         .plot(ax=ax['z'], color='C0', lw=2))
+        dcpy.plots.set_axes_color(ax['z'], color='C0', spine='right')
+        ax['z'].set_ylim(np.flip(np.array(ax['z'].get_ylim()) + [-10, +10]))
+
+        # ((high.N2).resample(time='D', loffset='12H').mean('time')
+        #  .plot(ax=ax['N2']))
+        # ax22 = ax[2].twinx()
+        # (self.turb.Tz.isel(depth=1)
+        #  .resample(time='D', loffset='-12H').mean('time')
+        #  .plot(ax=ax22, color='k'))
+        # dcpy.plots.set_axes_color(ax22, 'k', 'right')
+
+        # var = 'KT'; limy=[1e-7, 1e-3]
+        var = 'ε'; limy=[1e-12, 1e-6]
+        KT = self.turb[var].isel(depth=1).resample(time='D', loffset='12H')
+        (self.turb[var].isel(depth=1).plot.line(
+            x='time', ax=ax['KT'], alpha=0.2, color='k', label='10 min'))
+        (KT.mean('time')
+         .plot.line(x='time', ax=ax['KT'], yscale='log', lw=2,
+                    color='k', label='Daily mean'))
+        (KT.median('time')
+         .plot.line(x='time', ax=ax['KT'], yscale='log', lw=2,
+                    color='C4', label='Daily median'))
+        ax['KT'].legend()
+        ax['KT'].set_ylim(limy)
+        t = self.ε.isel(depth=1).dropna('time').time.values
+
+        [aa.grid() for aa in axx]
+        [aa.set_title('') for aa in axx]
+        [aa.set_xlabel('') for aa in axx]
+        [self.MarkSeasonsAndEvents(ax=aa) for aa in axx]
+        [aa.set_xlim([t[0], t[-1]]) for aa in axx]
+
+        axx[0].set_title(self.name)
+        f.set_size_inches((12, 8))
+        axx[-1].tick_params(axis='x', labelrotation=0)
+        # axx[-1].set_xlim(['2013-12-15', '2015-03-01'])
+
+        def _setup_xgrid(ax):
+            ax.xaxis.set_minor_locator(mpl.dates.WeekdayLocator(interval=1))
+            ax.grid(True, which='minor', axis='x')
+
+        [_setup_xgrid(aa) for aa in axx]
 
     def PlotVel(self, ax=None, region={}, filt=None, filter_len=None):
 
