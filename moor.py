@@ -181,15 +181,14 @@ class moor:
         return self.turb.Sz
 
     def __repr__(self):
-        import matplotlib.dates as dt
 
         podstr = ''
         for unit in self.χpod:
             pod = self.χpod[unit]
             podstr += '\t' + pod.name[2:]
-            times = (dt.num2date(pod.time[0]).strftime('%Y-%b-%d')
+            times = (pd.to_datetime(pod.time[0].values).strftime('%Y-%b-%d')
                      + ' → '
-                     + dt.num2date(pod.time[-2]).strftime('%Y-%b-%d'))
+                     + pd.to_datetime(pod.time[-2].values).strftime('%Y-%b-%d'))
             podstr += ' | ' + times + '\n'
 
         if self.kind == 'ebob':
@@ -261,9 +260,11 @@ class moor:
 
             timevec = pod.turb[pod.best]['time']
 
-            z.append(xr.DataArray(pod.depth * np.ones(timevec.shape),
-                                  dims=['time'], coords={'time': timevec})
-                     .interp(**interpargs).expand_dims('depth'))
+            z.append(xr.DataArray(pod.depth * np.ones((len(timevec), 1)),
+                                  dims=['time', 'depth'],
+                                  coords={'time': timevec,
+                                          'depth': [np.nanmedian(pod.depth)]})
+                     .interp(**interpargs))
 
             ρ1 = sw.pden(pod.ctd1.S, pod.ctd1.T, pod.ctd1.z)
             ρ2 = sw.pden(pod.ctd2.S, pod.ctd2.T, pod.ctd2.z)
@@ -288,7 +289,7 @@ class moor:
             mld = self.mld.interp(**interpargs)
             ild = self.mld.interp(**interpargs)
 
-            coords = {'z': (['depth', 'time'], z[-1].values),
+            coords = {'z': (['time', 'depth'], z[-1].values),
                       'time': tcommon,
                       'depth': [pod.depth],
                       'lat': self.lat,
@@ -421,28 +422,22 @@ class moor:
             self.pitot['spd'] = merge(pitot_spd).spd
 
         if self.kind == 'ebob':
-            z0 = np.interp(tcommon.astype('float32'),
-                           self.ctd.time.astype('float32'),
-                           self.ctd.depth.isel(z=0))
-            z1 = np.interp(tcommon.astype('float32'),
-                           self.ctd.time.astype('float32'),
-                           self.ctd.depth.isel(z=1))
-            self.zχpod = (np.array([[5, 10]]).T
-                          + np.array([z0, z1]))
+            self.zχpod = (self.ctd.depth.isel(z=[0, 1]).interp(time=tcommon)
+                          + xr.DataArray([5, 10], dims=['z']))
 
             if self.name == 'NRL2':
-                self.turb['z'].values = self.zχpod[1, :][np.newaxis, :]
+                self.zχpod = self.zχpod.isel(z=1).expand_dims('z')
+                self.turb.z.values = self.zχpod.values.T
             else:
-                self.turb['z'].values = self.zχpod
+                self.turb.z.values = self.zχpod.values.T
 
+            self.zχpod = self.zχpod.rename({'z': 'num'})
         else:
-            self.zχpod = xr.merge(z).zχpod
+            self.zχpod = (self.turb.z.reset_coords().z
+                          .rename({'depth': 'num'})
+                          .transpose())
 
-        # convert zχpod to DataArray
-        da = xr.DataArray(self.zχpod, dims=['num', 'time'],
-                          coords={'num': np.arange(self.zχpod.shape[0]) + 1,
-                                  'time': self.turb.time}).transpose()
-        self.zχpod = da
+        self.zχpod.num.values = (np.arange(self.zχpod.shape[0]) + 1)
         self.zχpod.attrs['long_name'] = 'χpod depth'
         self.zχpod.attrs['units'] = 'm'
 
@@ -1401,8 +1396,8 @@ class moor:
             ax = plt.gca()
 
         ax.plot(self.χ.time,
-                self.χ.z.pipe(xfilter, kind='mean', flen=86400)
-                .transpose(), color=color, **kwargs)
+                self.χ.z.pipe(xfilter, kind='mean', flen=86400),
+                color=color, **kwargs)
 
     def select_region(self, region):
 
