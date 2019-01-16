@@ -457,9 +457,11 @@ class moor:
 
         self.turb.Tz.attrs['units'] = 'C/m'
 
-        # this is not a good idea with WDA Tz estimate!
-        self.turb['Sz'] = (-(self.turb.N2 / 9.81 - 1.7e-4 * self.turb.Tz)
-                           / 7.6e-4)
+        # Estimating Sz as a difference between N2 and Tz is not a good idea
+        # with WDA Tz estimate! Also N2 is estimated using pot density so
+        # there's some difference actually
+        # self.turb['Sz'] = (-(self.turb.N2 / 9.81 - 1.7e-4 * self.turb.Tz)
+        #                   / 7.6e-4)
         self.turb.Sz.attrs['units'] = '1/m'
 
         self.turb['Js'] = - self.turb.ρ * self.turb.KT * self.turb.Sz
