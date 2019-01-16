@@ -250,61 +250,54 @@ class moor:
             pod = self.χpod[unit]
             t.append(pod.turb[pod.best]['time'])
 
-        tall = (np.array([[np.nanmin(tt), np.nanmax(tt)] for tt in t]))
-        tmatlab = np.arange(np.floor(np.nanmin(tall)),
-                            np.ceil(np.nanmax(tall)), 10 * 60 / 86400)
-        tcommon = ((-86400 + tmatlab * 86400).astype('timedelta64[s]')
-                   + np.datetime64('0001-01-01')).astype('datetime64[ns]')
+        tall = pd.Series(np.array([[np.nanmin(tt), np.nanmax(tt)] for tt in t])
+                         .ravel()).dt.round('D')
+        tcommon = pd.date_range(tall.min(), tall.max(), freq='10min').values
 
-        interpargs = {'left': np.nan, 'right': np.nan}
-
+        interpargs = {'time': tcommon}
         estimates = []
         for idx, unit in enumerate(self.χpod):
             pod = self.χpod[unit]
 
             timevec = pod.turb[pod.best]['time']
-            mask = np.logical_not(np.isnan(timevec))
 
-            z.append(xr.DataArray(
-                np.interp(tmatlab, timevec[mask],
-                          pod.depth * np.ones_like(timevec[mask]),
-                          **interpargs)[np.newaxis, :],
-                dims=['depth', 'time'],
-                coords=[[pod.depth], tcommon], name='zχpod'))
+            z.append(xr.DataArray(pod.depth * np.ones(timevec.shape),
+                                  dims=['time'], coords={'time': timevec})
+                     .interp(**interpargs).expand_dims('depth'))
 
             ρ1 = sw.pden(pod.ctd1.S, pod.ctd1.T, pod.ctd1.z)
             ρ2 = sw.pden(pod.ctd2.S, pod.ctd2.T, pod.ctd2.z)
-            ρ = np.interp(tmatlab, pod.ctd1.time, (ρ1 + ρ2) / 2,
-                          **interpargs)[np.newaxis, :]
-            T = np.interp(tmatlab, pod.ctd1.time,
-                          (pod.ctd1.T + pod.ctd2.T) / 2,
-                          **interpargs)[np.newaxis, :]
-            S = np.interp(tmatlab, pod.ctd1.time,
-                          (pod.ctd1.S + pod.ctd2.S) / 2,
-                          **interpargs)[np.newaxis, :]
+            ρ = (xr.DataArray(
+                np.nanmean(np.array([ρ1, ρ2]), axis=0),
+                dims=['time'],
+                coords={'time': dcpy.util.mdatenum2dt64(pod.ctd1.time)})
+                .interp(**interpargs).expand_dims('depth'))
 
-            mld = np.interp(tcommon.astype('float32'),
-                            self.mld.time.astype(
-                                'datetime64[ns]').astype('float32'),
-                            self.mld, **interpargs)
-            ild = np.interp(tcommon.astype('float32'),
-                            self.ild.time.astype(
-                                'datetime64[ns]').astype('float32'),
-                            self.ild, **interpargs)
+            T = (xr.DataArray(
+                np.nanmean(np.array([pod.ctd1.T, pod.ctd2.T]), axis=0),
+                dims=['time'],
+                coords={'time': dcpy.util.mdatenum2dt64(pod.ctd1.time)})
+                .interp(**interpargs).expand_dims('depth'))
+
+            S = (xr.DataArray(
+                np.nanmean(np.array([pod.ctd1.S, pod.ctd2.S]), axis=0),
+                dims=['time'],
+                coords={'time': dcpy.util.mdatenum2dt64(pod.ctd1.time)})
+                .interp(**interpargs).expand_dims('depth'))
+
+            mld = self.mld.interp(**interpargs)
+            ild = self.mld.interp(**interpargs)
 
             coords = {'z': (['depth', 'time'], z[-1].values),
                       'time': tcommon,
                       'depth': [pod.depth],
                       'lat': self.lat,
                       'lon': self.lon,
-                      'ρ': (['depth', 'time'], ρ),
-                      'S': (['depth', 'time'], S),
-                      'T': (['depth', 'time'], T),
-                      'mld': (['time'], mld),
-                      'ild': (['time'], ild)}
-
-            # if self.kind == 'ebob':
-            #     coords['unit'] = (['depth'], [pod.name[2:5]])
+                      'ρ': ρ,
+                      'S': S,
+                      'T': T,
+                      'mld': mld,
+                      'ild': ild}
 
             dims = ['depth', 'time']
 
