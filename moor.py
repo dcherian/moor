@@ -3470,3 +3470,23 @@ class moor:
                             + str(region['depth']))
 
         return f, ax
+
+    def debug_salt_flux(self):
+
+        for zz in self.turb.depth:
+            f, axx = plt.subplots(5, 1, sharex=True, constrained_layout=True)
+            ax = dict(zip(['strat', 'Jq', 'Js', 'eps', 'S'], axx))
+
+            (self.N2*100).sel(depth=zz).plot.line(x='time', ax=ax['strat'])
+            self.Tz.sel(depth=zz).plot.line(x='time', ax=ax['strat'])
+            # self.Sz.sel(depth=zz).plot.line(x='time', ax=ax['strat'])
+            ax['strat'].legend(['$ρ_z$', '$T_z$', '$S_z$'])
+
+            self.Js.sel(depth=zz).plot.line(x='time', ax=ax['Js'])
+            self.Jq.sel(depth=zz).plot.line(x='time', ax=ax['Jq'])
+            self.KT.sel(depth=zz).plot.line(x='time', ax=ax['eps'], lw=0.5)
+            self.turb.S.sel(depth=zz).plot.line(x='time', ax=ax['S'])
+            ax['eps'].set_yscale('log')
+
+            [self.MarkSeasonsAndEvents(aa) for aa in axx]
+            [aa.set_xlabel('') for aa in axx]
