@@ -1292,8 +1292,9 @@ class moor:
                 else:
                     ydim = 'depth'
 
-            hdl = var.plot.line(x='time', hue=ydim, ax=ax,
-                                add_legend=False, lw=0.5)
+            hdl = (var.isel({ydim : slice(0, -1)})
+                   .plot.line(x='time', hue=ydim, ax=ax,
+                              add_legend=False, lw=0.5))
 
             ncol = N if N < 5 else 5
             ax.legend([str(aa) + 'm'
