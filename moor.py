@@ -3491,3 +3491,41 @@ class moor:
 
             [self.MarkSeasonsAndEvents(aa) for aa in axx]
             [aa.set_xlabel('') for aa in axx]
+
+    def filter_interp_shear(self):
+        filter_kwargs = dict(cycles_per="D", coord="time", order=3)
+
+        uzi = self.interp_shear("bins")
+
+        lf = self.inertial.values / 2
+        hf = self.inertial.values * 2
+
+        full = xr.Dataset()
+        full["shear"] = (uzi.uz.interpolate_na("time")
+                         + 1j * uzi.vz.interpolate_na("time"))
+        full["u"] = uzi.u
+        full["v"] = uzi.v
+        full["N2"] = (self.turb.N2).isel(depth=1).interp(time=uzi.time)
+        full["Tz"] = self.turb.Tz.isel(depth=1).interp(time=uzi.time)
+        full = full.interpolate_na("time")
+        full.attrs['name'] = 'Full'
+
+        low = full.shear.pipe(xfilter.lowpass, freq=lf, **filter_kwargs)
+        low.attrs['name'] = 'LF (< 6.6d)'
+
+        high = full.shear.pipe(xfilter.bandpass, freq=[lf, 4], **filter_kwargs)
+        high.attrs['name'] = 'HF (> 6.6d)'
+
+        fM2 = full.shear.pipe(xfilter.bandpass,
+                              freq=[0.95*(1.93 - self.inertial.values),
+                                    1.05*(1.93 + self.inertial.values)],
+                              **filter_kwargs)
+
+        niw = (full.shear.pipe(xfilter.bandpass, freq=[lf, hf], **filter_kwargs)
+               + fM2)
+        niw.attrs['name'] = 'NIW (6.6d - 2d) + fM2'
+        loni = (full.shear.pipe(xfilter.bandpass, freq=[hf, 4], **filter_kwargs)
+                - fM2)
+        loni.attrs['name'] = 'HF (> 2d) - fM2'
+
+        return full, low, high, niw, loni
