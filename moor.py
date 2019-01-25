@@ -1899,7 +1899,7 @@ class moor:
 
         filter_kwargs = dict(cycles_per='D', coord='time', order=3)
 
-        zpod = (self.zχpod.sel(num=2, drop=True)
+        zpod = (self.zχpod.sel(num=1, drop=True)
                 .interp(time=self.vel.time).dropna('time'))
 
         full = xr.Dataset()
@@ -2825,7 +2825,7 @@ class moor:
             'linear' : fit straight line
         '''
 
-        zpod = (self.zχpod.sel(num=2, drop=True)
+        zpod = (self.zχpod.sel(num=1, drop=True)
                 .interp(time=self.vel.time).dropna('time'))
 
         if kind == 'nearest':
