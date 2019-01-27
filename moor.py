@@ -287,7 +287,7 @@ class moor:
                 .interp(**interpargs).expand_dims('depth'))
 
             mld = self.mld.interp(**interpargs)
-            ild = self.mld.interp(**interpargs)
+            ild = self.ild.interp(**interpargs)
 
             coords = {'z': (['time', 'depth'], z[-1].values),
                       'time': tcommon,
