@@ -3492,7 +3492,7 @@ class moor:
             [self.MarkSeasonsAndEvents(aa) for aa in axx]
             [aa.set_xlabel('') for aa in axx]
 
-    def filter_interp_shear(self):
+    def filter_interp_shear(self, remove_noise=True):
         filter_kwargs = dict(cycles_per="D", coord="time", order=3)
 
         uzi = self.interp_shear("bins")
@@ -3527,5 +3527,8 @@ class moor:
         loni = (full.shear.pipe(xfilter.bandpass, freq=[hf, 4], **filter_kwargs)
                 - fM2)
         loni.attrs['name'] = 'HF (> 2d) - fM2'
+
+        if remove_noise:
+            full['shear'] = full.shear.pipe(xfilter.lowpass, freq=4, **filter_kwargs)
 
         return full, low, high, niw, loni
