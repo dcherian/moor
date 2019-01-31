@@ -2963,7 +2963,7 @@ class moor:
 
         if self.kind == 'ebob':
             for zz in np.arange(len(self.N2.depth)):
-                z = self.zχpod.copy().isel(num=zz).drop('num')
+                z = self.zχpod.copy().isel(num=zz)
                 if zz == 0:
                     z -= 30
 
