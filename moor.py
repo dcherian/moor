@@ -2812,10 +2812,11 @@ class moor:
         for aa in axes.flat:
             self.MarkSeasonsAndEvents(aa)
 
-    def interp_shear(self, kind='ctd'):
+    def interp_shear(self, kind='ctd', wkb_scale=False):
         '''
         kind: str, optional
             'nearest': interpolate smoothed shear field to χpod depth
+            'bins': difference bins about the χpod
             'pod_diff': difference velocity in bins above & below χpod
             'ctd': interpolate u,v to depth of CTDs & difference
             'linear' : fit straight line
@@ -2846,11 +2847,26 @@ class moor:
                        .rename({'u': 'uz', 'v': 'vz'}))
             subsetz['u'] = subset.u.isel(iz=1)
             subsetz['v'] = subset.v.isel(iz=1)
-            subsetz['shear'] = subsetz.uz + 1j * subsetz.vz
 
             uzi = subsetz
             uzi.attrs['description'] = ('difference bins above, below'
                                         'χpod depth')
+
+        if wkb_scale:
+            N = xfilter.lowpass(np.sqrt(self.turb.N2).isel(depth=1), 'time',
+                                freq=1/30, cycles_per='D')
+            wkb_factor = (N/N.mean('time')).interp(time=uzi.time)
+            wkb_factor = wkb_factor.ffill('time').bfill('time')
+
+            uzi['u'] = uzi['u'] / np.sqrt(wkb_factor)
+            uzi['v'] = uzi['v'] / np.sqrt(wkb_factor)
+
+            uzi['uz'] = uzi['uz'] / (wkb_factor**1.5)
+            uzi['vz'] = uzi['vz'] / (wkb_factor**1.5)
+
+            uzi['wkb_factor'] = wkb_factor
+
+        uzi['shear'] = uzi.uz + 1j * uzi.vz
 
         return uzi
 
@@ -3503,10 +3519,10 @@ class moor:
             [self.MarkSeasonsAndEvents(aa) for aa in axx]
             [aa.set_xlabel('') for aa in axx]
 
-    def filter_interp_shear(self, remove_noise=True):
+    def filter_interp_shear(self, wkb_scale=False, remove_noise=True):
         filter_kwargs = dict(cycles_per="D", coord="time", order=3)
 
-        uzi = self.interp_shear("bins")
+        uzi = self.interp_shear("bins", wkb_scale=wkb_scale)
 
         lf = self.inertial.values / 2
         hf = self.inertial.values * 2
@@ -3540,6 +3556,7 @@ class moor:
         loni.attrs['name'] = 'HF (> 2d) - fM2'
 
         if remove_noise:
-            full['shear'] = full.shear.pipe(xfilter.lowpass, freq=4, **filter_kwargs)
+            full['shear'] = full.shear.pipe(xfilter.lowpass, freq=4,
+                                            **filter_kwargs)
 
         return full, low, high, niw, loni
