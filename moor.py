@@ -378,21 +378,13 @@ class moor:
                 est.KT.plot(label='interpolated', _labels=False)
                 plt.title(pod.name + '|' + pod.best)
 
-            if pod.pitot is not None:
-                pitot_spd.append(xr.DataArray(
-                    np.interp(tcommon.astype('float32'),
-                              pod.pitot.time.values.astype('float32'),
-                              pod.pitot.spd,
-                              **interpargs)[np.newaxis, :],
-                    dims=dims, coords=coords, name='spd'))
+            # if pod.pitot is not None:
+            #     pitot_spd.append(pod.pitot.spd.interp(time=tcommon)
+            #                      .expand_dims('depth'))
 
-                if 'shear' in pod.pitot:
-                    pitot_shear.append(xr.DataArray(
-                        np.interp(tcommon.astype('float32'),
-                                  pod.pitot.time.values.astype('float32'),
-                                  pod.pitot.shear,
-                                  **interpargs)[np.newaxis, :],
-                        dims=dims, coords=coords, name='shear'))
+            #     if 'shear' in pod.pitot:
+            #         pitot_shear.append(pod.pitot.shear.interp(time=tcommon)
+            #                            .expand_dims('depth'))
 
         def merge(x0):
             x = xr.merge(map(lambda xx: xx.to_dataset(), x0))[x0[0].name]
@@ -1233,10 +1225,14 @@ class moor:
 
         if events:
             for ss in self.events:
+                if isinstance(events, str):
+                    if ss != events:
+                        continue
+
                 xx = dt.date2num(self.events[ss])
                 ax.fill_between(xx, 0, 1,
                                 transform=ax.get_xaxis_transform('grid'),
-                                facecolor='#dddddd', alpha=0.35,
+                                facecolor='w', alpha=0.7,
                                 zorder=zorder + 1)
 
         ax.set_xlim(xlim)
@@ -2949,11 +2945,11 @@ class moor:
         def interpolate_shear(shear, z):
             newz = (z.interp(time=shear.time)
                     .dropna(dim='time'))
-            # uzi = xr.DataArray(
-            #     np.diag(shear.interp(depth=newz.values)),
-            #     dims=['time'], coords={'time': newz.time})
+            uzi = xr.DataArray(
+                np.diag(shear.interp(depth=newz.values)),
+                dims=['time'], coords={'time': newz.time})
 
-            uzi = shear.interp(time=newz.time, depth=newz)
+            # uzi = shear.interp(time=newz.time, depth=newz)
             return uzi
 
         hdlcw = []
@@ -3306,20 +3302,35 @@ class moor:
 
         region = self.select_region(region)
 
-        f, ax = plt.subplots(4, 1, sharex=True, constrained_layout=True)
+        f, ax = plt.subplots(6, 1, sharex=True, constrained_layout=True)
 
         self.Jq.sel(**region).plot.line(ax=ax[0], hue='depth')
-        self.N2.sel(**region).plot.line(ax=ax[1], hue='depth')
-        self.Js.sel(**region).plot.line(ax=ax[2], hue='depth')
+        self.N2.sel(**region).plot.line(ax=ax[1], hue='depth',
+                                        add_legend=False)
+        self.Js.sel(**region).plot.line(ax=ax[2], hue='depth',
+                                        add_legend=False)
+        self.ε.sel(**region).plot.line(ax=ax[3], hue='depth', add_legend=False,
+                                       yscale='log')
+        self.turb.S.sel(**region).plot.line(ax=ax[4], hue='depth',
+                                            add_legend=False)
 
-        shear = self.calc_shear_bandpass(depth=60).resample(time='D').var()
-        shear['f0'].sel(**region).plot(ax=ax[3], label='$f_0$')
-        shear['M2'].sel(**region).plot(ax=ax[3], label='$M_2$')
-        shear['M4'].sel(**region).plot(ax=ax[3], label='$M_4$')
+        # shear = (self.calc_shear_bandpass(depth=60)
+        #          .resample(time='D').apply(dcpy.util.ms))
+
+        full, low, high, niw, loni = self.filter_interp_shear()
+
+        (low.rolling(time=7*24, center=True).reduce(dcpy.util.ms)
+         .sel(**region)
+         .plot(ax=ax[-1], label='low', color='k'))
+        (niw.rolling(time=7*24, center=True).reduce(dcpy.util.ms)
+         .sel(**region).plot(ax=ax[-1], label='$f_0$'))
+
+        # .sel(**region).plot(ax=ax[3], label='$M_2$')
+        # shear['M4'].sel(**region).plot(ax=ax[3], label='$M_4$')
         ax[-1].legend()
 
         ax[0].set_ylim([-150, 10])
-        ax[2].set_ylim([0, 5e-3])
+        ax[2].set_ylim([0, 5e-2])
 
         [aa.set_xlabel('') for aa in ax]
         [aa.set_title('') for aa in ax[1:]]
