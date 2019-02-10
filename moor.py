@@ -429,6 +429,35 @@ class moor:
                           .rename({'depth': 'num'})
                           .transpose())
 
+        if 'RAMA' in self.name:
+            self.turb['tau'] = self.met.τ.interp(time=self.turb.time.values)
+            for vv in ['uz', 'vz']:
+                self.turb[vv] = xr.zeros_like(self.turb.tau)
+                self.turb['wkb_' + vv] = xr.zeros_like(self.turb.tau)
+
+        elif 'NRL' in self.name:
+            self.turb['tau'] = (self.tropflux.tau
+                                .drop(['latitude', 'longitude'])
+                                .interp(time=self.turb.time.values))
+
+            shear = self.interp_shear('bins')
+            wkb_shear = self.interp_shear('bins', wkb_scale=True)
+
+            for vv in ['uz', 'vz']:
+                self.turb[vv] = (shear[vv].drop(['depth', 'iz'])
+                                 .interp(time=self.turb.time.values))
+                self.turb['wkb_' + vv] = (wkb_shear[vv].drop(['depth', 'iz'])
+                                          .interp(time=self.turb.time.values))
+
+        self.turb.uz.attrs['long_name'] = '$u_z$'
+        self.turb.vz.attrs['long_name'] = '$v_z$'
+        self.turb.uz.attrs['units'] = '1/s'
+        self.turb.vz.attrs['units'] = '1/s'
+        self.turb.wkb_uz.attrs['long_name'] = 'WKB $u_z$'
+        self.turb.wkb_vz.attrs['long_name'] = 'WKB $v_z$'
+        self.turb.wkb_uz.attrs['units'] = '1/s'
+        self.turb.wkb_vz.attrs['units'] = '1/s'
+
         self.zχpod.num.values = (np.arange(self.zχpod.shape[0]) + 1)
         self.zχpod.attrs['long_name'] = 'χpod depth'
         self.zχpod.attrs['units'] = 'm'
