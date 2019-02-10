@@ -2851,7 +2851,7 @@ class moor:
             'linear' : fit straight line
         '''
 
-        zpod = (self.zχpod.sel(num=1, drop=True)
+        zpod = (self.zχpod.isel(num=-1, drop=True)
                 .interp(time=self.vel.time).dropna('time'))
 
         if kind == 'nearest':
@@ -2882,7 +2882,7 @@ class moor:
                                         'χpod depth')
 
         if wkb_scale:
-            N = xfilter.lowpass(np.sqrt(self.turb.N2).isel(depth=1)
+            N = xfilter.lowpass(np.sqrt(self.turb.N2).isel(depth=-1)
                                 .interpolate_na('time'),
                                 'time', freq=1/30, cycles_per='D')
             wkb_factor = (N/N.mean('time')).interp(time=uzi.time)
