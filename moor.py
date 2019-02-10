@@ -749,9 +749,9 @@ class moor:
 
         def filt(comp, freqs=freqs):
             ufilt = xfilter.bandpass(np.real(comp), coord='time',
-                                     freq=freqs, cycles_per='D', order=3)
+                                     freq=freqs, cycles_per='D', order=2)
             vfilt = xfilter.bandpass(np.imag(comp), coord='time',
-                                     freq=freqs, cycles_per='D', order=3)
+                                     freq=freqs, cycles_per='D', order=2)
 
             return (ufilt + 1j * vfilt)
 
@@ -2853,8 +2853,9 @@ class moor:
                                         'χpod depth')
 
         if wkb_scale:
-            N = xfilter.lowpass(np.sqrt(self.turb.N2).isel(depth=1), 'time',
-                                freq=1/30, cycles_per='D')
+            N = xfilter.lowpass(np.sqrt(self.turb.N2).isel(depth=1)
+                                .interpolate_na('time'),
+                                'time', freq=1/30, cycles_per='D')
             wkb_factor = (N/N.mean('time')).interp(time=uzi.time)
             wkb_factor = wkb_factor.ffill('time').bfill('time')
 
@@ -3520,7 +3521,7 @@ class moor:
             [aa.set_xlabel('') for aa in axx]
 
     def filter_interp_shear(self, wkb_scale=False, remove_noise=True):
-        filter_kwargs = dict(cycles_per="D", coord="time", order=3)
+        filter_kwargs = dict(cycles_per="D", coord="time", order=2)
 
         uzi = self.interp_shear("bins", wkb_scale=wkb_scale)
 
