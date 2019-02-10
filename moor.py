@@ -300,8 +300,6 @@ class moor:
                       'mld': mld,
                       'ild': ild}
 
-            dims = ['depth', 'time']
-
             debug_combine = False
 
             est = pod.chi[pod.best].copy()
@@ -457,6 +455,10 @@ class moor:
         self.turb.wkb_vz.attrs['long_name'] = 'WKB $v_z$'
         self.turb.wkb_uz.attrs['units'] = '1/s'
         self.turb.wkb_vz.attrs['units'] = '1/s'
+
+        self.turb['wind_input'] = (self.niw.reset_coords().true_flux)
+        self.turb['wind_input'].attrs['long_name'] = 'Local wind input $Π$'
+        self.turb['wind_input'].attrs['units'] = 'W/m²'
 
         self.zχpod.num.values = (np.arange(self.zχpod.shape[0]) + 1)
         self.zχpod.attrs['long_name'] = 'χpod depth'
