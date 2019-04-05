@@ -353,17 +353,18 @@ class moor:
             if 'w' in pod.best:
                 # strided rolling mean is faster than resample
                 nt = int(10 * 60 / np.median(dt))
-                if nt > 1:
+                est = est.rename({'eps_Kt': 'ε'})
+                if nt > 1:  # if 1 min wda estimate, average to 10 minute
                     est = (est
-                           .rename({'eps_Kt': 'ε'})
                            .rolling(time=nt, center=True)
-                           .construct('chunk', stride=nt).mean('chunk')
-                           .interp(time=tcommon)
-                           .expand_dims('depth'))
+                           .construct('chunk', stride=nt)
+                           .mean('chunk'))
             else:
-                est = (est.rename({'eps': 'ε'})
-                       .interp(time=tcommon)
-                       .expand_dims('depth'))
+                est = (est.rename({'eps': 'ε'}))
+
+            # interpolate to common time vector
+            est = (est.interp(time=tcommon, method='nearest')
+                   .expand_dims('depth'))
 
             # add in extra info
             for cc in coords:
