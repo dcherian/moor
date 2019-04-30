@@ -311,7 +311,7 @@ class moor:
             dt = (est.time.dt.floor('min').diff('time').values
                   .astype('timedelta64[s]').astype('float32'))
             median_dt = np.median(dt)
-            inds = np.where(np.abs(dt - median_dt) > 60)[0]
+            inds = np.where((dt - median_dt) > 3600)[0]
             time_old = pod.chi[pod.best].time.reset_coords(drop=True)
 
             if 'dzdT' in est:
@@ -331,7 +331,7 @@ class moor:
                                        name='time')
                     if (((t1 - gap[-1].values)
                          .astype('timedelta64[s]').astype('float32'))
-                       < median_dt):
+                        < median_dt):
                         gap = gap[:-1]
 
                     time_new = xr.concat([time_new.sel(time=slice(None, t0)),
@@ -491,6 +491,7 @@ class moor:
         #                   / 7.6e-4)
         self.turb.Sz.attrs['units'] = '1/m'
 
+        self.turb['z'] = self.turb.z.transpose(*(self.turb.S.dims))
         self.turb['Js'] = - self.turb.ρ * self.turb.KS * self.turb.Sz
         self.turb.Js.attrs['long_name'] = '$J_s^t$'
         self.turb.Js.attrs['units'] = 'g/m²/s'
