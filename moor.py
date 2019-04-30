@@ -166,6 +166,10 @@ class moor:
         return self.turb.Jq
 
     @property
+    def KS(self):
+        return self.turb.KS
+
+    @property
     def Js(self):
         return self.turb.Js
 
@@ -338,6 +342,7 @@ class moor:
             est = est.reindex({'time': time_new})
 
             est = est.rename({'Kt': 'KT',
+                              'Ks': 'KS',
                               'dTdz': 'Tz',
                               'chi': 'χ'})
 
@@ -468,6 +473,8 @@ class moor:
 
         self.turb.KT.attrs['long_name'] = '$K_T$'
         self.turb.KT.attrs['units'] = 'm²/s'
+        self.turb.KS.attrs['long_name'] = '$K_S$'
+        self.turb.KS.attrs['units'] = 'm²/s'
         self.turb.ε.attrs['long_name'] = '$ε$'
         self.turb.ε.attrs['units'] = 'W/kg'
         self.turb.χ.attrs['long_name'] = '$χ$'
@@ -484,7 +491,7 @@ class moor:
         #                   / 7.6e-4)
         self.turb.Sz.attrs['units'] = '1/m'
 
-        self.turb['Js'] = - self.turb.ρ * self.turb.KT * self.turb.Sz
+        self.turb['Js'] = - self.turb.ρ * self.turb.KS * self.turb.Sz
         self.turb.Js.attrs['long_name'] = '$J_s^t$'
         self.turb.Js.attrs['units'] = 'g/m²/s'
 
