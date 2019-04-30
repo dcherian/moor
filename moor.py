@@ -992,12 +992,15 @@ class moor:
         self.vel.v.attrs['units'] = 'm/s'
 
     def AddChipod(self, name, depth: int,
-                  best: str, fname: str='Turb.mat', dir=None):
+                  best: str, fname: str='Turb.mat', dir=None, avoid_wda=False):
 
         import chipy
 
         if dir is None:
             dir = self.datadir
+
+        if avoid_wda and 'w' in best:
+            best = best[:-1]
 
         self.χpod[name] = chipy.chipod(dir + '/data/',
                                        str(name), fname,
