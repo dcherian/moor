@@ -1466,7 +1466,9 @@ class moor:
         from dcpy.ts import xfilter
 
         if len(ax) == 0:
-            f, axx = plt.subplots(naxes, 1, sharex=True, constrained_layout=True)
+            f, axx = plt.subplots(naxes, 1, sharex=True,
+                                  constrained_layout=True,
+                                  subplot_kw=dict(facecolor=(1, 1, 1, 0)))
         else:
             axx = ax
 
@@ -1534,7 +1536,7 @@ class moor:
             pass
 
         self.PlotFlux(ax['Jq0'], Jq0.sel(**metregion).time.values,
-                      Jq0.sel(**metregion))
+                      Jq0.sel(**metregion).values)
         ax['Jq0'].set_ylabel('netflux (W/m²)', labelpad=0)
         ax['Jq0'].spines['right'].set_visible(True)
         ax['Jq0'].spines['left'].set_visible(False)
