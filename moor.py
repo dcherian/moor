@@ -13,6 +13,7 @@ import scipy as sp
 import sciviscolor as svc
 import seawater as sw
 import xfilter
+import xrft
 from dcpy.util import mdatenum2dt64
 
 import xarray as xr
@@ -3598,3 +3599,27 @@ class moor:
                                             **filter_kwargs)
 
         return full, low, high, niw, loni
+
+
+    def compare_shear_spectrum(self):
+
+        import garrettmunk.garrettmunk as gm
+
+        v = ((self.vel.u + 1j * self.vel.v)
+             .interpolate_na('depth')
+             .interpolate_na('time')
+             .dropna('depth', how='any'))
+
+        vel_spec = xrft.power_spectrum(v.sel(depth=slice(120, 500)),
+                                       dim=['depth'],
+                                       detrend='linear', window=True)
+        shear_spec = (2*np.pi * vel_spec.freq_depth)**2 * vel_spec
+
+        self.ctd['N2'] = (9.81/1025 *
+                          self.ctd.ρ.differentiate('z')
+                          / self.ctd.depth.differentiate('z'))
+
+        (shear_spec.groupby('time.month').mean('time')
+         .plot(col='month', col_wrap=4, yscale='log'))
+
+        # gmspec = gm().shear()
