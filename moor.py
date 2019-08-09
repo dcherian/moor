@@ -46,11 +46,11 @@ def _corner_label(label: str, x=0.95, y=0.9, ax=None, alpha=0.05):
         ax = plt.gca()
 
     ax.text(x, y, label,
-            color='white',
+            color='k',
             horizontalalignment='right',
             verticalalignment='center',
             transform=ax.transAxes,
-            bbox=dict(facecolor='dimgray', edgecolor=None))
+            bbox=dict(facecolor='white', alpha=0.6, edgecolor=None))
 
 
 def _colorbar2(mappable):
@@ -74,7 +74,7 @@ def _colorbar2(mappable):
     return fig.colorbar(mappable, cax=cax)
 
 
-def _colorbar(hdl, ax=None, format='%.2f'):
+def _colorbar(hdl, ax=None, format='%.2f', **kwargs):
 
     if ax is None:
         try:
@@ -82,27 +82,34 @@ def _colorbar(hdl, ax=None, format='%.2f'):
         except AttributeError:
             ax = hdl.ax
 
-    if not isinstance(ax, list):
-        box = ax.get_position()
+    # if not isinstance(ax, list):
+    #     box = ax.get_position()
 
-    if isinstance(ax, list) and len(ax) > 2:
-        raise ValueError('_colorbar only supports passing 2 axes')
+    # if isinstance(ax, list) and len(ax) > 2:
+    #     raise ValueError('_colorbar only supports passing 2 axes')
 
-    if isinstance(ax, list) and len(ax) == 2:
-        box = ax[0].get_position()
-        box2 = ax[1].get_position()
+    # if isinstance(ax, list) and len(ax) == 2:
+    #     box = ax[0].get_position()
+    #     box2 = ax[1].get_position()
 
-        box.y0 = np.min([box.y0, box2.y0])
-        box.y1 = np.max([box.y1, box2.y1])
+    #     box.y0 = np.min([box.y0, box2.y0])
+    #     box.y1 = np.max([box.y1, box2.y1])
 
-        box.y0 += box.height * 0.05
-        box.y1 -= box.height * 0.05
+    #     box.y0 += box.height * 0.05
+    #     box.y1 -= box.height * 0.05
 
-    axcbar = plt.axes([(box.x0 + box.width) * 1.02,
-                       box.y0, 0.01, box.height])
-    hcbar = plt.colorbar(hdl, axcbar,
-                         format=mpl.ticker.FormatStrFormatter(format),
-                         ticks=mpl.ticker.MaxNLocator('auto'))
+    # axcbar = plt.axes([(box.x0 + box.width) * 1.02,
+    #                    box.y0, 0.01, box.height])
+    # hcbar = plt.gcf().colorbar(hdl, cax=axcbar,
+    #                            format=mpl.ticker.FormatStrFormatter(format),
+    #                            ticks=mpl.ticker.MaxNLocator('auto'),
+    #                            pad=0)
+
+    # supports constrained_layout
+    hcbar = plt.gcf().colorbar(hdl, ax=ax, pad=0,
+                               format=mpl.ticker.FormatStrFormatter(format),
+                               ticks=mpl.ticker.MaxNLocator('auto'),
+                               **kwargs)
 
     return hcbar
 
@@ -1332,7 +1339,7 @@ class moor:
                 else:
                     ydim = 'depth'
 
-            hdl = (var.isel({ydim : slice(0, -1)})
+            hdl = (var.isel({ydim: slice(0, -1)})
                    .plot.line(x='time', hue=ydim, ax=ax,
                               add_legend=False, lw=0.5))
 
@@ -1437,7 +1444,7 @@ class moor:
             ax = plt.gca()
 
         ax.plot(self.χ.time,
-                self.χ.z.pipe(xfilter, kind='mean', flen=86400),
+                self.χ.z.transpose().pipe(xfilter, kind='mean', flen=86400),
                 color=color, **kwargs)
 
     def select_region(self, region):
@@ -1605,12 +1612,13 @@ class moor:
         region = self.select_region(region)
 
         # initialize axes
-        f = plt.figure(figsize=[11.0, 6], constrained_layout=True)
+        f = plt.figure(figsize=[11, 6], constrained_layout=True)
         f.set_constrained_layout_pads(h_pad=1/72.0)
         gs = f.add_gridspec(6, 2)
 
         ax = dict()
         ax['met'] = f.add_subplot(gs[0, 0])
+        ax['met'].set_facecolor('none')
         ax['N2'] = f.add_subplot(gs[1, 0], sharex=ax['met'])
 
         ax['T'] = f.add_subplot(gs[0, 1], sharex=ax['met'])
@@ -1733,6 +1741,7 @@ class moor:
         try:
             Jq0 = xfilter(Jq0, **filtargs)
         except ValueError:
+            print('Skipping netflux')
             # filter length is not long enough, i.e. data is too coarse
             pass
 
@@ -1752,10 +1761,8 @@ class moor:
           .sel(**region) / 1e-4)
          .plot.line(ax=ax['N2'], **lineargs))
 
-        (self.Tz.copy()
-         .pipe(xfilter, **filtargs)
-         .sel(**region)
-         .plot.line(ax=ax['Tz'], **lineargs))
+        Tz = self.Tz.copy().pipe(xfilter, **filtargs).sel(**region)
+        (Tz.plot.line(ax=ax['Tz'], **lineargs))
 
         # ---------- χpods
         if 'χ' in ax:
@@ -1798,11 +1805,9 @@ class moor:
             self.niw.sel(**region).KE.plot(ax=ax['niw'], robust=True,
                                            add_colorbar=False, cmap=mpl.cm.Reds)
             self.PlotχpodDepth(ax=ax['niw'], color='k')
-            _corner_label('NIW KE', ax=ax['niw'], y=0.1)
-            ax['niw'].set_ylim([150, 0])
+            _corner_label('$KE_{in}$', ax=ax['niw'], y=0.1)
+            ax['niw'].set_ylim([250, 0])
             ax['niw'].set_title('')
-
-        # _colorbar(hdl)
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
@@ -1816,7 +1821,8 @@ class moor:
         ax['Tz'].set_title('')
         ax['Tz'].set_ylabel('$\\partial T/ \\partial z$')
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
-        ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
+        if np.sum(Tz.values < 0)/Tz.size > 0.3:
+            ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
         ax['Tz'].grid(True, axis='y', linestyle='--', linewidth=0.5)
 
         # ------------ velocity
@@ -1870,8 +1876,8 @@ class moor:
                     ax['Vplot'] = vplt.plot.contourf(ax=ax['v'], **vargs)
 
                     labelargs = dict(x=0.05, y=0.15, alpha=0.05)
-                    _corner_label('u', **labelargs, ax=ax['u'])
-                    _corner_label('v', **labelargs, ax=ax['v'])
+                    _corner_label('$u$', **labelargs, ax=ax['u'])
+                    _corner_label('$v$', **labelargs, ax=ax['v'])
                     self.PlotχpodDepth(ax=ax['u'], color='k')
                     self.PlotχpodDepth(ax=ax['v'], color='k')
 
@@ -1916,17 +1922,19 @@ class moor:
         if isinstance(ax['Tplot'], mpl.contour.QuadContourSet):
             hcbar['T'] = _colorbar(ax['Tplot'])
 
-        if (isinstance(ax['Splot'], mpl.contour.QuadContourSet)
-                or isinstance(ax['Splot'], mpl.collections.PathCollection)):
-            hcbar['S'] = _colorbar(ax['Splot'])
-            if ax['S'].get_ylim()[0] > 300:
-                ax['S'].set_ylim([150, 0])
+        if (isinstance(ax['Splot'], mpl.contour.QuadContourSet)):
+            hcbar['S'] = _colorbar(ax['Splot'][0])
+        if isinstance(ax['Splot'][0], mpl.collections.PathCollection):
+            hcbar['S'] = _colorbar(ax['Splot'][0])
+
+        # if ax['S'].get_ylim()[0] > 300:
+        #     ax['S'].set_ylim([300, 0])
 
         if 'Uplot' in ax and 'Vplot' in ax and self.kind == 'ebob':
             hcbar['uv'] = _colorbar(ax['Uplot'], [ax['u'], ax['v']])
 
         if 'shear' in ax and self.kind == 'ebob':
-            hcbar['shear'] = _colorbar(shhdl, ax=ax['shear'])
+            hcbar['shear'] = _colorbar(shhdl, ax=[ax['shear']])
 
         for aa in ax:
             if isinstance(ax[aa], mpl.axes.Axes):
@@ -2033,7 +2041,7 @@ class moor:
         [aa.set_xlim([t[0], t[-1]]) for aa in axx]
 
         axx[0].set_title(self.name)
-        f.set_size_inches((12, 8))
+        f.set_size_inches((15, 8))
         axx[-1].tick_params(axis='x', labelrotation=0)
         # axx[-1].set_xlim(['2013-12-15', '2015-03-01'])
 
@@ -2723,7 +2731,7 @@ class moor:
     def Summarize(self, savefig=False, **kwargs):
 
         if self.kind == 'ebob':
-            TSkind = 'timeseries'
+            TSkind = 'pcolor'
         else:
             TSkind = 'pcolor'
 
@@ -2744,7 +2752,7 @@ class moor:
             self.Plotχpods(TSkind=TSkind, **kwargs)
             if savefig:
                 plt.savefig('images/summary-'
-                            + name + '.png', bbox_inches='tight')
+                            + name + '.png', dpi=180, bbox_inches='tight')
 
     def plot_turb_wavelet(self):
 
