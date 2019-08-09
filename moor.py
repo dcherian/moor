@@ -2906,20 +2906,29 @@ class moor:
                                         'central difference shear + '
                                         'nearest neighbour interpolation to '
                                         'χpod depth')
-        if kind == 'bins':
-            iz0 = np.digitize(zpod.values, self.vel.depth - 4) - 1
-            zbin = xr.DataArray(np.stack([iz0 - 1, iz0, iz0 + 1]),
-                                dims=['iz', 'time'],
-                                coords={'time': zpod.time, 'iz': [-8, 0, 8]})
-            subset = (self.vel[['u', 'v']]
-                      .sel(depth=self.vel.depth[zbin], time=zbin.time)
-                      .interpolate_na('time'))
-            subsetz = (subset.differentiate('iz').isel(iz=1, drop=True)
-                       .rename({'u': 'uz', 'v': 'vz'}))
-            subsetz['u'] = subset.u.isel(iz=1)
-            subsetz['v'] = subset.v.isel(iz=1)
+        if kind == 'depth':
+            uzi = (self.vel[['u', 'v', 'uz', 'vz']]
+                   .sel(depth=120, method='nearest')
+                   .interpolate_na('time'))
+            uzi.attrs['description'] = 'Shear at 128m depth'
 
-            uzi = subsetz
+        if kind == 'bins':
+            subset = self.sample_along_chipod(self.vel[['u', 'v']])
+            # iz0 = np.digitize(zpod.values, self.vel.depth - 4) - 1
+            # zbin = xr.DataArray(np.stack([iz0 - 1, iz0, iz0 + 1]),
+            #                     dims=['iz', 'time'],
+            #                     coords={'time': zpod.time, 'iz': [-8, 0, 8]})
+            # subset = (self.vel[['u', 'v']]
+            #           .sel(depth=self.vel.depth[zbin], time=zbin.time)
+            #           .interpolate_na('time'))
+            uzi = (subset
+                   .interpolate_na('time')
+                   .differentiate('iz')
+                   .isel(iz=1, drop=True)
+                   .rename({'u': 'uz', 'v': 'vz'}))
+            uzi['u'] = subset.u.isel(iz=1)
+            uzi['v'] = subset.v.isel(iz=1)
+
             uzi.attrs['description'] = ('difference bins above, below'
                                         'χpod depth')
 
@@ -3591,26 +3600,36 @@ class moor:
             [self.MarkSeasonsAndEvents(aa) for aa in axx]
             [aa.set_xlabel('') for aa in axx]
 
-    def filter_interp_shear(self, wkb_scale=False, remove_noise=True):
+    def filter_interp_shear(self, kind='bins', wkb_scale=False, remove_noise=False):
+
         filter_kwargs = dict(cycles_per="D", coord="time", order=2)
-
-        uzi = self.interp_shear("bins", wkb_scale=wkb_scale)
-
         lf = self.inertial.values / 2
         hf = self.inertial.values * 2
 
-        full = xr.Dataset()
-        full["shear"] = (uzi.uz.interpolate_na("time")
-                         + 1j * uzi.vz.interpolate_na("time"))
-        full["u"] = uzi.u
-        full["v"] = uzi.v
-        full["N2"] = (self.turb.N2).isel(depth=1).interp(time=uzi.time)
-        full["Tz"] = self.turb.Tz.isel(depth=1).interp(time=uzi.time)
-        full = full.interpolate_na("time")
+        if kind == 'interp':
+            full = (self.vel[['u', 'v']]
+                    .interpolate_na('depth'))
+            full = xr.merge([full,
+                             full.differentiate('depth')
+                             .rename({'u': 'uz', 'v': 'vz'})])
+            full['shear'] = full.uz + 1j * full.vz
+
+        else:
+            uzi = self.interp_shear(kind, wkb_scale=wkb_scale)
+
+            full = xr.Dataset()
+            full["shear"] = (uzi.uz.interpolate_na("time")
+                             + 1j * uzi.vz.interpolate_na("time"))
+            full["u"] = uzi.u
+            full["v"] = uzi.v
+            full = full.interpolate_na("time")
+
+        full["N2"] = (self.turb.N2).isel(depth=1).interp(time=full.time)
+        full["Tz"] = self.turb.Tz.isel(depth=1).interp(time=full.time)
         full.attrs['name'] = 'Full'
 
-        low = full.shear.pipe(xfilter.lowpass, freq=lf, **filter_kwargs)
-        low.attrs['name'] = 'LF (< 6.6d)'
+        low = full.shear.pipe(xfilter.lowpass, freq=0.1, **filter_kwargs)
+        low.attrs['name'] = 'LF (< 0.1)'
 
         high = full.shear.pipe(xfilter.bandpass, freq=[lf, 4], **filter_kwargs)
         high.attrs['name'] = 'HF (> 6.6d)'
@@ -3620,10 +3639,14 @@ class moor:
                                     1.05*(1.93 + self.inertial.values)],
                               **filter_kwargs)
 
-        niw = (full.shear.pipe(xfilter.bandpass, freq=[lf, hf], **filter_kwargs)
+        niw = (full.shear.pipe(xfilter.bandpass,
+                               freq=[lf, hf],
+                               **filter_kwargs)
                + fM2)
         niw.attrs['name'] = 'NIW (6.6d - 2d) + fM2'
-        loni = (full.shear.pipe(xfilter.bandpass, freq=[hf, 4], **filter_kwargs)
+        loni = (full.shear.pipe(xfilter.bandpass,
+                                freq=[hf, 4],
+                                **filter_kwargs)
                 - fM2)
         loni.attrs['name'] = 'HF (> 2d) - fM2'
 
@@ -3631,8 +3654,14 @@ class moor:
             full['shear'] = full.shear.pipe(xfilter.lowpass, freq=4,
                                             **filter_kwargs)
 
-        return full, low, high, niw, loni
+        if kind == 'interp':
+            full = self.sample_along_chipod(full).sel(iz=0)
+            low = self.sample_along_chipod(low).sel(iz=0)
+            loni = self.sample_along_chipod(loni).sel(iz=0)
+            niw = self.sample_along_chipod(niw).sel(iz=0)
+            high = self.sample_along_chipod(high).sel(iz=0)
 
+        return full, low, high, niw, loni
 
     def compare_shear_spectrum(self):
 
