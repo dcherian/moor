@@ -499,6 +499,8 @@ class moor:
         self.turb.Sz.attrs['units'] = '1/m'
 
         self.turb['z'] = self.turb.z.transpose(*(self.turb.S.dims))
+        # make sure max_KT filter is applied on KS too
+        self.turb['KS'] = self.turb.KS.where(~np.isnan(self.turb.KT.values))
         self.turb['Js'] = - self.turb.ρ * self.turb.KS * self.turb.Sz
         self.turb.Js.attrs['long_name'] = '$J_s^t$'
         self.turb.Js.attrs['units'] = 'g/m²/s'
