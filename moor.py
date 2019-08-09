@@ -445,8 +445,8 @@ class moor:
                                 .drop(['latitude', 'longitude'])
                                 .interp(time=self.turb.time.values))
 
-            shear = self.interp_shear('bins')
-            wkb_shear = self.interp_shear('bins', wkb_scale=True)
+            shear = self.interp_shear('depth')
+            wkb_shear = self.interp_shear('depth', wkb_scale=True)
 
             for vv in ['uz', 'vz']:
                 self.turb[vv] = (shear[vv].drop(['depth', 'iz'])
@@ -2857,6 +2857,31 @@ class moor:
 
         for aa in axes.flat:
             self.MarkSeasonsAndEvents(aa)
+
+    def sample_along_chipod(self, dataset, chipod_num=-1, debug=False):
+        if chipod_num > 1:
+            raise ValueError('chipod_num must be either 0 or 1')
+
+        zpod = (self.zχpod.isel(num=chipod_num, drop=True)
+                .interp(time=dataset.time).dropna('time'))
+
+        iz0 = np.digitize(zpod.values, dataset.depth - 4) - 1
+        zbin = xr.DataArray(np.stack([iz0 - 1, iz0, iz0 + 1]),
+                            dims=['iz', 'time'],
+                            coords={'time': zpod.time, 'iz': [-8, 0, 8]})
+        subset = (dataset
+                  .sel(depth=dataset.depth[zbin], time=zbin.time))
+
+        if debug:
+            if isinstance(dataset, xr.Dataset):
+                da = dataset[list(dataset.data_vars)[0]]
+            else:
+                da = dataset
+            plt.figure()
+            da.plot(x='time', y='depth', yincrease=False)
+            (zpod+zbin.iz).plot.line(x='time', color='k')
+
+        return subset
 
     def interp_shear(self, kind='ctd', wkb_scale=False):
         '''
