@@ -452,13 +452,13 @@ class moor:
                                 .drop(['latitude', 'longitude'])
                                 .interp(time=self.turb.time.values))
 
-            shear = self.interp_shear('depth')
-            wkb_shear = self.interp_shear('depth', wkb_scale=True)
+            shear = self.interp_shear('bins')
+            wkb_shear = self.interp_shear('bins', wkb_scale=True)
 
             for vv in ['uz', 'vz']:
-                self.turb[vv] = (shear[vv].drop(['depth', 'iz'])
+                self.turb[vv] = (shear[vv]
                                  .interp(time=self.turb.time.values))
-                self.turb['wkb_' + vv] = (wkb_shear[vv].drop(['depth', 'iz'])
+                self.turb['wkb_' + vv] = (wkb_shear[vv]
                                           .interp(time=self.turb.time.values))
 
         self.turb.uz.attrs['long_name'] = '$u_z$'
@@ -2959,7 +2959,7 @@ class moor:
 
         uzi['shear'] = uzi.uz + 1j * uzi.vz
 
-        return uzi
+        return uzi.drop('iz', errors="ignore")
 
     def plot_turb_spectrogram(self):
 
