@@ -3616,13 +3616,28 @@ class moor:
         lf = self.inertial.values / 2
         hf = self.inertial.values * 2
 
-        if kind == 'interp':
+        if kind == 'filter_then_sample' or kind == "filter_field":
             full = (self.vel[['u', 'v']]
                     .interpolate_na('depth'))
             full = xr.merge([full,
                              full.differentiate('depth')
                              .rename({'u': 'uz', 'v': 'vz'})])
             full['shear'] = full.uz + 1j * full.vz
+
+            # N = xfilter.lowpass(np.sqrt(self.turb.N2).isel(depth=-1)
+            #                     .interpolate_na('time'),
+            #                     'time', freq=1/30, cycles_per='D')
+            # wkb_factor = (N/N.mean('time')).interp(time=uzi.time)
+            # wkb_factor = wkb_factor.ffill('time').bfill('time')
+
+            # uzi['u'] = uzi['u'] / np.sqrt(wkb_factor)
+            # uzi['v'] = uzi['v'] / np.sqrt(wkb_factor)
+
+            # uzi['uz'] = uzi['uz'] / (wkb_factor**1.5)
+            # uzi['vz'] = uzi['vz'] / (wkb_factor**1.5)
+
+            # full['wkb_shear'] = full['shear'] / (wkb_factor ** 1.5)
+            # full['wkb_factor'] = wkb_factor
 
         else:
             uzi = self.interp_shear(kind, wkb_scale=wkb_scale)
@@ -3634,44 +3649,57 @@ class moor:
             full["v"] = uzi.v
             full = full.interpolate_na("time")
 
-        full["N2"] = (self.turb.N2).isel(depth=1).interp(time=full.time)
+        full["N2"] = self.turb.N2.isel(depth=1).interp(time=full.time)
         full["Tz"] = self.turb.Tz.isel(depth=1).interp(time=full.time)
         full.attrs['name'] = 'Full'
 
-        low = full.shear.pipe(xfilter.lowpass, freq=0.1, **filter_kwargs)
+        low = full.shear.pipe(xfilter.lowpass, freq=lf, **filter_kwargs)
         low.attrs['name'] = 'LF (< 0.1)'
 
-        high = full.shear.pipe(xfilter.bandpass, freq=[lf, 4], **filter_kwargs)
-        high.attrs['name'] = 'HF (> 6.6d)'
+        res = full.shear - low
 
-        fM2 = full.shear.pipe(xfilter.bandpass,
-                              freq=[0.95*(1.93 - self.inertial.values),
-                                    1.05*(1.93 + self.inertial.values)],
-                              **filter_kwargs)
+        fM2 = res.pipe(xfilter.bandpass,
+                       freq=[0.95*(1.93 - self.inertial.values),
+                             1.05*(1.93 + self.inertial.values)],
+                       **filter_kwargs)
 
-        niw = (full.shear.pipe(xfilter.bandpass,
-                               freq=[lf, hf],
-                               **filter_kwargs)
-               + fM2)
-        niw.attrs['name'] = 'NIW (6.6d - 2d) + fM2'
+        res -= fM2
+
+        fM4 = res.pipe(xfilter.bandpass,
+                       freq=[0.95*(2*1.93 - self.inertial.values),
+                             1.05*(2*1.93 + self.inertial.values)],
+                       **filter_kwargs)
+        res -= fM4
+        fM24 = fM2 + fM4
+
+        niw = (res.pipe(xfilter.bandpass,
+                        freq=[lf, hf],
+                        **filter_kwargs))
+        niw.attrs['name'] = 'NIW (6.6d - 2d)'
+
+        res -= niw
+
         loni = (full.shear.pipe(xfilter.bandpass,
                                 freq=[hf, 4],
                                 **filter_kwargs)
                 - fM2)
-        loni.attrs['name'] = 'HF (> 2d) - fM2'
+        loni.attrs['name'] = 'HF (> 2d)'
+
+        high = res.pipe(xfilter.bandpass, freq=[lf, 4], **filter_kwargs)
+        high.attrs['name'] = 'HF (> 6.6d)'
 
         if remove_noise:
-            full['shear'] = full.shear.pipe(xfilter.lowpass, freq=4,
+            full['shear'] = full.shear.pipe(xfilter.lowpass, freq=8,
                                             **filter_kwargs)
 
-        if kind == 'interp':
-            full = self.sample_along_chipod(full).sel(iz=0)
-            low = self.sample_along_chipod(low).sel(iz=0)
-            loni = self.sample_along_chipod(loni).sel(iz=0)
-            niw = self.sample_along_chipod(niw).sel(iz=0)
-            high = self.sample_along_chipod(high).sel(iz=0)
+        if kind == 'filter_then_sample':
+            full = self.sample_along_chipod(full).sel(iz=0, drop=True)
+            low = self.sample_along_chipod(low).sel(iz=0, drop=True)
+            loni = self.sample_along_chipod(loni).sel(iz=0, drop=True)
+            niw = self.sample_along_chipod(niw).sel(iz=0, drop=True)
+            high = self.sample_along_chipod(high).sel(iz=0, drop=True)
 
-        return full, low, high, niw, loni
+        return full, low, high, niw, loni, fM24
 
     def compare_shear_spectrum(self):
 
