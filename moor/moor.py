@@ -2813,7 +2813,7 @@ class moor:
         tau.power.attrs['long_name'] = 'τ power'
 
         kwargs = dict(levels=15, robust=True,
-                      center=False, cmap=svc.cm.blue_orange_div)
+                      center=False)
 
         ax = dict()
         f, axes = plt.subplots(3, 2, sharex=True, constrained_layout=True)
@@ -2918,7 +2918,7 @@ class moor:
                                         'χpod depth')
         if kind == 'depth':
             uzi = (self.vel[['u', 'v', 'uz', 'vz']]
-                   .sel(depth=120, method='nearest')
+                   .sel(depth=136, method='nearest')
                    .interpolate_na('time'))
             uzi.attrs['description'] = 'Shear at 128m depth'
 
@@ -3653,7 +3653,7 @@ class moor:
         full["Tz"] = self.turb.Tz.isel(depth=1).interp(time=full.time)
         full.attrs['name'] = 'Full'
 
-        low = full.shear.pipe(xfilter.lowpass, freq=lf, **filter_kwargs)
+        low = full.shear.pipe(xfilter.lowpass, freq=1/9, **filter_kwargs)
         low.attrs['name'] = 'LF (< 0.1)'
 
         res = full.shear - low
@@ -3689,7 +3689,7 @@ class moor:
         high.attrs['name'] = 'HF (> 6.6d)'
 
         if remove_noise:
-            full['shear'] = full.shear.pipe(xfilter.lowpass, freq=8,
+            full['shear'] = full.shear.pipe(xfilter.lowpass, freq=6,
                                             **filter_kwargs)
 
         if kind == 'filter_then_sample':
