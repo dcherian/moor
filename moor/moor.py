@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy as sp
-import sciviscolor as svc
 import seawater as sw
 import xfilter
 import xrft
@@ -890,7 +889,7 @@ class moor:
             Uses complex demodulation. Not sure if this is a good idea
             since the inertial peak is broad.
         '''
-        if self.kind is not 'rama':
+        if self.kind !=  'rama':
             loc = '/home/deepak/datasets/ncep/'
 
             uwind = (xr.open_mfdataset(loc + 'uwnd*')
@@ -1302,19 +1301,19 @@ class moor:
         label = '$' + self.ctd[name].name + '$'
 
         # ebob hacks
-        if self.ctd.depth.ndim > 1 and name is 'S':
-            if kind is 'timeseries':
+        if self.ctd.depth.ndim > 1 and name == 'S':
+            if kind == 'timeseries':
                 # compress depth dimension
                 var['depth'] = self.ctd.S.depth.median(dim='time')
             else:
                 kwargs['x'] = 'time'
                 kwargs['y'] = 'depth'
 
-        if self.kind == 'ebob' and name is 'T' and kind is 'timeseries':
+        if self.kind == 'ebob' and name == 'T' and kind == 'timeseries':
             # too many depths to timeseries!
             kind = 'pcolor'
 
-        if kind is 'timeseries':
+        if kind == 'timeseries':
             from cycler import cycler
             N = len(var.depth)
             colors = mpl.cm.Greys_r(np.arange(N + 1) / (N + 1))
@@ -1339,7 +1338,7 @@ class moor:
                       ncol=ncol)
             ax.set_ylabel(label)
 
-        # if kind is 'profiles':
+        # if kind == 'profiles':
         #     var -= np.nanmean(var, axis=0)
         #     var += tV
         #     dt = (tV[1, 0] - tV[0, 0]) * 86400.0
@@ -1351,7 +1350,7 @@ class moor:
         #     # doesn't work yet
         #     hdl = ax.plot(var.T[::N, :], zV.T[::N, :])
 
-        if kind is 'pcolor' or kind is 'contourf':
+        if kind == 'pcolor' or kind == 'contourf':
             if 'robust' not in kwargs:
                 kwargs['robust'] = True
 
@@ -1368,7 +1367,7 @@ class moor:
                                              cmap=cmap, zorder=-1,
                                              add_colorbar=True,
                                              **kwargs))
-                if filt is 'bandpass':
+                if filt == 'bandpass':
                     levels = 20
                     thick_contours = None
                 else:
@@ -1398,13 +1397,13 @@ class moor:
 
                 ax.set_ylabel('depth')
 
-        if kind is 'contour':
+        if kind == 'contour':
             hdl = var.plot.contour(ax=ax, levels=20, colors='gray',
                                    linewidths=0.25, zorder=-1,
                                    **kwargs)
             ax.set_ylabel('depth')
 
-        if kind is 'pcolor' or kind is 'contour' or kind is 'contourf':
+        if kind == 'pcolor' or kind == 'contour' or kind == 'contourf':
             if add_mld:
                 # ild = dcpy.ts.xfilter(self.ild, dim='time',
                 #                       kind=filt, flen=filter_len,
@@ -1612,16 +1611,16 @@ class moor:
         ax['N2'] = f.add_subplot(gs[1, 0], sharex=ax['met'])
 
         ax['T'] = f.add_subplot(gs[0, 1], sharex=ax['met'])
-        if TSkind is not 'timeseries':
+        if TSkind !=  'timeseries':
             ax['S'] = f.add_subplot(gs[1, 1], sharex=ax['met'], sharey=ax['T'])
         else:
             ax['S'] = f.add_subplot(gs[1, 1], sharex=ax['met'])
 
         if self.vel:
-            if TSkind is not 'timeseries' and self.kind == 'ebob':
+            if TSkind !=  'timeseries' and self.kind == 'ebob':
                 ax['u'] = f.add_subplot(gs[3, 0], sharex=ax['met'], sharey=ax['T'])
 
-            if TSkind is 'timeseries' or self.kind != 'ebob':
+            if TSkind == 'timeseries' or self.kind != 'ebob':
                 ax['u'] = f.add_subplot(gs[3, 0], sharex=ax['met'])
 
             if self.kind == 'ebob':
@@ -1701,7 +1700,7 @@ class moor:
                         linewidth=lw, zorder=-1)
 
         # ------------ EKE
-        if self.ssh is not []:
+        if self.ssh:
             (self.ssh.EKE
              .pipe(xfilter, **filtargs)
              .sel(**region)
@@ -2103,6 +2102,7 @@ class moor:
         return ax, hcbar
 
     def plot_spectrogram(self):
+        import sciviscolor as svc
 
         vel = (self.vel.sel(depth=slice(0, 120))
                .mean(dim='depth')
@@ -2436,10 +2436,10 @@ class moor:
         ax0.set_title(title)
 
         for metidx, metvar in enumerate(metvars):
-            if metvar is '':
+            if metvar == '':
                 continue
 
-            if metvar is 'Jq':
+            if metvar == 'Jq':
                 met = self.met.Jq0
                 tmet = self.met.Jtime
                 axes = [ax2, ax3]
@@ -2449,7 +2449,7 @@ class moor:
                 self.PlotFlux(ax0, t, m, alpha=0.1)
                 dcpy.ts.PlotSpectrum(met, ax=ax1, color='k')
 
-            if metvar is 'wind':
+            if metvar == 'wind':
                 from dcpy.util import dt64_to_datenum
                 met = self.tropflux.tau.values
                 tmet = dt64_to_datenum(self.tropflux.tau.time.values)
