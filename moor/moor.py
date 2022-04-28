@@ -552,28 +552,16 @@ class moor:
             self.ctd = xr.merge([self.ctd, temp, sal, ρ])
 
         if FileType == 'rama':
-            import netCDF4 as nc
-            import matplotlib.dates as dt
-
-            fname = fname + 't' + str(self.lat) + 'n' \
+            fname_ = fname + 't' + str(self.lat) + 'n' \
                 + str(self.lon) + 'e' + '_10m.cdf'
-            f = nc.Dataset(fname)
-            t0 = f['time'].units[11:]
-            fmt = dt.strpdate2num('%Y-%m-%d %H:%M:%S')
-            t0 = fmt(t0)
-            self.ctd.Tlong = f['T_20'][:].squeeze()
-            self.ctd.Ttlong = f['time'][:] + t0
-            f.close()
+            f = xr.open_dataset(fname_)
+            self.ctd["T"] = f['T_20'].squeeze()
 
-            fname = '../data/' + 's' + str(self.lat) + 'n' \
+            fname_ = fname + 's' + str(self.lat) + 'n' \
                     + str(self.lon) + 'e' + '_hr.cdf'
-            f = nc.Dataset(fname)
-            t0 = f['time'].units[11:]
-            fmt = dt.strpdate2num('%Y-%m-%d %H:%M:%S')
-            t0 = fmt(t0)
-            self.ctd.Slong = f['S_41'][:].squeeze()
-            self.ctd.Stlong = f['time'][:] + t0
-            f.close()
+            f = xr.open_dataset(fname_)
+            self.ctd["S"] = f["S_41"].squeeze().interp(time=f.time.data)
+            self.ctd["ρ"] = (self.ctd.S.dims, sw.pden(self.ctd.S, self.ctd.T, self.ctd.depth))
 
         if FileType == 'ebob':
             mat = loadmat(self.datadir + '/ancillary/ctd/' +
