@@ -13,6 +13,7 @@ import scipy as sp
 import sciviscolor as svc
 import seawater as sw
 import xfilter
+import xrft
 from dcpy.util import mdatenum2dt64
 
 import xarray as xr
@@ -306,7 +307,7 @@ class moor:
             dt = (est.time.dt.floor('min').diff('time').values
                   .astype('timedelta64[s]').astype('float32'))
             median_dt = np.median(dt)
-            inds = np.where(np.abs(dt - median_dt) > 60)[0]
+            inds = np.where((dt - median_dt) > 3600)[0]
             time_old = pod.chi[pod.best].time.reset_coords(drop=True)
 
             if 'dzdT' in est:
@@ -326,7 +327,7 @@ class moor:
                                        name='time')
                     if (((t1 - gap[-1].values)
                          .astype('timedelta64[s]').astype('float32'))
-                       < median_dt):
+                        < median_dt):
                         gap = gap[:-1]
 
                     time_new = xr.concat([time_new.sel(time=slice(None, t0)),
@@ -992,12 +993,15 @@ class moor:
         self.vel.v.attrs['units'] = 'm/s'
 
     def AddChipod(self, name, depth: int,
-                  best: str, fname: str='Turb.mat', dir=None):
+                  best: str, fname: str='Turb.mat', dir=None, avoid_wda=False):
 
         import chipy
 
         if dir is None:
             dir = self.datadir
+
+        if avoid_wda and 'w' in best:
+            best = best[:-1]
 
         self.χpod[name] = chipy.chipod(dir + '/data/',
                                        str(name), fname,
@@ -1463,7 +1467,9 @@ class moor:
         from dcpy.ts import xfilter
 
         if len(ax) == 0:
-            f, axx = plt.subplots(naxes, 1, sharex=True, constrained_layout=True)
+            f, axx = plt.subplots(naxes, 1, sharex=True,
+                                  constrained_layout=True,
+                                  subplot_kw=dict(facecolor=(1, 1, 1, 0)))
         else:
             axx = ax
 
@@ -1531,7 +1537,7 @@ class moor:
             pass
 
         self.PlotFlux(ax['Jq0'], Jq0.sel(**metregion).time.values,
-                      Jq0.sel(**metregion))
+                      Jq0.sel(**metregion).values)
         ax['Jq0'].set_ylabel('netflux (W/m²)', labelpad=0)
         ax['Jq0'].spines['right'].set_visible(True)
         ax['Jq0'].spines['left'].set_visible(False)
@@ -3593,3 +3599,27 @@ class moor:
                                             **filter_kwargs)
 
         return full, low, high, niw, loni
+
+
+    def compare_shear_spectrum(self):
+
+        import garrettmunk.garrettmunk as gm
+
+        v = ((self.vel.u + 1j * self.vel.v)
+             .interpolate_na('depth')
+             .interpolate_na('time')
+             .dropna('depth', how='any'))
+
+        vel_spec = xrft.power_spectrum(v.sel(depth=slice(120, 500)),
+                                       dim=['depth'],
+                                       detrend='linear', window=True)
+        shear_spec = (2*np.pi * vel_spec.freq_depth)**2 * vel_spec
+
+        self.ctd['N2'] = (9.81/1025 *
+                          self.ctd.ρ.differentiate('z')
+                          / self.ctd.depth.differentiate('z'))
+
+        (shear_spec.groupby('time.month').mean('time')
+         .plot(col='month', col_wrap=4, yscale='log'))
+
+        # gmspec = gm().shear()
