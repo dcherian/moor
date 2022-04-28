@@ -46,11 +46,11 @@ def _corner_label(label: str, x=0.95, y=0.9, ax=None, alpha=0.05):
         ax = plt.gca()
 
     ax.text(x, y, label,
-            color='white',
+            color='k',
             horizontalalignment='right',
             verticalalignment='center',
             transform=ax.transAxes,
-            bbox=dict(facecolor='dimgray', edgecolor=None))
+            bbox=dict(facecolor='white', alpha=0.6, edgecolor=None))
 
 
 def _colorbar2(mappable):
@@ -74,7 +74,7 @@ def _colorbar2(mappable):
     return fig.colorbar(mappable, cax=cax)
 
 
-def _colorbar(hdl, ax=None, format='%.2f'):
+def _colorbar(hdl, ax=None, format='%.2f', **kwargs):
 
     if ax is None:
         try:
@@ -82,27 +82,34 @@ def _colorbar(hdl, ax=None, format='%.2f'):
         except AttributeError:
             ax = hdl.ax
 
-    if not isinstance(ax, list):
-        box = ax.get_position()
+    # if not isinstance(ax, list):
+    #     box = ax.get_position()
 
-    if isinstance(ax, list) and len(ax) > 2:
-        raise ValueError('_colorbar only supports passing 2 axes')
+    # if isinstance(ax, list) and len(ax) > 2:
+    #     raise ValueError('_colorbar only supports passing 2 axes')
 
-    if isinstance(ax, list) and len(ax) == 2:
-        box = ax[0].get_position()
-        box2 = ax[1].get_position()
+    # if isinstance(ax, list) and len(ax) == 2:
+    #     box = ax[0].get_position()
+    #     box2 = ax[1].get_position()
 
-        box.y0 = np.min([box.y0, box2.y0])
-        box.y1 = np.max([box.y1, box2.y1])
+    #     box.y0 = np.min([box.y0, box2.y0])
+    #     box.y1 = np.max([box.y1, box2.y1])
 
-        box.y0 += box.height * 0.05
-        box.y1 -= box.height * 0.05
+    #     box.y0 += box.height * 0.05
+    #     box.y1 -= box.height * 0.05
 
-    axcbar = plt.axes([(box.x0 + box.width) * 1.02,
-                       box.y0, 0.01, box.height])
-    hcbar = plt.colorbar(hdl, axcbar,
-                         format=mpl.ticker.FormatStrFormatter(format),
-                         ticks=mpl.ticker.MaxNLocator('auto'))
+    # axcbar = plt.axes([(box.x0 + box.width) * 1.02,
+    #                    box.y0, 0.01, box.height])
+    # hcbar = plt.gcf().colorbar(hdl, cax=axcbar,
+    #                            format=mpl.ticker.FormatStrFormatter(format),
+    #                            ticks=mpl.ticker.MaxNLocator('auto'),
+    #                            pad=0)
+
+    # supports constrained_layout
+    hcbar = plt.gcf().colorbar(hdl, ax=ax, pad=0,
+                               format=mpl.ticker.FormatStrFormatter(format),
+                               ticks=mpl.ticker.MaxNLocator('auto'),
+                               **kwargs)
 
     return hcbar
 
@@ -164,6 +171,10 @@ class moor:
     @property
     def Jq(self):
         return self.turb.Jq
+
+    @property
+    def KS(self):
+        return self.turb.KS
 
     @property
     def Js(self):
@@ -338,6 +349,7 @@ class moor:
             est = est.reindex({'time': time_new})
 
             est = est.rename({'Kt': 'KT',
+                              'Ks': 'KS',
                               'dTdz': 'Tz',
                               'chi': 'χ'})
 
@@ -444,9 +456,9 @@ class moor:
             wkb_shear = self.interp_shear('bins', wkb_scale=True)
 
             for vv in ['uz', 'vz']:
-                self.turb[vv] = (shear[vv].drop(['depth', 'iz'])
+                self.turb[vv] = (shear[vv]
                                  .interp(time=self.turb.time.values))
-                self.turb['wkb_' + vv] = (wkb_shear[vv].drop(['depth', 'iz'])
+                self.turb['wkb_' + vv] = (wkb_shear[vv]
                                           .interp(time=self.turb.time.values))
 
         self.turb.uz.attrs['long_name'] = '$u_z$'
@@ -468,6 +480,8 @@ class moor:
 
         self.turb.KT.attrs['long_name'] = '$K_T$'
         self.turb.KT.attrs['units'] = 'm²/s'
+        self.turb.KS.attrs['long_name'] = '$K_S$'
+        self.turb.KS.attrs['units'] = 'm²/s'
         self.turb.ε.attrs['long_name'] = '$ε$'
         self.turb.ε.attrs['units'] = 'W/kg'
         self.turb.χ.attrs['long_name'] = '$χ$'
@@ -484,7 +498,10 @@ class moor:
         #                   / 7.6e-4)
         self.turb.Sz.attrs['units'] = '1/m'
 
-        self.turb['Js'] = - self.turb.ρ * self.turb.KT * self.turb.Sz
+        self.turb['z'] = self.turb.z.transpose(*(self.turb.S.dims))
+        # make sure max_KT filter is applied on KS too
+        self.turb['KS'] = self.turb.KS.where(~np.isnan(self.turb.KT.values))
+        self.turb['Js'] = - self.turb.ρ * self.turb.KS * self.turb.Sz
         self.turb.Js.attrs['long_name'] = '$J_s^t$'
         self.turb.Js.attrs['units'] = 'g/m²/s'
 
@@ -1324,7 +1341,7 @@ class moor:
                 else:
                     ydim = 'depth'
 
-            hdl = (var.isel({ydim : slice(0, -1)})
+            hdl = (var.isel({ydim: slice(0, -1)})
                    .plot.line(x='time', hue=ydim, ax=ax,
                               add_legend=False, lw=0.5))
 
@@ -1429,7 +1446,7 @@ class moor:
             ax = plt.gca()
 
         ax.plot(self.χ.time,
-                self.χ.z.pipe(xfilter, kind='mean', flen=86400),
+                self.χ.z.transpose().pipe(xfilter, kind='mean', flen=86400),
                 color=color, **kwargs)
 
     def select_region(self, region):
@@ -1597,12 +1614,13 @@ class moor:
         region = self.select_region(region)
 
         # initialize axes
-        f = plt.figure(figsize=[11.0, 6], constrained_layout=True)
+        f = plt.figure(figsize=[11, 6], constrained_layout=True)
         f.set_constrained_layout_pads(h_pad=1/72.0)
         gs = f.add_gridspec(6, 2)
 
         ax = dict()
         ax['met'] = f.add_subplot(gs[0, 0])
+        ax['met'].set_facecolor('none')
         ax['N2'] = f.add_subplot(gs[1, 0], sharex=ax['met'])
 
         ax['T'] = f.add_subplot(gs[0, 1], sharex=ax['met'])
@@ -1725,6 +1743,7 @@ class moor:
         try:
             Jq0 = xfilter(Jq0, **filtargs)
         except ValueError:
+            print('Skipping netflux')
             # filter length is not long enough, i.e. data is too coarse
             pass
 
@@ -1744,10 +1763,8 @@ class moor:
           .sel(**region) / 1e-4)
          .plot.line(ax=ax['N2'], **lineargs))
 
-        (self.Tz.copy()
-         .pipe(xfilter, **filtargs)
-         .sel(**region)
-         .plot.line(ax=ax['Tz'], **lineargs))
+        Tz = self.Tz.copy().pipe(xfilter, **filtargs).sel(**region)
+        (Tz.plot.line(ax=ax['Tz'], **lineargs))
 
         # ---------- χpods
         if 'χ' in ax:
@@ -1790,11 +1807,9 @@ class moor:
             self.niw.sel(**region).KE.plot(ax=ax['niw'], robust=True,
                                            add_colorbar=False, cmap=mpl.cm.Reds)
             self.PlotχpodDepth(ax=ax['niw'], color='k')
-            _corner_label('NIW KE', ax=ax['niw'], y=0.1)
-            ax['niw'].set_ylim([150, 0])
+            _corner_label('$KE_{in}$', ax=ax['niw'], y=0.1)
+            ax['niw'].set_ylim([250, 0])
             ax['niw'].set_title('')
-
-        # _colorbar(hdl)
 
         ax['met'].set_ylabel('$τ$ (N/m²)')
 
@@ -1808,7 +1823,8 @@ class moor:
         ax['Tz'].set_title('')
         ax['Tz'].set_ylabel('$\\partial T/ \\partial z$')
         ax['Tz'].axhline(0, color='gray', zorder=-1, linewidth=0.5)
-        ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
+        if np.sum(Tz.values < 0)/Tz.size > 0.3:
+            ax['Tz'].set_yscale('symlog', linthreshy=1e-3, linscaley=0.5)
         ax['Tz'].grid(True, axis='y', linestyle='--', linewidth=0.5)
 
         # ------------ velocity
@@ -1862,8 +1878,8 @@ class moor:
                     ax['Vplot'] = vplt.plot.contourf(ax=ax['v'], **vargs)
 
                     labelargs = dict(x=0.05, y=0.15, alpha=0.05)
-                    _corner_label('u', **labelargs, ax=ax['u'])
-                    _corner_label('v', **labelargs, ax=ax['v'])
+                    _corner_label('$u$', **labelargs, ax=ax['u'])
+                    _corner_label('$v$', **labelargs, ax=ax['v'])
                     self.PlotχpodDepth(ax=ax['u'], color='k')
                     self.PlotχpodDepth(ax=ax['v'], color='k')
 
@@ -1908,17 +1924,19 @@ class moor:
         if isinstance(ax['Tplot'], mpl.contour.QuadContourSet):
             hcbar['T'] = _colorbar(ax['Tplot'])
 
-        if (isinstance(ax['Splot'], mpl.contour.QuadContourSet)
-                or isinstance(ax['Splot'], mpl.collections.PathCollection)):
-            hcbar['S'] = _colorbar(ax['Splot'])
-            if ax['S'].get_ylim()[0] > 300:
-                ax['S'].set_ylim([150, 0])
+        if (isinstance(ax['Splot'], mpl.contour.QuadContourSet)):
+            hcbar['S'] = _colorbar(ax['Splot'][0])
+        if isinstance(ax['Splot'][0], mpl.collections.PathCollection):
+            hcbar['S'] = _colorbar(ax['Splot'][0])
+
+        # if ax['S'].get_ylim()[0] > 300:
+        #     ax['S'].set_ylim([300, 0])
 
         if 'Uplot' in ax and 'Vplot' in ax and self.kind == 'ebob':
             hcbar['uv'] = _colorbar(ax['Uplot'], [ax['u'], ax['v']])
 
         if 'shear' in ax and self.kind == 'ebob':
-            hcbar['shear'] = _colorbar(shhdl, ax=ax['shear'])
+            hcbar['shear'] = _colorbar(shhdl, ax=[ax['shear']])
 
         for aa in ax:
             if isinstance(ax[aa], mpl.axes.Axes):
@@ -2025,7 +2043,7 @@ class moor:
         [aa.set_xlim([t[0], t[-1]]) for aa in axx]
 
         axx[0].set_title(self.name)
-        f.set_size_inches((12, 8))
+        f.set_size_inches((15, 8))
         axx[-1].tick_params(axis='x', labelrotation=0)
         # axx[-1].set_xlim(['2013-12-15', '2015-03-01'])
 
@@ -2715,7 +2733,7 @@ class moor:
     def Summarize(self, savefig=False, **kwargs):
 
         if self.kind == 'ebob':
-            TSkind = 'timeseries'
+            TSkind = 'pcolor'
         else:
             TSkind = 'pcolor'
 
@@ -2736,7 +2754,7 @@ class moor:
             self.Plotχpods(TSkind=TSkind, **kwargs)
             if savefig:
                 plt.savefig('images/summary-'
-                            + name + '.png', bbox_inches='tight')
+                            + name + '.png', dpi=180, bbox_inches='tight')
 
     def plot_turb_wavelet(self):
 
@@ -2795,7 +2813,7 @@ class moor:
         tau.power.attrs['long_name'] = 'τ power'
 
         kwargs = dict(levels=15, robust=True,
-                      center=False, cmap=svc.cm.blue_orange_div)
+                      center=False)
 
         ax = dict()
         f, axes = plt.subplots(3, 2, sharex=True, constrained_layout=True)
@@ -2850,6 +2868,31 @@ class moor:
         for aa in axes.flat:
             self.MarkSeasonsAndEvents(aa)
 
+    def sample_along_chipod(self, dataset, chipod_num=-1, debug=False):
+        if chipod_num > 1:
+            raise ValueError('chipod_num must be either 0 or 1')
+
+        zpod = (self.zχpod.isel(num=chipod_num, drop=True)
+                .interp(time=dataset.time).dropna('time'))
+
+        iz0 = np.digitize(zpod.values, dataset.depth - 4) - 1
+        zbin = xr.DataArray(np.stack([iz0 - 1, iz0, iz0 + 1]),
+                            dims=['iz', 'time'],
+                            coords={'time': zpod.time, 'iz': [-8, 0, 8]})
+        subset = (dataset
+                  .sel(depth=dataset.depth[zbin], time=zbin.time))
+
+        if debug:
+            if isinstance(dataset, xr.Dataset):
+                da = dataset[list(dataset.data_vars)[0]]
+            else:
+                da = dataset
+            plt.figure()
+            da.plot(x='time', y='depth', yincrease=False)
+            (zpod+zbin.iz).plot.line(x='time', color='k')
+
+        return subset
+
     def interp_shear(self, kind='ctd', wkb_scale=False):
         '''
         kind: str, optional
@@ -2873,20 +2916,29 @@ class moor:
                                         'central difference shear + '
                                         'nearest neighbour interpolation to '
                                         'χpod depth')
-        if kind == 'bins':
-            iz0 = np.digitize(zpod.values, self.vel.depth - 4) - 1
-            zbin = xr.DataArray(np.stack([iz0 - 1, iz0, iz0 + 1]),
-                                dims=['iz', 'time'],
-                                coords={'time': zpod.time, 'iz': [-8, 0, 8]})
-            subset = (self.vel[['u', 'v']]
-                      .sel(depth=self.vel.depth[zbin], time=zbin.time)
-                      .interpolate_na('time'))
-            subsetz = (subset.differentiate('iz').isel(iz=1, drop=True)
-                       .rename({'u': 'uz', 'v': 'vz'}))
-            subsetz['u'] = subset.u.isel(iz=1)
-            subsetz['v'] = subset.v.isel(iz=1)
+        if kind == 'depth':
+            uzi = (self.vel[['u', 'v', 'uz', 'vz']]
+                   .sel(depth=136, method='nearest')
+                   .interpolate_na('time'))
+            uzi.attrs['description'] = 'Shear at 128m depth'
 
-            uzi = subsetz
+        if kind == 'bins':
+            subset = self.sample_along_chipod(self.vel[['u', 'v']])
+            # iz0 = np.digitize(zpod.values, self.vel.depth - 4) - 1
+            # zbin = xr.DataArray(np.stack([iz0 - 1, iz0, iz0 + 1]),
+            #                     dims=['iz', 'time'],
+            #                     coords={'time': zpod.time, 'iz': [-8, 0, 8]})
+            # subset = (self.vel[['u', 'v']]
+            #           .sel(depth=self.vel.depth[zbin], time=zbin.time)
+            #           .interpolate_na('time'))
+            uzi = (subset
+                   .interpolate_na('time')
+                   .differentiate('iz')
+                   .isel(iz=1, drop=True)
+                   .rename({'u': 'uz', 'v': 'vz'}))
+            uzi['u'] = subset.u.isel(iz=1)
+            uzi['v'] = subset.v.isel(iz=1)
+
             uzi.attrs['description'] = ('difference bins above, below'
                                         'χpod depth')
 
@@ -2907,7 +2959,7 @@ class moor:
 
         uzi['shear'] = uzi.uz + 1j * uzi.vz
 
-        return uzi
+        return uzi.drop('iz', errors="ignore")
 
     def plot_turb_spectrogram(self):
 
@@ -3558,48 +3610,95 @@ class moor:
             [self.MarkSeasonsAndEvents(aa) for aa in axx]
             [aa.set_xlabel('') for aa in axx]
 
-    def filter_interp_shear(self, wkb_scale=False, remove_noise=True):
+    def filter_interp_shear(self, kind='bins', wkb_scale=False, remove_noise=False):
+
         filter_kwargs = dict(cycles_per="D", coord="time", order=2)
-
-        uzi = self.interp_shear("bins", wkb_scale=wkb_scale)
-
         lf = self.inertial.values / 2
         hf = self.inertial.values * 2
 
-        full = xr.Dataset()
-        full["shear"] = (uzi.uz.interpolate_na("time")
-                         + 1j * uzi.vz.interpolate_na("time"))
-        full["u"] = uzi.u
-        full["v"] = uzi.v
-        full["N2"] = (self.turb.N2).isel(depth=1).interp(time=uzi.time)
-        full["Tz"] = self.turb.Tz.isel(depth=1).interp(time=uzi.time)
-        full = full.interpolate_na("time")
+        if kind == 'filter_then_sample' or kind == "filter_field":
+            full = (self.vel[['u', 'v']]
+                    .interpolate_na('depth'))
+            full = xr.merge([full,
+                             full.differentiate('depth')
+                             .rename({'u': 'uz', 'v': 'vz'})])
+            full['shear'] = full.uz + 1j * full.vz
+
+            # N = xfilter.lowpass(np.sqrt(self.turb.N2).isel(depth=-1)
+            #                     .interpolate_na('time'),
+            #                     'time', freq=1/30, cycles_per='D')
+            # wkb_factor = (N/N.mean('time')).interp(time=uzi.time)
+            # wkb_factor = wkb_factor.ffill('time').bfill('time')
+
+            # uzi['u'] = uzi['u'] / np.sqrt(wkb_factor)
+            # uzi['v'] = uzi['v'] / np.sqrt(wkb_factor)
+
+            # uzi['uz'] = uzi['uz'] / (wkb_factor**1.5)
+            # uzi['vz'] = uzi['vz'] / (wkb_factor**1.5)
+
+            # full['wkb_shear'] = full['shear'] / (wkb_factor ** 1.5)
+            # full['wkb_factor'] = wkb_factor
+
+        else:
+            uzi = self.interp_shear(kind, wkb_scale=wkb_scale)
+
+            full = xr.Dataset()
+            full["shear"] = (uzi.uz.interpolate_na("time")
+                             + 1j * uzi.vz.interpolate_na("time"))
+            full["u"] = uzi.u
+            full["v"] = uzi.v
+            full = full.interpolate_na("time")
+
+        full["N2"] = self.turb.N2.isel(depth=1).interp(time=full.time)
+        full["Tz"] = self.turb.Tz.isel(depth=1).interp(time=full.time)
         full.attrs['name'] = 'Full'
 
-        low = full.shear.pipe(xfilter.lowpass, freq=lf, **filter_kwargs)
-        low.attrs['name'] = 'LF (< 6.6d)'
+        low = full.shear.pipe(xfilter.lowpass, freq=1/9, **filter_kwargs)
+        low.attrs['name'] = 'LF (< 0.1)'
 
-        high = full.shear.pipe(xfilter.bandpass, freq=[lf, 4], **filter_kwargs)
+        res = full.shear - low
+
+        fM2 = res.pipe(xfilter.bandpass,
+                       freq=[0.95*(1.93 - self.inertial.values),
+                             1.05*(1.93 + self.inertial.values)],
+                       **filter_kwargs)
+
+        res -= fM2
+
+        fM4 = res.pipe(xfilter.bandpass,
+                       freq=[0.95*(2*1.93 - self.inertial.values),
+                             1.05*(2*1.93 + self.inertial.values)],
+                       **filter_kwargs)
+        res -= fM4
+        fM24 = fM2 + fM4
+
+        niw = (res.pipe(xfilter.bandpass,
+                        freq=[lf, hf],
+                        **filter_kwargs))
+        niw.attrs['name'] = 'NIW (6.6d - 2d)'
+
+        res -= niw
+
+        loni = (full.shear.pipe(xfilter.bandpass,
+                                freq=[hf, 4],
+                                **filter_kwargs)
+                - fM2)
+        loni.attrs['name'] = 'HF (> 2d)'
+
+        high = res.pipe(xfilter.bandpass, freq=[lf, 4], **filter_kwargs)
         high.attrs['name'] = 'HF (> 6.6d)'
 
-        fM2 = full.shear.pipe(xfilter.bandpass,
-                              freq=[0.95*(1.93 - self.inertial.values),
-                                    1.05*(1.93 + self.inertial.values)],
-                              **filter_kwargs)
-
-        niw = (full.shear.pipe(xfilter.bandpass, freq=[lf, hf], **filter_kwargs)
-               + fM2)
-        niw.attrs['name'] = 'NIW (6.6d - 2d) + fM2'
-        loni = (full.shear.pipe(xfilter.bandpass, freq=[hf, 4], **filter_kwargs)
-                - fM2)
-        loni.attrs['name'] = 'HF (> 2d) - fM2'
-
         if remove_noise:
-            full['shear'] = full.shear.pipe(xfilter.lowpass, freq=4,
+            full['shear'] = full.shear.pipe(xfilter.lowpass, freq=6,
                                             **filter_kwargs)
+        if kind == 'filter_then_sample':
+            full = self.sample_along_chipod(full).sel(iz=0, drop=True)
+            low = self.sample_along_chipod(low).sel(iz=0, drop=True)
+            loni = self.sample_along_chipod(loni).sel(iz=0, drop=True)
+            niw = self.sample_along_chipod(niw).sel(iz=0, drop=True)
+            high = self.sample_along_chipod(high).sel(iz=0, drop=True)
 
-        return full, low, high, niw, loni
-
+        return full, low, high, niw, loni, fM24
 
     def compare_shear_spectrum(self):
 
